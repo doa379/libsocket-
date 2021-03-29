@@ -13,7 +13,7 @@ OBJ_TEST1 = ${SRC_TEST1:.cpp=.o}
 
 CC = c++
 CFLAGS = -std=c++14 -c -Wall -Werror -fPIE -fPIC -pedantic -O3 ${INCS}
-LDFLAGS = ${LIBS_PATH} ${LIBS}
+LDFLAGS = ${LIBS_PATH} ${LIBS} -Wl,-rpath,$(CURDIR)
 
 all: libsocket++.so client_example server_example
 
@@ -27,11 +27,11 @@ libsocket++.so: ${OBJ_LIBSOCKET}
 
 client_example: ${OBJ_TEST0}
 		@echo CC -o $@
-		@$i{CC} -o $@ ${OBJ_TEST0} ${LIBS_PATH} -l socket++
+		@${CC} -o $@ ${OBJ_TEST0} ${LDFLAGS} -l socket++ -l pthread
 
 server_example: ${OBJ_TEST1}
 		@echo CC -o $@
-		@${CC} -o $@ ${OBJ_TEST1} ${LIBS_PATH} -l socket++
+		@${CC} -o $@ ${OBJ_TEST1} ${LDFLAGS} -l socket++
 
 clean:
 		@echo Cleaning
