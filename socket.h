@@ -12,22 +12,23 @@ class ClientSocket
   char http_ver[4];
   int sd;
   struct sockaddr_in sa;
-  std::string report, hostname, agent { "HttpRequest" };
+  std::string hostname, agent { "HttpRequest" }, report, response_body, response_header;
 public:
   ClientSocket(const float);
   ~ClientSocket(void);
   bool connect(const std::string &, const unsigned);
-  bool recvreq(char *, size_t);
+  bool recvreq(void);
   bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
-  std::string &get_report(void);
-  ////////////////////////////////
-  int get_sd(void) { return sd; };
+  std::string &get_report(void) { return report; };
+  std::string &get_response(void) { return response_body; };
+  std::string &get_header(void) { return response_header; };
 };
 
 class ServerSocket
 {
-
 public:
+  ServerSocket(void);
+  ~ServerSocket(void);
 };
 
 class SSL

@@ -11,9 +11,11 @@ int main(int argc, char *argv[])
       std::cout << client.get_report() << std::endl;
       return 1;
     }
-    char buffer[512];
-    client.recvreq(buffer, sizeof buffer);
-    std::cout << std::string(buffer) << std::endl;
+    client.recvreq();
+    std::cout << "The response header:\n===================\n";
+    std::cout << client.get_header() << std::endl;
+    std::cout << "The response body:\n===================\n";
+    std::cout << client.get_response() << std::endl;
   }
   
   return 0;

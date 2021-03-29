@@ -38,15 +38,29 @@ bool ClientSocket::connect(const std::string &hostname, const unsigned port)
   return true;
 }
 
-bool ClientSocket::recvreq(char *buffer, size_t size)
+bool ClientSocket::recvreq(void)
 {
-  ssize_t err { ::recv(sd, buffer, size, 0) };
-  if (err < 0)
+  char p;
+  ssize_t err;
+  bool body { 0 };
+  response_header.clear();
+  response_body.clear();
+  while ((err = ::recv(sd, &p, sizeof p, 0)))
   {
-    report = "Read error";
-    return false;
-  }
+    if (err < 0)
+    {
+      report = "Read error";
+      return false;
+    }
 
+    else if (response_header.back() == '\n' && p == '\n')
+      body = 1;
+    else if (!body)
+      response_header += p;
+    else
+      response_body += p;
+  }
+  
   return true;
 }
 
@@ -88,7 +102,13 @@ bool ClientSocket::sendreq(REQUEST req, const std::string &endpoint, const std::
   return true;
 }
 
-std::string &ClientSocket::get_report(void)
+ServerSocket::ServerSocket(void)
 {
-  return report;
+
 }
+
+ServerSocket::~ServerSocket(void)
+{
+
+}
+
