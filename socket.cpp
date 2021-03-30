@@ -4,20 +4,20 @@
 #include <unistd.h>
 #include "socket.h"
 
-ClientSocket::ClientSocket(const float http_ver)
+Http::Http(const float httpver)
 {
-  sprintf(this->http_ver, "%.1f", http_ver);
+  sprintf(this->httpver, "%.1f", httpver);
   sd = socket(AF_INET, SOCK_STREAM, 0);
   memset(&sa, 0, sizeof sa);
   sa.sin_family = AF_INET;
 }
 
-ClientSocket::~ClientSocket(void)
+Http::~Http(void)
 {
   close(sd);
 }
 
-bool ClientSocket::connect(const std::string &hostname, const unsigned port)
+bool Http::init_connect(const std::string &hostname, const unsigned port)
 {
   this->hostname = hostname;
   sa.sin_port = htons(port);
@@ -28,8 +28,24 @@ bool ClientSocket::connect(const std::string &hostname, const unsigned port)
     return false;
   }
   sa.sin_addr.s_addr = *(long *) host->h_addr;
-  int err { ::connect(sd, (struct sockaddr *) &sa,	sizeof sa) };
-  if (err == -1)
+  return true;
+}
+
+HttpClient::HttpClient(const float httpver) : Http(httpver)
+{
+
+}
+
+HttpClient::~HttpClient(void)
+{
+
+}
+
+bool HttpClient::connect(const std::string &hostname, const unsigned port)
+{
+  if (!init_connect(hostname, port))
+    return false;
+  if (::connect(sd, (struct sockaddr *) &sa,	sizeof sa) < 0)
   {
     report = "Connect error";
     return false;
@@ -38,7 +54,7 @@ bool ClientSocket::connect(const std::string &hostname, const unsigned port)
   return true;
 }
 
-bool ClientSocket::recvreq(void)
+bool HttpClient::recvreq(void)
 {
   char p;
   ssize_t err;
@@ -52,11 +68,14 @@ bool ClientSocket::recvreq(void)
       report = "Read error";
       return false;
     }
-
-    else if (response_header.back() == '\n' && p == '\n')
-      body = 1;
-    else if (!body)
+    
+    if (!body)
+    {
       response_header += p;
+      if (response_header.find("\r\n\r\n") < std::string::npos)
+        body = 1;
+    }
+
     else
       response_body += p;
   }
@@ -64,7 +83,7 @@ bool ClientSocket::recvreq(void)
   return true;
 }
 
-bool ClientSocket::sendreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
+bool HttpClient::sendreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
 {
   std::string req_type { 
     req == GET ? "GET" : 
@@ -80,7 +99,7 @@ bool ClientSocket::sendreq(REQUEST req, const std::string &endpoint, const std::
   }
 
   std::string request { 
-    req_type + " " + endpoint + " " + "HTTP/" + std::string(http_ver) + "\r\n" +
+    req_type + " " + endpoint + " " + "HTTP/" + std::string(httpver) + "\r\n" +
     "Host: " + hostname + "\r\n" +
     "User-Agent: " + agent + "\r\n" +
     "Accept: */*" + "\r\n" };
@@ -102,13 +121,55 @@ bool ClientSocket::sendreq(REQUEST req, const std::string &endpoint, const std::
   return true;
 }
 
-ServerSocket::ServerSocket(void)
+HttpServer::HttpServer(void) : Http(DEFAULT_HTTPVER)
 {
 
 }
 
-ServerSocket::~ServerSocket(void)
+HttpServer::~HttpServer(void)
 {
 
 }
 
+bool HttpServer::connect(const std::string &hostname, const unsigned port)
+{
+  if (!init_connect(hostname, port))
+    return false;
+  if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
+  {
+    report = "Unable to bind";
+    return false;
+  }
+  if (::listen(sd, 1) < 0)
+  {
+    report = "Unable to listen";
+    return false;
+  }
+
+  return true;
+}
+
+bool HttpServer::run(void)
+{
+  while(1)
+  {
+    struct sockaddr_in addr;
+    uint len = sizeof addr;
+i    const char reply[] = "Server\n";
+    int clientfd = accept(sd, (struct sockaddr *) &addr, &len);
+    if (clientfd < 0)
+    {
+      report = "Unable to accept";
+      return false;
+    }
+
+    if (::write(clientfd, reply, strlen(reply)) < 0)
+    {
+      report = "Error writing";
+      return false;
+    }
+    close(clientfd);
+  }
+
+  return true;
+}

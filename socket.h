@@ -5,30 +5,44 @@
 //#include <arpa/inet.h>
 #include <vector>
 
+static const float DEFAULT_HTTPVER { 2.0 };
+
 enum REQUEST { GET, POST, PUT, DELETE };
 
-class ClientSocket
+class Http
 {
-  char http_ver[4];
+protected:
   int sd;
   struct sockaddr_in sa;
-  std::string hostname, agent { "HttpRequest" }, report, response_body, response_header;
+  char httpver[4];
+  std::string hostname, report;
 public:
-  ClientSocket(const float);
-  ~ClientSocket(void);
+  Http(const float);
+  ~Http(void);
+  std::string &get_report(void) { return report; };
+  bool init_connect(const std::string &, const unsigned);
+};
+
+class HttpClient : public Http
+{
+  std::string agent { "HttpRequest" }, response_body, response_header;
+public:
+  HttpClient(const float);
+  ~HttpClient(void);
   bool connect(const std::string &, const unsigned);
   bool recvreq(void);
   bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
-  std::string &get_report(void) { return report; };
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
 };
 
-class ServerSocket
+class HttpServer : public Http
 {
 public:
-  ServerSocket(void);
-  ~ServerSocket(void);
+  HttpServer(void);
+  ~HttpServer(void);
+  bool connect(const std::string &, const unsigned);
+  bool run(void);
 };
 
 class SSL
@@ -37,13 +51,12 @@ class SSL
 public:
 };
 
-class SSLClientSocket
+class HttpsClient
 {
-
 public:
 };
 
-class SSLServerSocket
+class HttpsServer
 {
 
 public:

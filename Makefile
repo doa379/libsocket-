@@ -12,7 +12,7 @@ SRC_TEST1 = server_example.cpp
 OBJ_TEST1 = ${SRC_TEST1:.cpp=.o}
 
 CC = c++
-CFLAGS = -std=c++14 -c -Wall -Werror -fPIE -fPIC -pedantic -O3 ${INCS}
+CFLAGS = -std=c++14 -c -Wall -Werror -fPIE -fPIC -pedantic -O3 ${INCS} -g
 LDFLAGS = ${LIBS_PATH} ${LIBS} -Wl,-rpath,$(CURDIR)
 
 all: libsocket++.so client_example server_example
