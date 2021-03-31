@@ -2,8 +2,9 @@
 
 #include <string>
 #include <netinet/in.h>
-//#include <arpa/inet.h>
 #include <vector>
+#include <functional>
+#include <openssl/ssl.h>
 
 static const float DEFAULT_HTTPVER { 2.0 };
 
@@ -11,11 +12,15 @@ enum REQUEST { GET, POST, PUT, DELETE };
 
 class Http
 {
+  friend class Secure;
 protected:
   int sd;
   struct sockaddr_in sa;
   char httpver[4];
   std::string hostname, report;
+  std::function<ssize_t(void)> connector;
+  std::function<ssize_t(char *)> reader;
+  std::function<ssize_t(const std::string &)> writer;
 public:
   Http(const float);
   ~Http(void);
@@ -23,12 +28,12 @@ public:
   bool init_connect(const std::string &, const unsigned);
 };
 
-class HttpClient : public Http
+class Client : public Http
 {
   std::string agent { "HttpRequest" }, response_body, response_header;
 public:
-  HttpClient(const float);
-  ~HttpClient(void);
+  Client(const float);
+  ~Client(void);
   bool connect(const std::string &, const unsigned);
   bool recvreq(void);
   bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
@@ -36,24 +41,39 @@ public:
   std::string &get_header(void) { return response_header; };
 };
 
+class HttpClient : public Client
+{
+public:
+  HttpClient(const float);
+  ~HttpClient(void);
+};
+
 class HttpServer : public Http
 {
+  bool is_running;
 public:
   HttpServer(void);
   ~HttpServer(void);
   bool connect(const std::string &, const unsigned);
-  bool run(void);
+  bool run(const std::string &);
+  void stop(void) { is_running = 0; };
 };
 
-class SSL
+class Secure
 {
-
+  SSL_CTX *ctx;
+protected:
+  SSL *ssl;
 public:
+  Secure(void);
+  ~Secure(void);
 };
 
-class HttpsClient
+class HttpsClient : public Client, public Secure
 {
 public:
+  HttpsClient(const float);
+  ~HttpsClient(void);
 };
 
 class HttpsServer
