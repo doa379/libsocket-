@@ -3,7 +3,7 @@
 
 int main(int argc, char *argv[])
 {
-  HttpClient client(1.1);
+  HttpsClient client(1.1);
   if (client.connect("localhost", 80))
   {
     if (!client.sendreq(GET, "/", { }, { }))

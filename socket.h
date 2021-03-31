@@ -12,15 +12,15 @@ enum REQUEST { GET, POST, PUT, DELETE };
 
 class Http
 {
-  friend class Secure;
+//  friend class Secure;
 protected:
   int sd;
   struct sockaddr_in sa;
   char httpver[4];
   std::string hostname, report;
-  std::function<ssize_t(void)> connector;
-  std::function<ssize_t(char *)> reader;
-  std::function<ssize_t(const std::string &)> writer;
+  std::function<bool(void)> connector;
+  std::function<bool(char *)> reader;
+  std::function<bool(const std::string &)> writer;
 public:
   Http(const float);
   ~Http(void);
