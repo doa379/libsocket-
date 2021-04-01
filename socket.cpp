@@ -3,6 +3,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <iostream>
+#include <openssl/err.h>
 #include "socket.h"
 
 Http::Http(const float httpver)
@@ -55,7 +56,6 @@ bool Client::connect(const std::string &hostname, const unsigned port)
 {
   if (!init_connect(hostname, port))
     return false;
-  //if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
   return connector();
 }
 
@@ -65,8 +65,7 @@ bool Client::recvreq(void)
   bool body { 0 }, err;
   response_header.clear();
   response_body.clear();
-  //while ((err = ::recv(sd, &p, sizeof p, 0)) > 0)
-  while ((err = reader(&p)))
+  while ((err = reader(p)))
   {
     if (!body)
     {
@@ -110,7 +109,6 @@ bool Client::sendreq(REQUEST req, const std::string &endpoint, const std::vector
     request += "Content-Length: " + std::to_string(data.size()) + "\r\n\r\n" + data;
 
   request += "\r\n";
-  //ssize_t err { ::write(sd, request.c_str(), request.size()) };
   return writer(request);
 }
 
@@ -123,8 +121,8 @@ HttpClient::HttpClient(const float httpver) : Client(httpver)
       return false;
     }
     return true; };
-  reader = [this](char *p) -> bool {
-    if (::recv(this->sd, p, sizeof *p, 0) < 1)
+  reader = [this](char &p) -> bool {
+    if (::recv(this->sd, &p, sizeof &p, 0) < 1)
     {
       report = "Read error";
       return false;
@@ -198,10 +196,11 @@ bool HttpServer::run(const std::string &document)
 
 Secure::Secure(void)
 {
+  SSL_library_init();
   OpenSSL_add_ssl_algorithms();
-  const SSL_METHOD *meth { TLS_client_method() };
   SSL_load_error_strings();
   try {
+    const SSL_METHOD *meth { TLS_client_method() };
     ctx = SSL_CTX_new(meth);
     ssl = SSL_new(ctx);
     if (!ctx)
@@ -225,25 +224,29 @@ Secure::~Secure(void)
 HttpsClient::HttpsClient(const float httpver) : Client(httpver)
 {
   connector = [this](void) -> bool { 
-    SSL_set_tlsext_host_name(this->ssl, this->hostname.c_str());
-    SSL_set_fd(this->ssl, this->sd);
-    if (SSL_connect(this->ssl) < 0)
+    SSL_set_tlsext_host_name(ssl, hostname.c_str());
+    SSL_set_fd(ssl, sd);
+    if (SSL_connect(ssl) < 0)
     {
-      report = "Connect error: ";
+      report = "Connect error: " + 
+        std::string(ERR_error_string(ERR_get_error(), err));
       return false;
     }
+    std::cout << "Connected " << hostname << std::endl;
     return true; };
-  reader = [this](char *p) -> bool {
-    if (SSL_read(this->ssl, p, sizeof *p) < 1)
+  reader = [this](char &p) -> bool {
+    if (SSL_read(ssl, &p, sizeof &p) == -1)
     {
-      report = "Read error: ";
+      report = "Read error: " + 
+        std::string(ERR_error_string(ERR_get_error(), err));
       return false;
     }
     return true; };
   writer = [this](const std::string &request) -> bool { 
-    if (SSL_write(this->ssl, request.c_str(), request.size()) < 0)
+    if (SSL_write(ssl, request.c_str(), request.size()) < 0)
     {
-      report = "Write error: ";
+      report = "Write error: " + 
+        std::string(ERR_error_string(ERR_get_error(), err));
       return false;
     }
     return true; };
