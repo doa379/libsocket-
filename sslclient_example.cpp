@@ -23,5 +23,7 @@ int main(int argc, char *argv[])
   
   else
     std::cout << client.get_report() << std::endl;
+
+  //sleep(2);
   return 0;
 }

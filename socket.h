@@ -12,14 +12,13 @@ enum REQUEST { GET, POST, PUT, DELETE };
 
 class Http
 {
-//  friend class Secure;
 protected:
   int sd;
   struct sockaddr_in sa;
   char httpver[4];
   std::string hostname, report;
   std::function<bool(void)> connector;
-  std::function<bool(char &)> reader;
+  std::function<bool(char *)> reader;
   std::function<bool(const std::string &)> writer;
 public:
   Http(const float);
@@ -61,17 +60,16 @@ public:
 
 class Secure
 {
-  //const SSL_METHOD *meth { TLS_client_method() };
-  SSL_CTX *ctx;
+  SSL_CTX *ctx { nullptr };
 protected:
-  SSL *ssl;
+  SSL *ssl { nullptr };
   char err[128];
 public:
   Secure(void);
   ~Secure(void);
 };
 
-class HttpsClient : public Client, public Secure
+class HttpsClient : public Client, private Secure
 {
 public:
   HttpsClient(const float);

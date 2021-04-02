@@ -1,5 +1,5 @@
 LOCAL = ../
-LIBS_PATH = -L /usr/lib64 -L /usr/local/lib -L ${LOCAL}/libsocket++
+LIBSPATH = -L ${LOCAL}/libsocket++ -Wl,-R$(LOCAL)/libsocket++ '-Wl,-R$$ORIGIN'
 INCS = -I /usr/local/include -I ${LOCAL}
 LIBS = -l ssl -l crypto
 
@@ -17,7 +17,7 @@ OBJ_TEST3 = ${SRC_TEST3:.cpp=.o}
 
 CC = c++
 CFLAGS = -std=c++14 -c -Wall -Werror -fPIE -fPIC -pedantic -O3 ${INCS}
-LDFLAGS = ${LIBS_PATH} ${LIBS} -Wl,-rpath,$(CURDIR)
+LDFLAGS += ${LIBSPATH}
 
 all: libsocket++.so client_example server_example sslclient_example sslserver_example
 
@@ -27,7 +27,7 @@ all: libsocket++.so client_example server_example sslclient_example sslserver_ex
 
 libsocket++.so: ${OBJ_LIBSOCKET}
 		@echo CC -o $@
-		@${CC} -shared -o $@ ${OBJ_LIBSOCKET} ${LDFLAGS}
+		@${CC} -shared -o $@ ${OBJ_LIBSOCKET} ${LDFLAGS} ${LIBS}
 
 client_example: ${OBJ_TEST0}
 		@echo CC -o $@
