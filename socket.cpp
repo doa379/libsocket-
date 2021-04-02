@@ -59,13 +59,13 @@ bool Client::connect(const std::string &hostname, const unsigned port)
   return connector();
 }
 
-bool Client::recvreq(void)
+void Client::recvreq(void)
 {
   char p;
-  bool body { 0 }, err;
+  bool body { 0 };
   response_header.clear();
   response_body.clear();
-  while ((err = reader(&p)))
+  while (reader(&p))
   {
     if (!body)
     {
@@ -77,8 +77,6 @@ bool Client::recvreq(void)
     else
       response_body += p;
   }
-  
-  return err;
 }
 
 bool Client::sendreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
@@ -122,13 +120,16 @@ HttpClient::HttpClient(const float httpver) : Client(httpver)
     }
     return true;
   };
-  reader = [this](char *p) -> bool {
+  reader = [this](char *p) -> ssize_t {
+    return ::recv(sd, p, sizeof *p, 0);
+/*
     if (::recv(sd, p, sizeof *p, 0) < 1)
     {
       report = "Read error";
       return false;
     }
     return true;
+*/
   };
   writer = [this](const std::string &request) -> bool { 
     if (::write(sd, request.c_str(), request.size()) < 0)
@@ -223,7 +224,7 @@ Secure::~Secure(void)
   SSL_CTX_free(ctx);
 }
 
-HttpsClient::HttpsClient(const float httpver) : Client(httpver), Secure()
+HttpsClient::HttpsClient(const float httpver) : Client(httpver)
 {
   connector = [this](void) -> bool {
     if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
@@ -233,29 +234,31 @@ HttpsClient::HttpsClient(const float httpver) : Client(httpver), Secure()
     }
     SSL_set_tlsext_host_name(ssl, hostname.c_str());
     SSL_set_fd(ssl, sd);
-    if (SSL_connect(ssl) < 0)
+    ssize_t err;
+    if ((err = SSL_connect(ssl)) < 0)
     {
-      report = "[SSL] Connect: " + 
-        std::string(ERR_error_string(ERR_get_error(), 0));
+      err = SSL_get_error(ssl, err);
+      report = "[SSL] Connect: " + std::to_string(SSL_get_error(ssl, err));
       return false;
-      }
-    std::cout << "Connected " << hostname << std::endl;
+    }
     return true;
   };
   reader = [this](char *p) -> bool {
-    if (SSL_read(ssl, p, sizeof *p) == -1)
+    ssize_t err { SSL_read(ssl, p, sizeof *p) };
+    if (err < 1)
     {
-      report = "Read: " + 
-        std::string(ERR_error_string(ERR_get_error(), err));
+      err = SSL_get_error(ssl, err);
+      report = "Read: " + std::to_string(SSL_get_error(ssl, err));
+      if (err == 6)
+    		SSL_shutdown(ssl);
       return false;
-    }
+  	}
     return true;
   };
   writer = [this](const std::string &request) -> bool {
     if (SSL_write(ssl, request.c_str(), request.size()) < 0)
     {
-      report = "Write: " + 
-        std::string(ERR_error_string(ERR_get_error(), err));
+      report = "Write: " + std::string(ERR_error_string(ERR_get_error(), 0));
       return false;
     }
     return true;

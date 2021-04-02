@@ -1,6 +1,6 @@
 #include <iostream>
 #include "socket.h"
-//#include <unistd.h>
+#include <unistd.h>
 
 int main(int argc, char *argv[])
 {
@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
       std::cout << client.get_report() << std::endl;
       return 1;
     }
-    //sleep(1);
+    sleep(1);
     client.recvreq();
     std::cout << client.get_report() << std::endl;
     std::cout << "The response header:\n===================\n";

@@ -34,7 +34,7 @@ public:
   Client(const float);
   ~Client(void);
   bool connect(const std::string &, const unsigned);
-  bool recvreq(void);
+  void recvreq(void);
   bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
@@ -63,7 +63,6 @@ class Secure
   SSL_CTX *ctx { nullptr };
 protected:
   SSL *ssl { nullptr };
-  char err[128];
 public:
   Secure(void);
   ~Secure(void);
