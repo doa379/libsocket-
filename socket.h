@@ -66,10 +66,14 @@ class Secure
   SSL_CTX *ctx { nullptr };
 protected:
   SSL *ssl { nullptr };
+  std::string cipherinfo, certificate, issuer;
 public:
   Secure(void);
   ~Secure(void);
-	void verify_certificate(void);
+	void gather_certificate(void);
+  std::string &get_cipherinfo(void) { return cipherinfo; };
+  std::string &get_certificate(void) { return certificate; };
+  std::string &get_issuer(void) { return issuer; };
 };
 
 class HttpsClient : public Client, private Secure

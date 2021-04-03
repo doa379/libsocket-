@@ -68,7 +68,7 @@ void Client::recvreq(void)
 
   std::size_t content_length { 0 };
   if (std::regex_search(response_header, match, content_length_regex))
-		content_length = std::stol(response_header.substr(match.prefix().length() + 16));
+    content_length = std::stol(response_header.substr(match.prefix().length() + 16));
 
   response_body = p;
   while (reader(&p) && response_body.size() < content_length - 1)
@@ -196,7 +196,7 @@ Secure::Secure(void)
   OpenSSL_add_ssl_algorithms();
   SSL_load_error_strings();
   try {
-  	const SSL_METHOD *meth { TLS_client_method() };
+    const SSL_METHOD *meth { TLS_client_method() };
     ctx = SSL_CTX_new(meth);
     ssl = SSL_new(ctx);
     if (!ctx)
@@ -213,13 +213,41 @@ Secure::Secure(void)
 
 Secure::~Secure(void)
 {
+  SSL_shutdown(ssl);
   SSL_free(ssl);
   SSL_CTX_free(ctx);
 }
 
-void Secure::verify_certificate(void)
+void Secure::gather_certificate(void)
 {
+  // Method to be called after connector()
+  cipherinfo = std::string(SSL_get_cipher(ssl));
+  try {
+  	X509 *server_cert { SSL_get_peer_certificate(ssl) };
+    if (!server_cert)
+      throw "server_cert";
 
+    char *certificate { X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
+  	if (!certificate)
+      throw "certificate string";
+
+    this->certificate = std::string(certificate);
+  	OPENSSL_free(certificate);
+
+    char *issuer { X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
+  	if (!issuer)
+      throw "issuer string";
+
+    this->issuer = std::string(issuer);
+  	OPENSSL_free(issuer);
+  	X509_free(server_cert);
+  }
+
+	catch(std::string &ex)
+  {
+    std::cerr << "Allocation failure: " + ex + '\n';
+    throw;
+  }
 }
 
 HttpsClient::HttpsClient(const float httpver) : Client(httpver)
@@ -246,9 +274,8 @@ HttpsClient::HttpsClient(const float httpver) : Client(httpver)
     if (err < 1)
     {
       report = "Read: " + std::to_string(SSL_get_error(ssl, err));
-      SSL_shutdown(ssl);
       return false;
-  	}
+    }
     return true;
   };
   writer = [this](const std::string &request) -> bool {
