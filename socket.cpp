@@ -62,21 +62,17 @@ bool Client::connect(const std::string &hostname, const unsigned port)
 void Client::recvreq(void)
 {
   char p;
-  bool body { 0 };
   response_header.clear();
-  response_body.clear();
-  while (reader(&p))
-  {
-    if (!body)
-    {
-      response_header += p;
-      if (response_header.find("\r\n\r\n") < std::string::npos)
-        body = 1;
-    }
+  while (reader(&p) && response_header.find("\r\n\r\n") == std::string::npos)
+  	response_header += p;
 
-    else
-      response_body += p;
-  }
+  std::size_t content_length { 0 };
+  if (std::regex_search(response_header, match, content_length_regex))
+		content_length = std::stol(response_header.substr(match.prefix().length() + 16));
+
+  response_body = p;
+  while (reader(&p) && response_body.size() < content_length - 1)
+  	response_body += p;
 }
 
 bool Client::sendreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
@@ -120,16 +116,13 @@ HttpClient::HttpClient(const float httpver) : Client(httpver)
     }
     return true;
   };
-  reader = [this](char *p) -> ssize_t {
-    return ::recv(sd, p, sizeof *p, 0);
-/*
+  reader = [this](char *p) -> bool {
     if (::recv(sd, p, sizeof *p, 0) < 1)
     {
       report = "Read error";
       return false;
     }
     return true;
-*/
   };
   writer = [this](const std::string &request) -> bool { 
     if (::write(sd, request.c_str(), request.size()) < 0)
@@ -224,6 +217,11 @@ Secure::~Secure(void)
   SSL_CTX_free(ctx);
 }
 
+void Secure::verify_certificate(void)
+{
+
+}
+
 HttpsClient::HttpsClient(const float httpver) : Client(httpver)
 {
   connector = [this](void) -> bool {
@@ -247,10 +245,8 @@ HttpsClient::HttpsClient(const float httpver) : Client(httpver)
     ssize_t err { SSL_read(ssl, p, sizeof *p) };
     if (err < 1)
     {
-      err = SSL_get_error(ssl, err);
       report = "Read: " + std::to_string(SSL_get_error(ssl, err));
-      if (err == 6)
-    		SSL_shutdown(ssl);
+      SSL_shutdown(ssl);
       return false;
   	}
     return true;

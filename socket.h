@@ -5,6 +5,7 @@
 #include <vector>
 #include <functional>
 #include <openssl/ssl.h>
+#include <regex>
 
 static const float DEFAULT_HTTPVER { 2.0 };
 
@@ -29,7 +30,9 @@ public:
 
 class Client : public Http
 {
-  std::string agent { "HttpRequest" }, response_body, response_header;
+  std::string agent { "HttpRequest" }, response_header, response_body;
+  std::smatch match;
+  const std::regex content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) };
 public:
   Client(const float);
   ~Client(void);
@@ -66,6 +69,7 @@ protected:
 public:
   Secure(void);
   ~Secure(void);
+	void verify_certificate(void);
 };
 
 class HttpsClient : public Client, private Secure
