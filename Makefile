@@ -16,8 +16,7 @@ SRC_TEST3 = sslserver_example.cpp
 OBJ_TEST3 = ${SRC_TEST3:.cpp=.o}
 
 CC = c++
-//CFLAGS = -std=c++14 -c -Wall -Werror -fPIE -fPIC -pedantic -O3 ${INCS}
-CFLAGS = -std=c++14 -c -fPIE -fPIC -pedantic -O3 ${INCS}
+CFLAGS = -std=c++14 -c -Wall -Werror -fPIE -fPIC -pedantic -O3 ${INCS}
 LDFLAGS += ${LIBSPATH}
 
 all: libsocket++.so client_example server_example sslclient_example sslserver_example

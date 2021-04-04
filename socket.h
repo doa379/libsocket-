@@ -33,6 +33,7 @@ class Client : public Http
   std::string agent { "HttpRequest" }, response_header, response_body;
   std::smatch match;
   const std::regex content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) };
+  std::function<void(std::string &)> response_cb { [](std::string &) { } };
 public:
   Client(const float);
   ~Client(void);
@@ -41,6 +42,7 @@ public:
   bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
+  void set_cb(decltype(response_cb) &callback) { response_cb = callback; };
 };
 
 class HttpClient : public Client

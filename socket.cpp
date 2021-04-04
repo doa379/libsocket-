@@ -62,17 +62,31 @@ bool Client::connect(const std::string &hostname, const unsigned port)
 void Client::recvreq(void)
 {
   char p;
-  response_header.clear();
-  while (reader(&p) && response_header.find("\r\n\r\n") == std::string::npos)
+  do
+  {
+    reader(&p);
   	response_header += p;
+  }
+  while (response_header.find("\r\n\r\n") == std::string::npos);
 
   std::size_t content_length { 0 };
-  if (std::regex_search(response_header, match, content_length_regex))
-    content_length = std::stol(response_header.substr(match.prefix().length() + 16));
+  if (std::regex_search(response_header, match, content_length_regex) &&
+      (content_length = std::stol(response_header.substr(match.prefix().length() + 16))))
+    do
+    {
+      reader(&p);
+      response_body += p;
+    }
+    while (response_body.size() < content_length);
 
-  response_body = p;
-  while (reader(&p) && response_body.size() < content_length - 1)
-  	response_body += p;
+  else
+  {
+		while (reader(&p))
+    {
+      response_body += p;
+      response_cb(response_body);
+    }
+  }
 }
 
 bool Client::sendreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
@@ -230,23 +244,28 @@ void Secure::gather_certificate(void)
     char *certificate { X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
   	if (!certificate)
       throw "certificate string";
-
-    this->certificate = std::string(certificate);
-  	OPENSSL_free(certificate);
+    else
+    {
+      this->certificate = std::string(certificate);
+  		OPENSSL_free(certificate);
+    }
 
     char *issuer { X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
   	if (!issuer)
       throw "issuer string";
+		else
+    {
+    	this->issuer = std::string(issuer);
+  		OPENSSL_free(issuer);
+    }
 
-    this->issuer = std::string(issuer);
-  	OPENSSL_free(issuer);
-  	X509_free(server_cert);
+    if (server_cert)
+  		X509_free(server_cert);
   }
 
 	catch(std::string &ex)
   {
     std::cerr << "Allocation failure: " + ex + '\n';
-    throw;
   }
 }
 
