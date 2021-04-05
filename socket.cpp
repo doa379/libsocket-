@@ -42,6 +42,70 @@ bool Http::init_connect(const std::string &hostname, const unsigned port)
   return true;
 }
 
+Secure::Secure(void)
+{
+  OpenSSL_add_ssl_algorithms();
+  SSL_load_error_strings();
+  try {
+    const SSL_METHOD *meth { TLS_client_method() };
+    ctx = SSL_CTX_new(meth);
+    ssl = SSL_new(ctx);
+    if (!ctx)
+      throw "context";
+    else if (!ssl)
+      throw "ssl";
+  }
+  catch(const std::string &ex)
+  {
+    std::cerr << "Unable to create " + ex + '\n';
+    throw;
+  }
+}
+
+Secure::~Secure(void)
+{
+  SSL_shutdown(ssl);
+  SSL_free(ssl);
+  SSL_CTX_free(ctx);
+}
+
+void Secure::gather_certificate(void)
+{
+  // Method to be called after connector()
+  cipherinfo = std::string(SSL_get_cipher(ssl));
+  try {
+    X509 *server_cert { SSL_get_peer_certificate(ssl) };
+    if (!server_cert)
+      throw "server_cert";
+
+    char *certificate { X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
+    if (!certificate)
+      throw "certificate string";
+    else
+    {
+      this->certificate = std::string(certificate);
+      OPENSSL_free(certificate);
+    }
+
+    char *issuer { X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
+    if (!issuer)
+      throw "issuer string";
+    else
+    {
+      this->issuer = std::string(issuer);
+      OPENSSL_free(issuer);
+    }
+
+    if (server_cert)
+      X509_free(server_cert);
+  }
+
+  catch(std::string &ex)
+  {
+    std::cerr << "Allocation failure: " + ex + '\n';
+  }
+}
+
 Client::Client(const float httpver) : Http(httpver)
 {
 
@@ -62,26 +126,27 @@ bool Client::connect(const std::string &hostname, const unsigned port)
 void Client::recvreq(void)
 {
   char p;
+  bool res;
   do
   {
-    reader(&p);
-  	response_header += p;
+    res = reader(&p);
+    response_header += p;
   }
-  while (response_header.find("\r\n\r\n") == std::string::npos);
+  while (res && response_header.find("\r\n\r\n") == std::string::npos);
 
   std::size_t content_length { 0 };
   if (std::regex_search(response_header, match, content_length_regex) &&
       (content_length = std::stol(response_header.substr(match.prefix().length() + 16))))
     do
     {
-      reader(&p);
+      res = reader(&p);
       response_body += p;
     }
-    while (response_body.size() < content_length);
+    while (res && response_body.size() < content_length);
 
   else
   {
-		while (reader(&p))
+    while (reader(&p))
     {
       response_body += p;
       response_cb(response_body);
@@ -153,122 +218,6 @@ HttpClient::~HttpClient(void)
 
 }
 
-HttpServer::HttpServer(void) : Http(DEFAULT_HTTPVER)
-{
-
-}
-
-HttpServer::~HttpServer(void)
-{
-
-}
-
-bool HttpServer::connect(const std::string &hostname, const unsigned port)
-{
-  if (!init_connect(hostname, port))
-    return false;
-  if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
-  {
-    report = "Unable to bind";
-    return false;
-  }
-  if (::listen(sd, 1) < 0)
-  {
-    report = "Unable to listen";
-    return false;
-  }
-
-  return true;
-}
-
-bool HttpServer::run(const std::string &document)
-{
-  is_running = 1;
-  while(is_running)
-  {
-    struct sockaddr_in addr;
-    uint len { sizeof addr };
-    int clientsd { accept(sd, (struct sockaddr *) &addr, &len) };
-    if (clientsd < 0)
-    {
-      report = "Unable to accept client";
-      return false;
-    }
-    if (::write(clientsd, document.c_str(), document.size()) < 0)
-    {
-      report = "Error writing";
-      return false;
-    }
-    close(clientsd);
-  }
-
-  return true;
-}
-
-Secure::Secure(void)
-{
-  OpenSSL_add_ssl_algorithms();
-  SSL_load_error_strings();
-  try {
-    const SSL_METHOD *meth { TLS_client_method() };
-    ctx = SSL_CTX_new(meth);
-    ssl = SSL_new(ctx);
-    if (!ctx)
-      throw "context";
-    else if (!ssl)
-      throw "ssl";
-  }
-  catch(const std::string &ex)
-  {
-    std::cerr << "Unable to create " + ex + '\n';
-    throw;
-  }
-}
-
-Secure::~Secure(void)
-{
-  SSL_shutdown(ssl);
-  SSL_free(ssl);
-  SSL_CTX_free(ctx);
-}
-
-void Secure::gather_certificate(void)
-{
-  // Method to be called after connector()
-  cipherinfo = std::string(SSL_get_cipher(ssl));
-  try {
-  	X509 *server_cert { SSL_get_peer_certificate(ssl) };
-    if (!server_cert)
-      throw "server_cert";
-
-    char *certificate { X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
-  	if (!certificate)
-      throw "certificate string";
-    else
-    {
-      this->certificate = std::string(certificate);
-  		OPENSSL_free(certificate);
-    }
-
-    char *issuer { X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
-  	if (!issuer)
-      throw "issuer string";
-		else
-    {
-    	this->issuer = std::string(issuer);
-  		OPENSSL_free(issuer);
-    }
-
-    if (server_cert)
-  		X509_free(server_cert);
-  }
-
-	catch(std::string &ex)
-  {
-    std::cerr << "Allocation failure: " + ex + '\n';
-  }
-}
-
 HttpsClient::HttpsClient(const float httpver) : Client(httpver)
 {
   connector = [this](void) -> bool {
@@ -310,4 +259,123 @@ HttpsClient::HttpsClient(const float httpver) : Client(httpver)
 HttpsClient::~HttpsClient(void)
 {
 
+}
+
+Server::Server(const float httpver) : Http(httpver)
+{
+
+}
+
+bool Server::connect(const std::string &hostname, const unsigned port)
+{
+  if (!init_connect(hostname, port))
+    return false;
+  if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
+  {
+    report = "Unable to bind";
+    return false;
+  }
+  if (::listen(sd, 1) < 0)
+  {
+    report = "Unable to listen";
+    return false;
+  }
+
+  return true;
+}
+
+HttpServer::HttpServer(void) : Server(DEFAULT_HTTPVER)
+{
+
+}
+
+HttpServer::~HttpServer(void)
+{
+
+}
+
+bool HttpServer::run(const std::string &document)
+{
+  is_running = 1;
+  while(is_running)
+  {
+    struct sockaddr_in addr;
+    uint len { sizeof addr };
+    int clientsd { accept(sd, (struct sockaddr *) &addr, &len) };
+    if (clientsd < 0)
+    {
+      report = "Unable to accept client";
+      return false;
+    }
+    if (::write(clientsd, document.c_str(), document.size()) < 0)
+    {
+      report = "Error writing";
+      return false;
+    }
+    close(clientsd);
+  }
+
+  return true;
+}
+HttpsServer::HttpsServer(const float httpver) : Server(httpver)
+{
+
+}
+
+HttpsServer::~HttpsServer(void)
+{
+
+}
+
+bool HttpsServer::configure_context(std::string &report)
+{
+  SSL_CTX_set_ecdh_auto(ctx, 1);
+  ssize_t err;
+  if ((err = SSL_CTX_use_certificate_file(ctx, SERVER_CERT.c_str(), SSL_FILETYPE_PEM)) < 1)
+  {
+    report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
+    return false;
+  }
+
+  if ((err = SSL_CTX_use_PrivateKey_file(ctx, SERVER_KEY.c_str(), SSL_FILETYPE_PEM)) < 1 )
+  {
+    report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
+    return false;
+  }
+
+  return true;
+}
+
+bool HttpsServer::run(const std::string &document)
+{
+  if (!configure_context(report))
+  {
+    std::cerr << report << std::endl;
+    return false;
+  }
+  
+  is_running = 1;
+  while(is_running)
+  {
+    struct sockaddr_in addr;
+    uint len { sizeof addr };
+    int clientsd { accept(sd, (struct sockaddr *) &addr, &len) };
+    if (clientsd < 0)
+    {
+      report = "Unable to accept client";
+      return false;
+    }
+
+    SSL_set_tlsext_host_name(ssl, hostname.c_str());
+    SSL_set_fd(ssl, clientsd);
+    ssize_t err;
+    if ((err = SSL_accept(ssl)) < 1)
+      report = "[SSL] SSL_accept()(): " + std::to_string(SSL_get_error(ssl, err));
+    else
+      SSL_write(ssl, document.c_str(), document.size());
+
+    close(clientsd);
+  }
+
+  return true;
 }

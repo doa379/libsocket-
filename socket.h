@@ -8,6 +8,8 @@
 #include <regex>
 
 static const float DEFAULT_HTTPVER { 2.0 };
+static const std::string SERVER_CERT { "/tmp/cert.pem" };
+static const std::string SERVER_KEY { "/tmp/key.pem" };
 
 enum REQUEST { GET, POST, PUT, DELETE };
 
@@ -26,6 +28,21 @@ public:
   ~Http(void);
   std::string &get_report(void) { return report; };
   bool init_connect(const std::string &, const unsigned);
+};
+
+class Secure
+{
+protected:
+  SSL_CTX *ctx { nullptr };
+  SSL *ssl { nullptr };
+  std::string cipherinfo, certificate, issuer;
+public:
+  Secure(void);
+  ~Secure(void);
+	void gather_certificate(void);
+  std::string &get_cipherinfo(void) { return cipherinfo; };
+  std::string &get_certificate(void) { return certificate; };
+  std::string &get_issuer(void) { return issuer; };
 };
 
 class Client : public Http
@@ -52,32 +69,6 @@ public:
   ~HttpClient(void);
 };
 
-class HttpServer : public Http
-{
-  bool is_running;
-public:
-  HttpServer(void);
-  ~HttpServer(void);
-  bool connect(const std::string &, const unsigned);
-  bool run(const std::string &);
-  void stop(void) { is_running = 0; };
-};
-
-class Secure
-{
-  SSL_CTX *ctx { nullptr };
-protected:
-  SSL *ssl { nullptr };
-  std::string cipherinfo, certificate, issuer;
-public:
-  Secure(void);
-  ~Secure(void);
-	void gather_certificate(void);
-  std::string &get_cipherinfo(void) { return cipherinfo; };
-  std::string &get_certificate(void) { return certificate; };
-  std::string &get_issuer(void) { return issuer; };
-};
-
 class HttpsClient : public Client, private Secure
 {
 public:
@@ -85,8 +76,30 @@ public:
   ~HttpsClient(void);
 };
 
-class HttpsServer
+class Server : public Http
 {
-
+protected:
+  bool is_running;
 public:
+	Server(const float);
+	bool connect(const std::string &, const unsigned);
+  virtual bool run(const std::string &) = 0;
+  void stop(void) { is_running = 0; };
+};
+
+class HttpServer : public Server
+{
+public:
+  HttpServer(void);
+  ~HttpServer(void);
+  bool run(const std::string &);
+};
+
+class HttpsServer : public Server, private Secure
+{
+public:
+  HttpsServer(const float);
+  ~HttpsServer(void);
+	bool configure_context(std::string &);
+  bool run(const std::string &);
 };
