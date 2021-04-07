@@ -44,8 +44,17 @@ bool Http::init_connect(const std::string &hostname, const unsigned port)
 
 Secure::Secure(void)
 {
-  OpenSSL_add_ssl_algorithms();
-  SSL_load_error_strings();
+  //OpenSSL_add_ssl_algorithms();
+  //SSL_load_error_strings();
+}
+
+Secure::~Secure(void)
+{
+
+}
+
+SecureClientPair::SecureClientPair(void)
+{
   try {
     const SSL_METHOD *meth { TLS_client_method() };
     ctx = SSL_CTX_new(meth);
@@ -62,13 +71,37 @@ Secure::Secure(void)
   }
 }
 
-Secure::~Secure(void)
+SecureClientPair::~SecureClientPair(void)
 {
   SSL_shutdown(ssl);
   SSL_free(ssl);
   SSL_CTX_free(ctx);
 }
 
+SecureServerPair::SecureServerPair(void)
+{
+  try {
+    const SSL_METHOD *meth { TLS_server_method() };
+    ctx = SSL_CTX_new(meth);
+    ssl = SSL_new(ctx);
+    if (!ctx)
+      throw "context";
+    else if (!ssl)
+      throw "ssl";
+  }
+  catch(const std::string &ex)
+  {
+    std::cerr << "Unable to create " + ex + '\n';
+    throw;
+  }
+}
+
+SecureServerPair::~SecureServerPair(void)
+{
+  SSL_shutdown(ssl);
+  SSL_free(ssl);
+  SSL_CTX_free(ctx);
+}
 void Secure::gather_certificate(void)
 {
   // Method to be called after connector()
@@ -104,6 +137,25 @@ void Secure::gather_certificate(void)
   {
     std::cerr << "Allocation failure: " + ex + '\n';
   }
+}
+
+bool Secure::configure_context(std::string &report)
+{
+  SSL_CTX_set_ecdh_auto(ctx, 1);
+  ssize_t err;
+  if ((err = SSL_CTX_use_certificate_file(ctx, CERT.c_str(), SSL_FILETYPE_PEM)) < 1)
+  {
+    report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
+    return false;
+  }
+
+  if ((err = SSL_CTX_use_PrivateKey_file(ctx, KEY.c_str(), SSL_FILETYPE_PEM)) < 1 )
+  {
+    report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
+    return false;
+  }
+
+  return true;
 }
 
 Client::Client(const float httpver) : Http(httpver)
@@ -220,12 +272,15 @@ HttpClient::~HttpClient(void)
 
 HttpsClient::HttpsClient(const float httpver) : Client(httpver)
 {
+  OpenSSL_add_ssl_algorithms();
+  SSL_load_error_strings();
   connector = [this](void) -> bool {
     if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
     {
       report = "Connect error";
       return false;
     }
+    configure_context(report);
     SSL_set_tlsext_host_name(ssl, hostname.c_str());
     SSL_set_fd(ssl, sd);
     ssize_t err;
@@ -296,7 +351,7 @@ HttpServer::~HttpServer(void)
 
 bool HttpServer::run(const std::string &document)
 {
-  is_running = 1;
+  is_running = true;
   while(is_running)
   {
     struct sockaddr_in addr;
@@ -317,9 +372,11 @@ bool HttpServer::run(const std::string &document)
 
   return true;
 }
-HttpsServer::HttpsServer(const float httpver) : Server(httpver)
-{
 
+HttpsServer::HttpsServer(void) : Server(DEFAULT_HTTPVER)
+{
+  OpenSSL_add_ssl_algorithms();
+  SSL_load_error_strings();
 }
 
 HttpsServer::~HttpsServer(void)
@@ -327,35 +384,57 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-bool HttpsServer::configure_context(std::string &report)
+int HttpsServer::sni_cb(SSL *ssl, int *ad, void *arg)
 {
-  SSL_CTX_set_ecdh_auto(ctx, 1);
-  ssize_t err;
-  if ((err = SSL_CTX_use_certificate_file(ctx, SERVER_CERT.c_str(), SSL_FILETYPE_PEM)) < 1)
-  {
-    report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
-    return false;
-  }
+  /*
+    UNUSED(ad);
+    UNUSED(arg);
 
-  if ((err = SSL_CTX_use_PrivateKey_file(ctx, SERVER_KEY.c_str(), SSL_FILETYPE_PEM)) < 1 )
-  {
-    report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
-    return false;
-  }
-
-  return true;
+    ASSERT(ssl);
+    if (ssl == NULL)
+        return SSL_TLSEXT_ERR_NOACK;
+  */
+  HttpsServer *svr { (HttpsServer *) arg };
+    const char* servername = SSL_get_servername(svr->ssl, TLSEXT_NAMETYPE_host_name);
+    (void) servername;
+    /*
+    ASSERT(servername && servername[0]);
+    if (!servername || servername[0] == '\0')
+        return SSL_TLSEXT_ERR_NOACK;
+    */
+    /* Does the default cert already handle this domain?
+    if (IsDomainInDefCert(servername))
+        return SSL_TLSEXT_ERR_OK;
+    */
+    /* Need a new certificate for this domain */
+    //SSL_CTX* ctx = GetServerContext(servername);
+    /*
+    ASSERT(ctx != NULL);
+    if (ctx == NULL)
+        return SSL_TLSEXT_ERR_NOACK;   
+    */
+    /* Useless return value */
+    SSL_CTX *v = SSL_set_SSL_CTX(svr->ssl, svr->client.ctx);
+    (void) v;
+/*
+    ASSERT(v == ctx);
+    if (v != ctx)   
+        return SSL_TLSEXT_ERR_NOACK;
+*/
+    return SSL_TLSEXT_ERR_OK;
 }
 
 bool HttpsServer::run(const std::string &document)
 {
-  if (!configure_context(report))
+  if (!client.configure_context(report) ||
+      !configure_context(report))
   {
-    std::cerr << report << std::endl;
+    std::cerr << "Configure context(s) " << report << std::endl;
     return false;
   }
   
-  is_running = 1;
-  while(is_running)
+  is_running = true;
+  while (is_running)
   {
     struct sockaddr_in addr;
     uint len { sizeof addr };
@@ -366,11 +445,15 @@ bool HttpsServer::run(const std::string &document)
       return false;
     }
 
-    SSL_set_tlsext_host_name(ssl, hostname.c_str());
+	  SSL_set_tlsext_host_name(client.ssl, hostname.c_str());
+		//SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
+    //SSL_CTX_set_tlsext_servername_arg(ctx, this);
     SSL_set_fd(ssl, clientsd);
+    SSL_set_SSL_CTX(ssl, client.ctx);
+    SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     ssize_t err;
     if ((err = SSL_accept(ssl)) < 1)
-      report = "[SSL] SSL_accept()(): " + std::to_string(SSL_get_error(ssl, err));
+      report = "[SSL] SSL_accept(): " + std::to_string(SSL_get_error(ssl, err));
     else
       SSL_write(ssl, document.c_str(), document.size());
 

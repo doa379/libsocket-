@@ -8,8 +8,8 @@
 #include <regex>
 
 static const float DEFAULT_HTTPVER { 2.0 };
-static const std::string SERVER_CERT { "/tmp/cert.pem" };
-static const std::string SERVER_KEY { "/tmp/key.pem" };
+static const std::string CERT { "/tmp/cert.pem" };
+static const std::string KEY { "/tmp/key.pem" };
 
 enum REQUEST { GET, POST, PUT, DELETE };
 
@@ -30,19 +30,34 @@ public:
   bool init_connect(const std::string &, const unsigned);
 };
 
-class Secure
+struct Secure
 {
-protected:
+//protected:
   SSL_CTX *ctx { nullptr };
   SSL *ssl { nullptr };
   std::string cipherinfo, certificate, issuer;
-public:
+//public:
   Secure(void);
   ~Secure(void);
-	void gather_certificate(void);
+  void gather_certificate(void);
+  bool configure_context(std::string &);
   std::string &get_cipherinfo(void) { return cipherinfo; };
   std::string &get_certificate(void) { return certificate; };
   std::string &get_issuer(void) { return issuer; };
+};
+
+class SecureClientPair : public Secure
+{
+  public:
+  SecureClientPair(void);
+  ~SecureClientPair(void);
+};
+
+class SecureServerPair : public Secure
+{
+  public:
+  SecureServerPair(void);
+  ~SecureServerPair(void);
 };
 
 class Client : public Http
@@ -69,7 +84,7 @@ public:
   ~HttpClient(void);
 };
 
-class HttpsClient : public Client, private Secure
+class HttpsClient : public Client, public SecureClientPair
 {
 public:
   HttpsClient(const float);
@@ -81,10 +96,10 @@ class Server : public Http
 protected:
   bool is_running;
 public:
-	Server(const float);
-	bool connect(const std::string &, const unsigned);
+  Server(const float);
+  bool connect(const std::string &, const unsigned);
   virtual bool run(const std::string &) = 0;
-  void stop(void) { is_running = 0; };
+  void stop(void) { is_running = false; };
 };
 
 class HttpServer : public Server
@@ -95,11 +110,12 @@ public:
   bool run(const std::string &);
 };
 
-class HttpsServer : public Server, private Secure
+class HttpsServer : public Server, public SecureServerPair
 {
 public:
-  HttpsServer(const float);
+  SecureClientPair client;
+  HttpsServer(void);
   ~HttpsServer(void);
-	bool configure_context(std::string &);
+	static int sni_cb(SSL *, int *, void *);
   bool run(const std::string &);
 };
