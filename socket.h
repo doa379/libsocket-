@@ -48,14 +48,14 @@ struct Secure
 
 class SecureClientPair : public Secure
 {
-  public:
+public:
   SecureClientPair(void);
   ~SecureClientPair(void);
 };
 
 class SecureServerPair : public Secure
 {
-  public:
+public:
   SecureServerPair(void);
   ~SecureServerPair(void);
 };
@@ -113,9 +113,7 @@ public:
 class HttpsServer : public Server, public SecureServerPair
 {
 public:
-  SecureClientPair client;
   HttpsServer(void);
   ~HttpsServer(void);
-	static int sni_cb(SSL *, int *, void *);
   bool run(const std::string &);
 };

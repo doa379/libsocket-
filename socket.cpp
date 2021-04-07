@@ -44,8 +44,7 @@ bool Http::init_connect(const std::string &hostname, const unsigned port)
 
 Secure::Secure(void)
 {
-  //OpenSSL_add_ssl_algorithms();
-  //SSL_load_error_strings();
+
 }
 
 Secure::~Secure(void)
@@ -384,52 +383,11 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-int HttpsServer::sni_cb(SSL *ssl, int *ad, void *arg)
-{
-  /*
-    UNUSED(ad);
-    UNUSED(arg);
-
-    ASSERT(ssl);
-    if (ssl == NULL)
-        return SSL_TLSEXT_ERR_NOACK;
-  */
-  HttpsServer *svr { (HttpsServer *) arg };
-    const char* servername = SSL_get_servername(svr->ssl, TLSEXT_NAMETYPE_host_name);
-    (void) servername;
-    /*
-    ASSERT(servername && servername[0]);
-    if (!servername || servername[0] == '\0')
-        return SSL_TLSEXT_ERR_NOACK;
-    */
-    /* Does the default cert already handle this domain?
-    if (IsDomainInDefCert(servername))
-        return SSL_TLSEXT_ERR_OK;
-    */
-    /* Need a new certificate for this domain */
-    //SSL_CTX* ctx = GetServerContext(servername);
-    /*
-    ASSERT(ctx != NULL);
-    if (ctx == NULL)
-        return SSL_TLSEXT_ERR_NOACK;   
-    */
-    /* Useless return value */
-    SSL_CTX *v = SSL_set_SSL_CTX(svr->ssl, svr->client.ctx);
-    (void) v;
-/*
-    ASSERT(v == ctx);
-    if (v != ctx)   
-        return SSL_TLSEXT_ERR_NOACK;
-*/
-    return SSL_TLSEXT_ERR_OK;
-}
-
 bool HttpsServer::run(const std::string &document)
 {
-  if (!client.configure_context(report) ||
-      !configure_context(report))
+  if (!configure_context(report))
   {
-    std::cerr << "Configure context(s) " << report << std::endl;
+    std::cerr << "Configure server context: " << report << std::endl;
     return false;
   }
   
@@ -445,12 +403,18 @@ bool HttpsServer::run(const std::string &document)
       return false;
     }
 
+    SecureClientPair client;
+    if (!client.configure_context(report))
+    {
+      std::cerr << "Configure client context: " << report << std::endl;
+      close(clientsd);
+      return false;
+    }
+
 	  SSL_set_tlsext_host_name(client.ssl, hostname.c_str());
-		//SSL_CTX_set_tlsext_servername_callback(ctx, sni_cb);
-    //SSL_CTX_set_tlsext_servername_arg(ctx, this);
     SSL_set_fd(ssl, clientsd);
     SSL_set_SSL_CTX(ssl, client.ctx);
-    SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    //SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     ssize_t err;
     if ((err = SSL_accept(ssl)) < 1)
       report = "[SSL] SSL_accept(): " + std::to_string(SSL_get_error(ssl, err));
