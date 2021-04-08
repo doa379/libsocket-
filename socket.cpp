@@ -42,17 +42,29 @@ bool Http::init_connect(const std::string &hostname, const unsigned port)
   return true;
 }
 
-Secure::Secure(void)
+Secure::Secure(void) : certpem(CERTPEM), keypem(KEYPEM)
 {
 
 }
 
-Secure::~Secure(void)
+Secure::Secure(const std::string &certpem) : certpem(certpem)
 {
 
 }
 
-SecureClientPair::SecureClientPair(void)
+Secure::Secure(const std::string &certpem, const std::string &keypem) : certpem(certpem), keypem(keypem)
+{
+
+}
+
+void Secure::deinit_ssl(void)
+{
+  SSL_shutdown(ssl);
+  SSL_free(ssl);
+  SSL_CTX_free(ctx);
+}
+
+SecureClientPair::SecureClientPair(void) : Secure()
 {
   try {
     const SSL_METHOD *meth { TLS_client_method() };
@@ -72,12 +84,10 @@ SecureClientPair::SecureClientPair(void)
 
 SecureClientPair::~SecureClientPair(void)
 {
-  SSL_shutdown(ssl);
-  SSL_free(ssl);
-  SSL_CTX_free(ctx);
+  deinit_ssl();
 }
 
-SecureServerPair::SecureServerPair(void)
+SecureServerPair::SecureServerPair(void) : Secure()
 {
   try {
     const SSL_METHOD *meth { TLS_server_method() };
@@ -97,10 +107,9 @@ SecureServerPair::SecureServerPair(void)
 
 SecureServerPair::~SecureServerPair(void)
 {
-  SSL_shutdown(ssl);
-  SSL_free(ssl);
-  SSL_CTX_free(ctx);
+  deinit_ssl();
 }
+
 void Secure::gather_certificate(void)
 {
   // Method to be called after connector()
@@ -142,19 +151,68 @@ bool Secure::configure_context(std::string &report)
 {
   SSL_CTX_set_ecdh_auto(ctx, 1);
   ssize_t err;
-  if ((err = SSL_CTX_use_certificate_file(ctx, CERT.c_str(), SSL_FILETYPE_PEM)) < 1)
+  if ((err = SSL_CTX_use_certificate_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM)) < 1)
   {
     report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
     return false;
   }
-
-  if ((err = SSL_CTX_use_PrivateKey_file(ctx, KEY.c_str(), SSL_FILETYPE_PEM)) < 1 )
+  if (keypem.size() && (err = SSL_CTX_use_PrivateKey_file(ctx, keypem.c_str(), SSL_FILETYPE_PEM)) < 1)
+  {
+    report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
+    return false;
+  }
+  else if (!keypem.size() && (err = SSL_CTX_use_PrivateKey_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM)) < 1)
   {
     report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
     return false;
   }
 
   return true;
+}
+
+int Secure::set_tlsext_hostname(const std::string &hostname)
+{
+  return SSL_set_tlsext_host_name(ssl, hostname.c_str());
+}
+
+int Secure::set_fd(const int fd)
+{
+  return SSL_set_fd(ssl, fd);
+}
+
+int Secure::connect(void)
+{
+  return SSL_connect(ssl);
+}
+
+int Secure::get_error(int err)
+{
+  return SSL_get_error(ssl, err);
+}
+
+int Secure::read(void *buf, int size)
+{
+  return SSL_read(ssl, buf, size);
+}
+
+int Secure::write(const std::string &data)
+{
+  return SSL_write(ssl, data.c_str(), data.size());
+}
+
+int Secure::accept(void)
+{
+  return SSL_accept(ssl);
+}
+
+SSL_CTX *Secure::set_CTX(const Secure &secure)
+{
+  return SSL_set_SSL_CTX(ssl, secure.ctx);
+}
+
+int Secure::clear(void)
+{
+  return SSL_clear(ssl);
 }
 
 Client::Client(const float httpver) : Http(httpver)
@@ -279,31 +337,32 @@ HttpsClient::HttpsClient(const float httpver) : Client(httpver)
       report = "Connect error";
       return false;
     }
-    configure_context(report);
-    SSL_set_tlsext_host_name(ssl, hostname.c_str());
-    SSL_set_fd(ssl, sd);
+    sslclient.configure_context(report);
+    sslclient.set_tlsext_hostname(hostname);
+    sslclient.set_fd(sd);
     ssize_t err;
-    if ((err = SSL_connect(ssl)) < 0)
+    if ((err = sslclient.connect()) < 0)
     {
-      err = SSL_get_error(ssl, err);
-      report = "[SSL] Connect: " + std::to_string(SSL_get_error(ssl, err));
+      err = sslclient.get_error(err);
+      report = "[SSL] Connect: " + std::to_string(sslclient.get_error(err));
       return false;
     }
     return true;
   };
   reader = [this](char *p) -> bool {
-    ssize_t err { SSL_read(ssl, p, sizeof *p) };
+    ssize_t err { sslclient.read(p, sizeof *p) };
     if (err < 1)
     {
-      report = "Read: " + std::to_string(SSL_get_error(ssl, err));
+      report = "Read: " + std::to_string(sslclient.get_error(err));
       return false;
     }
     return true;
   };
   writer = [this](const std::string &request) -> bool {
-    if (SSL_write(ssl, request.c_str(), request.size()) < 0)
+    ssize_t err;
+    if ((err = sslclient.write(request)) < 0)
     {
-      report = "Write: " + std::string(ERR_error_string(ERR_get_error(), 0));
+      report = "Write: " + std::to_string(sslclient.get_error(err));
       return false;
     }
     return true;
@@ -359,7 +418,7 @@ bool HttpServer::run(const std::string &document)
     if (clientsd < 0)
     {
       report = "Unable to accept client";
-      return false;
+      continue;
     }
     if (::write(clientsd, document.c_str(), document.size()) < 0)
     {
@@ -385,12 +444,6 @@ HttpsServer::~HttpsServer(void)
 
 bool HttpsServer::run(const std::string &document)
 {
-  if (!configure_context(report))
-  {
-    std::cerr << "Configure server context: " << report << std::endl;
-    return false;
-  }
-  
   is_running = true;
   while (is_running)
   {
@@ -400,7 +453,7 @@ bool HttpsServer::run(const std::string &document)
     if (clientsd < 0)
     {
       report = "Unable to accept client";
-      return false;
+      continue;
     }
 
     SecureClientPair client;
@@ -411,16 +464,16 @@ bool HttpsServer::run(const std::string &document)
       return false;
     }
 
-	  SSL_set_tlsext_host_name(client.ssl, hostname.c_str());
-    SSL_set_fd(ssl, clientsd);
-    SSL_set_SSL_CTX(ssl, client.ctx);
-    //SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+	  client.set_tlsext_hostname(hostname);
+    sslserver.set_fd(clientsd);
+    sslserver.set_CTX(client);
     ssize_t err;
-    if ((err = SSL_accept(ssl)) < 1)
-      report = "[SSL] SSL_accept(): " + std::to_string(SSL_get_error(ssl, err));
+    if ((err = sslserver.accept()) < 1)
+      report = "[SSL] SSL_accept(): " + std::to_string(sslserver.get_error(err));
     else
-      SSL_write(ssl, document.c_str(), document.size());
+      sslserver.write(document);
 
+    sslserver.clear();
     close(clientsd);
   }
 
