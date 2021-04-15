@@ -19,10 +19,10 @@ int main(int argc, char *argv[])
 
   else
   {
-		hostname = std::string(argv[1]);
+    hostname = std::string(argv[1]);
     port_no = std::atoi(argv[2]);
   }
-  
+
   HttpsClient client(1.1);
   if (client.connect(hostname, port_no))
   {
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
     std::cout << "The response body:\n===================\n";
     std::cout << client.get_response() << std::endl;
   }
-  
+
   else
     std::cout << client.get_report() << std::endl;
 

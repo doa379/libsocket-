@@ -19,17 +19,17 @@ int main(int argc, char *argv[])
 
   else
   {
-		hostname = std::string(argv[1]);
+    hostname = std::string(argv[1]);
     port_no = std::atoi(argv[2]);
   }
-  
+
   HttpsServer server;
   if (!server.connect(hostname, port_no))
   {
     std::cout << server.get_report() << std::endl;
     return 1;
   }
-  
+
   server.run("Document being served\n");
   return 0;
 }

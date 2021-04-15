@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 
   else
   {
-		hostname = std::string(argv[1]);
+    hostname = std::string(argv[1]);
     port_no = std::atoi(argv[2]);
   }
 
@@ -32,8 +32,8 @@ int main(int argc, char *argv[])
 
   const std::string document { "Document being served at " +
     hostname + " port " + std::to_string(port_no) + '\n' },
-    header { "Content-Length: " + std::to_string(document.size()) +
-    "\r\n\r\n" };
+        header { "Content-Length: " + std::to_string(document.size()) +
+          "\r\n\r\n" };
   server.run(header + document);
   return 0;
 }

@@ -73,6 +73,7 @@ public:
 
 class Client : public Http
 {
+  friend class MultiHttpClient;
   std::string agent { "HttpRequest" }, response_header, response_body;
   std::smatch match;
   const std::regex content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) };
@@ -93,6 +94,15 @@ class HttpClient : public Client
 public:
   HttpClient(const float);
   ~HttpClient(void);
+};
+
+class MultiHttpClient
+{
+  unsigned timeout;
+  std::vector<std::reference_wrapper<Client>> C;
+public:
+  MultiHttpClient(const unsigned);
+  void set_client(Client &);
 };
 
 class HttpsClient : public Client

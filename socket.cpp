@@ -327,6 +327,16 @@ HttpClient::~HttpClient(void)
 
 }
 
+MultiHttpClient::MultiHttpClient(const unsigned timeout) : timeout(timeout)
+{
+
+}
+
+void MultiHttpClient::set_client(Client &C)
+{
+  this->C.emplace_back(C);
+}
+
 HttpsClient::HttpsClient(const float httpver) : Client(httpver)
 {
   OpenSSL_add_ssl_algorithms();

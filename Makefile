@@ -14,12 +14,14 @@ SRC_TEST2 = sslclient_example.cpp
 OBJ_TEST2 = ${SRC_TEST2:.cpp=.o}
 SRC_TEST3 = sslserver_example.cpp
 OBJ_TEST3 = ${SRC_TEST3:.cpp=.o}
+SRC_TEST4 = multiclient_example.cpp
+OBJ_TEST4 = ${SRC_TEST4:.cpp=.o}
 
 CC = c++
 CFLAGS = -std=c++14 -c -Wall -Werror -fPIE -fPIC -pedantic -O3 ${INCS}
 LDFLAGS += ${LIBSPATH}
 
-all: libsocket++.so client_example server_example sslclient_example sslserver_example
+all: libsocket++.so client_example server_example sslclient_example sslserver_example multiclient_example
 
 .cpp.o:
 		@echo CC $<
@@ -45,7 +47,11 @@ sslserver_example: ${OBJ_TEST3}
 		@echo CC -o $@
 		@${CC} -o $@ ${OBJ_TEST3} ${LDFLAGS} -l socket++
 
+multiclient_example: ${OBJ_TEST4}
+		@echo CC -o $@
+		@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS} -l socket++
+
 clean:
 		@echo Cleaning
-		@rm -f ${OBJ_LIBSOCKET} ${OBJ_TEST0} ${OBJ_TEST1} ${OBJ_TEST2} ${OBJ_TEST3}
+		@rm -f ${OBJ_LIBSOCKET} ${OBJ_TEST0} ${OBJ_TEST1} ${OBJ_TEST2} ${OBJ_TEST3} ${OBJ_TEST4}
 		@rm -f *example
