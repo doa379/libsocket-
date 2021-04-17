@@ -6,7 +6,7 @@
 #include <openssl/err.h>
 #include "socket.h"
 
-Http::Http(const float httpver)
+Http::Http(const float httpver, const std::string &hostname, const unsigned port) : hostname(hostname), port(port)
 {
   sprintf(this->httpver, "%.1f", httpver);
   memset(&sa, 0, sizeof sa);
@@ -27,9 +27,8 @@ Http::~Http(void)
   close(sd);
 }
 
-bool Http::init_connect(const std::string &hostname, const unsigned port)
+bool Http::init_connect(void)
 {
-  this->hostname = hostname;
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
   struct hostent *host { gethostbyname(hostname.c_str()) };
@@ -215,7 +214,8 @@ int Secure::clear(void)
   return SSL_clear(ssl);
 }
 
-Client::Client(const float httpver) : Http(httpver)
+Client::Client(const float httpver, const std::string &hostname, const unsigned port) : 
+  Http(httpver, hostname, port)
 {
 
 }
@@ -225,11 +225,56 @@ Client::~Client(void)
 
 }
 
-bool Client::connect(const std::string &hostname, const unsigned port)
+bool Client::connect(void)
 {
-  if (!init_connect(hostname, port))
+  if (!init_connect())
     return false;
   return connector();
+}
+
+bool Client::sendreq(const std::vector<std::string> &HEADERS, const std::string &data)
+{
+  std::string request;
+  for (auto &h : HEADERS)
+    request += h + "\r\n";
+
+  if (data.size())
+    request += "Content-Length: " + std::to_string(data.size()) + "\r\n\r\n" + data;
+
+  request += "\r\n";
+  return writer(request);
+}
+
+bool Client::sendhttpreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
+{
+  std::string req_type { 
+    req == GET ? "GET" : 
+    req == POST ? "POST" : 
+    req == PUT ? "PUT" : 
+    req == DELETE ? "DELETE" : 
+    "" 
+  };
+
+  if (!req_type.size())
+  {
+    report = "Unknown request type";
+    return false;
+  }
+
+  std::string request { 
+    req_type + " " + endpoint + " " + "HTTP/" + std::string(httpver) + "\r\n" +
+    "Host: " + hostname + "\r\n" +
+    "User-Agent: " + agent + "\r\n" +
+    "Accept: */*" + "\r\n" };
+
+  for (auto &h : HEADERS)
+    request += h + "\r\n";
+
+  if (data.size())
+    request += "Content-Length: " + std::to_string(data.size()) + "\r\n\r\n" + data;
+
+  request += "\r\n";
+  return writer(request);
 }
 
 void Client::recvreq(void)
@@ -263,38 +308,8 @@ void Client::recvreq(void)
   }
 }
 
-bool Client::sendreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
-{
-  std::string req_type { 
-    req == GET ? "GET" : 
-    req == POST ? "POST" : 
-    req == PUT ? "PUT" : 
-    req == DELETE ? "DELETE" : 
-    "" };
-
-  if (!req_type.size())
-  {
-    report = "Unknown request type";
-    return false;
-  }
-
-  std::string request { 
-    req_type + " " + endpoint + " " + "HTTP/" + std::string(httpver) + "\r\n" +
-    "Host: " + hostname + "\r\n" +
-    "User-Agent: " + agent + "\r\n" +
-    "Accept: */*" + "\r\n" };
-
-  for (auto &h : HEADERS)
-    request += h + "\r\n";
-
-  if (data.size())
-    request += "Content-Length: " + std::to_string(data.size()) + "\r\n\r\n" + data;
-
-  request += "\r\n";
-  return writer(request);
-}
-
-HttpClient::HttpClient(const float httpver) : Client(httpver)
+HttpClient::HttpClient(const float httpver, const std::string &hostname, const unsigned port) : 
+  Client(httpver, hostname, port)
 {
   connector = [this](void) -> bool { 
     if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
@@ -332,12 +347,29 @@ MultiHttpClient::MultiHttpClient(const unsigned timeout) : timeout(timeout)
 
 }
 
-void MultiHttpClient::set_client(Client &C)
+void MultiHttpClient::set_client(Client &c)
 {
-  this->C.emplace_back(C);
+  C.emplace_back(c);
 }
 
-HttpsClient::HttpsClient(const float httpver) : Client(httpver)
+bool MultiHttpClient::connect(void)
+{
+  bool retval { true };
+  for (auto &c : C)
+    if (!c.get().connect())
+      retval = false;
+
+  return retval;
+}
+
+void MultiHttpClient::recvreq(void)
+{
+  for (auto &c : C)
+    (void) c;
+}
+
+HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port) : 
+  Client(httpver, hostname, port)
 {
   OpenSSL_add_ssl_algorithms();
   SSL_load_error_strings();
@@ -348,7 +380,7 @@ HttpsClient::HttpsClient(const float httpver) : Client(httpver)
       return false;
     }
     sslclient.configure_context(report);
-    sslclient.set_tlsext_hostname(hostname);
+    sslclient.set_tlsext_hostname(this->hostname);
     sslclient.set_fd(sd);
     ssize_t err;
     if ((err = sslclient.connect()) < 0)
@@ -384,14 +416,14 @@ HttpsClient::~HttpsClient(void)
 
 }
 
-Server::Server(const float httpver) : Http(httpver)
+Server::Server(const float httpver, const std::string &hostname, const unsigned port) : Http(httpver, hostname, port)
 {
 
 }
 
-bool Server::connect(const std::string &hostname, const unsigned port)
+bool Server::connect(void)
 {
-  if (!init_connect(hostname, port))
+  if (!init_connect())
     return false;
   if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
   {
@@ -407,7 +439,8 @@ bool Server::connect(const std::string &hostname, const unsigned port)
   return true;
 }
 
-HttpServer::HttpServer(void) : Server(DEFAULT_HTTPVER)
+HttpServer::HttpServer(const std::string &hostname, const unsigned port) :
+  Server(DEFAULT_HTTPVER, hostname, port)
 {
 
 }
@@ -441,7 +474,8 @@ bool HttpServer::run(const std::string &document)
   return true;
 }
 
-HttpsServer::HttpsServer(void) : Server(DEFAULT_HTTPVER)
+HttpsServer::HttpsServer(const std::string &hostname, const unsigned port) :
+  Server(DEFAULT_HTTPVER, hostname, port)
 {
   OpenSSL_add_ssl_algorithms();
   SSL_load_error_strings();

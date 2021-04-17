@@ -23,8 +23,8 @@ int main(int argc, char *argv[])
     port_no = std::atoi(argv[2]);
   }
 
-  HttpsServer server;
-  if (!server.connect(hostname, port_no))
+  HttpsServer server(hostname, port_no);
+  if (!server.connect())
   {
     std::cout << server.get_report() << std::endl;
     return 1;

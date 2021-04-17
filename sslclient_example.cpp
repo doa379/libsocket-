@@ -23,10 +23,10 @@ int main(int argc, char *argv[])
     port_no = std::atoi(argv[2]);
   }
 
-  HttpsClient client(1.1);
-  if (client.connect(hostname, port_no))
+  HttpsClient client(1.1, hostname, port_no);
+  if (client.connect())
   {
-    if (!client.sendreq(GET, "/", { }, { }))
+    if (!client.sendhttpreq(GET, "/", { }, { }))
     {
       std::cout << client.get_report() << std::endl;
       return 1;

@@ -24,12 +24,15 @@ int main(int argc, char *argv[])
     port_no = std::atoi(argv[2]);
   }
 */
-  HttpClient client0(1.1), client1(1.1);
-  MultiHttpClient multi_client(60);
-  multi_client.set_client(client0);
-  multi_client.set_client(client1);
-  client0.connect(host0, port0);
-  client1.connect(host1, port1);
+  HttpClient client0(1.1, host0, port0), client1(1.1, host1, port1);
+  MultiHttpClient mc(60);
+  mc.set_client(client0);
+  mc.set_client(client1);
+  if (!mc.connect())
+    std::cerr << "There was at least one failure in connecting, proceeding...\n";
+  client0.sendhttpreq(GET, "/", { }, { });
+  client1.sendhttpreq(GET, "/", { }, { });
+  mc.recvreq();
   /*
   if (client.connect(hostname, port_no))
   {

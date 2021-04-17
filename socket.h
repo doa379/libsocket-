@@ -20,14 +20,15 @@ protected:
   struct sockaddr_in sa;
   char httpver[4];
   std::string hostname, report;
+  unsigned port;
   std::function<bool(void)> connector;
   std::function<bool(char *)> reader;
   std::function<bool(const std::string &)> writer;
 public:
-  Http(const float);
+  Http(const float, const std::string &hostname, const unsigned port);
   ~Http(void);
   std::string &get_report(void) { return report; };
-  bool init_connect(const std::string &, const unsigned);
+  bool init_connect(void);
 };
 
 class Secure
@@ -79,11 +80,12 @@ class Client : public Http
   const std::regex content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) };
   std::function<void(std::string &)> response_cb { [](std::string &) { } };
 public:
-  Client(const float);
+  Client(const float, const std::string &, const unsigned);
   ~Client(void);
-  bool connect(const std::string &, const unsigned);
+  bool connect(void);
+  bool sendreq(const std::vector<std::string> &, const std::string &);
+  bool sendhttpreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   void recvreq(void);
-  bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
   void set_cb(decltype(response_cb) &callback) { response_cb = callback; };
@@ -92,24 +94,26 @@ public:
 class HttpClient : public Client
 {
 public:
-  HttpClient(const float);
+  HttpClient(const float, const std::string &, const unsigned); 
   ~HttpClient(void);
 };
 
 class MultiHttpClient
 {
-  unsigned timeout;
+  const unsigned timeout;
   std::vector<std::reference_wrapper<Client>> C;
 public:
   MultiHttpClient(const unsigned);
   void set_client(Client &);
+  bool connect(void);
+  void recvreq(void);
 };
 
 class HttpsClient : public Client
 {
   SecureClientPair sslclient;
 public:
-  HttpsClient(const float);
+  HttpsClient(const float, const std::string &, const unsigned); 
   ~HttpsClient(void);
 };
 
@@ -118,8 +122,8 @@ class Server : public Http
 protected:
   bool is_running;
 public:
-  Server(const float);
-  bool connect(const std::string &, const unsigned);
+  Server(const float, const std::string &, const unsigned);
+  bool connect(void);
   virtual bool run(const std::string &) = 0;
   void stop(void) { is_running = false; };
 };
@@ -127,7 +131,7 @@ public:
 class HttpServer : public Server
 {
 public:
-  HttpServer(void);
+  HttpServer(const std::string &, const unsigned);
   ~HttpServer(void);
   bool run(const std::string &);
 };
@@ -136,7 +140,7 @@ class HttpsServer : public Server
 {
   SecureServerPair sslserver;
 public:
-  HttpsServer(void);
+  HttpsServer(const std::string &, const unsigned);
   ~HttpsServer(void);
   bool run(const std::string &);
 };
