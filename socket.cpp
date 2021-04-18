@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <iostream>
 #include <openssl/err.h>
+#include <sys/poll.h>
+#include <ctime>
 #include "socket.h"
 
 Http::Http(const float httpver, const std::string &hostname, const unsigned port) : hostname(hostname), port(port)
@@ -252,7 +254,7 @@ bool Client::sendhttpreq(REQUEST req, const std::string &endpoint, const std::ve
     req == POST ? "POST" : 
     req == PUT ? "PUT" : 
     req == DELETE ? "DELETE" : 
-    "" 
+    std::string() 
   };
 
   if (!req_type.size())
@@ -364,8 +366,25 @@ bool MultiHttpClient::connect(void)
 
 void MultiHttpClient::recvreq(void)
 {
-  for (auto &c : C)
-    (void) c;
+  struct pollfd PFD[MAX_CLIENTS] { };
+  for (auto i { 0U }; i < C.size(); i++)
+  {
+    PFD[i].fd = C[i].get().sd;
+    PFD[i].events = POLLIN;
+  }
+
+  std::time_t init, now;
+  std::time(&init);
+  std::time(&now);
+  while (std::difftime(now, init) < timeout)
+  {
+    for (auto i { 0U }; i < C.size(); i++)
+      if (PFD[i].revents & POLLIN)
+        ;
+
+    std::time(&now);
+    poll(PFD, C.size(), WAITMS);
+  }
 }
 
 HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port) : 

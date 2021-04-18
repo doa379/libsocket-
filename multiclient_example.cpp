@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
   }
 */
   HttpClient client0(1.1, host0, port0), client1(1.1, host1, port1);
-  MultiHttpClient mc(60);
+  MultiHttpClient mc(10);
   mc.set_client(client0);
   mc.set_client(client1);
   if (!mc.connect())
