@@ -376,11 +376,15 @@ void MultiHttpClient::recvreq(void)
   std::time_t init, now;
   std::time(&init);
   std::time(&now);
-  while (std::difftime(now, init) < timeout)
+  unsigned completed { 0 };
+  while (completed < C.size() && std::difftime(now, init) < timeout)
   {
     for (auto i { 0U }; i < C.size(); i++)
       if (PFD[i].revents & POLLIN)
-        ;
+      {
+        C[i].get().recvreq();
+        completed++;
+      }
 
     std::time(&now);
     poll(PFD, C.size(), WAITMS);
