@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   HttpsClient client(1.1, hostname, port_no);
   if (client.connect())
   {
-    if (!client.sendhttpreq(GET, "/", { }, { }))
+    if (!client.sendreq(GET, "/", { }, { }))
     {
       std::cout << client.get_report() << std::endl;
       return 1;

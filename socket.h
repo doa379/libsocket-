@@ -76,7 +76,7 @@ public:
 
 class Client : public Http
 {
-  friend class MultiHttpClient;
+  friend class MultiClient;
   std::string agent { "HttpRequest" }, response_header, response_body;
   std::smatch match;
   const std::regex content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) };
@@ -86,7 +86,7 @@ public:
   ~Client(void);
   bool connect(void);
   bool sendreq(const std::vector<std::string> &, const std::string &);
-  bool sendhttpreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
+  bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   void recvreq(void);
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
@@ -100,23 +100,23 @@ public:
   ~HttpClient(void);
 };
 
-class MultiHttpClient
-{
-  const unsigned timeout;
-  std::vector<std::reference_wrapper<Client>> C;
-public:
-  MultiHttpClient(const unsigned);
-  void set_client(Client &);
-  bool connect(void);
-  void recvreq(void);
-};
-
 class HttpsClient : public Client
 {
   SecureClientPair sslclient;
 public:
   HttpsClient(const float, const std::string &, const unsigned); 
   ~HttpsClient(void);
+};
+
+class MultiClient
+{
+  const unsigned timeout;
+  std::vector<std::reference_wrapper<Client>> C;
+public:
+  MultiClient(const unsigned);
+  void set_client(Client &);
+  bool connect(void);
+  void recvreq(void);
 };
 
 class Server : public Http

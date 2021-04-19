@@ -247,7 +247,7 @@ bool Client::sendreq(const std::vector<std::string> &HEADERS, const std::string 
   return writer(request);
 }
 
-bool Client::sendhttpreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
+bool Client::sendreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
 {
   std::string req_type { 
     req == GET ? "GET" : 
@@ -344,53 +344,6 @@ HttpClient::~HttpClient(void)
 
 }
 
-MultiHttpClient::MultiHttpClient(const unsigned timeout) : timeout(timeout)
-{
-
-}
-
-void MultiHttpClient::set_client(Client &c)
-{
-  C.emplace_back(c);
-}
-
-bool MultiHttpClient::connect(void)
-{
-  bool retval { true };
-  for (auto &c : C)
-    if (!c.get().connect())
-      retval = false;
-
-  return retval;
-}
-
-void MultiHttpClient::recvreq(void)
-{
-  struct pollfd PFD[MAX_CLIENTS] { };
-  for (auto i { 0U }; i < C.size(); i++)
-  {
-    PFD[i].fd = C[i].get().sd;
-    PFD[i].events = POLLIN;
-  }
-
-  std::time_t init, now;
-  std::time(&init);
-  std::time(&now);
-  unsigned completed { 0 };
-  while (completed < C.size() && std::difftime(now, init) < timeout)
-  {
-    for (auto i { 0U }; i < C.size(); i++)
-      if (PFD[i].revents & POLLIN)
-      {
-        C[i].get().recvreq();
-        completed++;
-      }
-
-    std::time(&now);
-    poll(PFD, C.size(), WAITMS);
-  }
-}
-
 HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port) : 
   Client(httpver, hostname, port)
 {
@@ -437,6 +390,53 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
 HttpsClient::~HttpsClient(void)
 {
 
+}
+
+MultiClient::MultiClient(const unsigned timeout) : timeout(timeout)
+{
+
+}
+
+void MultiClient::set_client(Client &c)
+{
+  C.emplace_back(c);
+}
+
+bool MultiClient::connect(void)
+{
+  bool retval { true };
+  for (auto &c : C)
+    if (!c.get().connect())
+      retval = false;
+
+  return retval;
+}
+
+void MultiClient::recvreq(void)
+{
+  struct pollfd PFD[MAX_CLIENTS] { };
+  for (auto i { 0U }; i < C.size(); i++)
+  {
+    PFD[i].fd = C[i].get().sd;
+    PFD[i].events = POLLIN;
+  }
+
+  std::time_t init, now;
+  std::time(&init);
+  std::time(&now);
+  unsigned completed { 0 };
+  while (completed < C.size() && std::difftime(now, init) < timeout)
+  {
+    for (auto i { 0U }; i < C.size(); i++)
+      if (PFD[i].revents & POLLIN)
+      {
+        C[i].get().recvreq();
+        completed++;
+      }
+
+    std::time(&now);
+    poll(PFD, C.size(), WAITMS);
+  }
 }
 
 Server::Server(const float httpver, const std::string &hostname, const unsigned port) : Http(httpver, hostname, port)
