@@ -114,7 +114,7 @@ class MultiClient
   std::vector<std::reference_wrapper<Client>> C;
 public:
   MultiClient(const unsigned);
-  void set_client(Client &);
+  bool set_client(Client &);
   bool connect(void);
   void recvreq(void);
 };

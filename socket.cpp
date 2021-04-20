@@ -6,6 +6,7 @@
 #include <openssl/err.h>
 #include <sys/poll.h>
 #include <ctime>
+#include <bitset>
 #include "socket.h"
 
 Http::Http(const float httpver, const std::string &hostname, const unsigned port) : 
@@ -397,9 +398,15 @@ MultiClient::MultiClient(const unsigned timeout_s) : timeout_s(timeout_s)
 
 }
 
-void MultiClient::set_client(Client &c)
+bool MultiClient::set_client(Client &c)
 {
-  C.emplace_back(c);
+  if (C.size() < MAX_CLIENTS)
+  {
+    C.emplace_back(c);
+    return true;
+  }
+
+  return false;
 }
 
 bool MultiClient::connect(void)
@@ -415,7 +422,7 @@ bool MultiClient::connect(void)
 void MultiClient::recvreq(void)
 {
   struct pollfd PFD[MAX_CLIENTS] { };
-  bool MASK[MAX_CLIENTS] { };
+  std::bitset<MAX_CLIENTS> M;
   for (auto i { 0U }; i < C.size(); i++)
   {
     PFD[i].fd = C[i].get().sd;
@@ -425,15 +432,13 @@ void MultiClient::recvreq(void)
   std::time_t init, now;
   std::time(&init);
   std::time(&now);
-  unsigned completed { 0 };
-  while (completed < C.size() && std::difftime(now, init) < timeout_s)
+  while (M.count() < C.size() && std::difftime(now, init) < timeout_s)
   {
     for (auto i { 0U }; i < C.size(); i++)
-      if (PFD[i].revents & POLLIN && !MASK[i])
+      if (PFD[i].revents & POLLIN && !M.test(i))
       {
         C[i].get().recvreq();
-        MASK[i] = 1;
-        completed++;
+        M |= 1 << i;
       }
 
     std::time(&now);
