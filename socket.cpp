@@ -8,17 +8,17 @@
 #include <ctime>
 #include "socket.h"
 
-Http::Http(const float httpver, const std::string &hostname, const unsigned port) : hostname(hostname), port(port)
+Http::Http(const float httpver, const std::string &hostname, const unsigned port) : 
+  hostname(hostname), port(port)
 {
-  sprintf(this->httpver, "%.1f", httpver);
+  snprintf(this->httpver, sizeof this->httpver, "%.1f", httpver);
   memset(&sa, 0, sizeof sa);
   try {
     sd = socket(AF_INET, SOCK_STREAM, 0);
     if (sd < 0)
       throw "Socket creation failed";
   }
-  catch(const std::string &ex)
-  {
+  catch(const std::string &ex) {
     report = ex;
     throw;
   }
@@ -39,6 +39,7 @@ bool Http::init_connect(void)
     report = "Unable to resolve hostname";
     return false;
   }
+
   sa.sin_addr.s_addr = *(long *) host->h_addr;
   return true;
 }
@@ -65,7 +66,7 @@ void Secure::deinit_ssl(void)
   SSL_CTX_free(ctx);
 }
 
-SecureClientPair::SecureClientPair(void) : Secure()
+SecureClientPair::SecureClientPair(void)
 {
   try {
     const SSL_METHOD *meth { TLS_client_method() };
@@ -76,8 +77,7 @@ SecureClientPair::SecureClientPair(void) : Secure()
     else if (!ssl)
       throw "ssl";
   }
-  catch(const std::string &ex)
-  {
+  catch(const std::string &ex) {
     std::cerr << "Unable to create " + ex + '\n';
     throw;
   }
@@ -88,7 +88,7 @@ SecureClientPair::~SecureClientPair(void)
   deinit_ssl();
 }
 
-SecureServerPair::SecureServerPair(void) : Secure()
+SecureServerPair::SecureServerPair(void)
 {
   try {
     const SSL_METHOD *meth { TLS_server_method() };
@@ -392,7 +392,7 @@ HttpsClient::~HttpsClient(void)
 
 }
 
-MultiClient::MultiClient(const unsigned timeout) : timeout(timeout)
+MultiClient::MultiClient(const unsigned timeout_s) : timeout_s(timeout_s)
 {
 
 }
@@ -415,6 +415,7 @@ bool MultiClient::connect(void)
 void MultiClient::recvreq(void)
 {
   struct pollfd PFD[MAX_CLIENTS] { };
+  bool MASK[MAX_CLIENTS] { };
   for (auto i { 0U }; i < C.size(); i++)
   {
     PFD[i].fd = C[i].get().sd;
@@ -425,12 +426,13 @@ void MultiClient::recvreq(void)
   std::time(&init);
   std::time(&now);
   unsigned completed { 0 };
-  while (completed < C.size() && std::difftime(now, init) < timeout)
+  while (completed < C.size() && std::difftime(now, init) < timeout_s)
   {
     for (auto i { 0U }; i < C.size(); i++)
-      if (PFD[i].revents & POLLIN)
+      if (PFD[i].revents & POLLIN && !MASK[i])
       {
         C[i].get().recvreq();
+        MASK[i] = 1;
         completed++;
       }
 

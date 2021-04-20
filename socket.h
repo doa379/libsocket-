@@ -10,7 +10,7 @@
 static const float DEFAULT_HTTPVER { 2.0 };
 static const std::string CERTPEM { "/tmp/cert.pem" };
 static const std::string KEYPEM { "/tmp/key.pem" };
-static const unsigned MAX_CLIENTS { 100 };
+static const unsigned MAX_CLIENTS { 256 };
 static const unsigned WAITMS { 100 };
 
 enum REQUEST { GET, POST, PUT, DELETE };
@@ -20,7 +20,7 @@ class Http
 protected:
   int sd;
   struct sockaddr_in sa;
-  char httpver[4];
+  char httpver[8];
   std::string hostname, report;
   unsigned port;
   std::function<bool(void)> connector;
@@ -110,7 +110,7 @@ public:
 
 class MultiClient
 {
-  const unsigned timeout;
+  const unsigned timeout_s;
   std::vector<std::reference_wrapper<Client>> C;
 public:
   MultiClient(const unsigned);

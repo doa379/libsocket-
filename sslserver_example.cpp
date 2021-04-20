@@ -30,6 +30,9 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  server.run("Document being served\n");
+  std::cout << "Running SSL server on " << hostname << ":" << std::to_string(port_no) << std::endl;
+  const std::string header { "HTTP/1.1 200 OK" },
+    document { "Document" };
+  server.run(header + "\r\n\r\n" + document);
   return 0;
 }

@@ -6,7 +6,7 @@ static const unsigned port0 { 443 };
 static const std::string host1 { "localhost" };
 static const unsigned port1 { 4433 };
 
-int main(int argc, char *argv[])
+int main(const int argc, const char *argv[])
 {
   HttpsClient client0(1.1, host0, port0), client1(1.1, host1, port1);
   MultiClient mc(10);
