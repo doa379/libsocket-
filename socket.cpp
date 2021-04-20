@@ -11,7 +11,7 @@
 Http::Http(const float httpver, const std::string &hostname, const unsigned port) : 
   hostname(hostname), port(port)
 {
-  snprintf(this->httpver, sizeof this->httpver, "%.1f", httpver);
+  snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
   memset(&sa, 0, sizeof sa);
   try {
     sd = socket(AF_INET, SOCK_STREAM, 0);
