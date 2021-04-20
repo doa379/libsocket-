@@ -1,1 +1,1 @@
-C++ Wrapper for Client and Server Internet Sockets. SSL support.
+C++ Wrapper for Client and Server Internet Sockets. SSL support. Batched transfers.

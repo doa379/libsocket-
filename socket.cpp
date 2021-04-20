@@ -435,7 +435,7 @@ void MultiClient::recvreq(void)
   while (M.count() < C.size() && std::difftime(now, init) < timeout_s)
   {
     for (auto i { 0U }; i < C.size(); i++)
-      if (PFD[i].revents & POLLIN && !M.test(i))
+      if (PFD[i].revents & POLLIN && !M[i])
       {
         C[i].get().recvreq();
         M |= 1 << i;

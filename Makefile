@@ -20,7 +20,7 @@ SRC_TEST5 = multisslclient_example.cpp
 OBJ_TEST5 = ${SRC_TEST5:.cpp=.o}
 
 CC = c++
-CFLAGS = -std=c++14 -c -Wall -Werror -fPIE -fPIC -pedantic -O3 ${INCS}
+CFLAGS = -std=c++14 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
 LDFLAGS += ${LIBSPATH}
 
 all: libsocket++.so \
