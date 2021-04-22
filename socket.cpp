@@ -286,7 +286,7 @@ void Client::recvreq(void)
   bool res;
   do
   {
-    res = reader(&p);
+    res = reader(p);
     response_header += p;
   }
   while (res && response_header.find("\r\n\r\n") == std::string::npos);
@@ -296,17 +296,31 @@ void Client::recvreq(void)
       (content_length = std::stol(response_header.substr(match.prefix().length() + 16))))
     do
     {
-      res = reader(&p);
+      res = reader(p);
       response_body += p;
     }
     while (res && response_body.size() < content_length);
 
   else
   {
-    while (reader(&p))
+    std::size_t l { };
+    char *q;
+    while (reader(p))
     {
       response_body += p;
-      response_cb(response_body);
+      if (!l && response_body.find("\r\n") < std::string::npos)
+      {
+        l = std::strtol(response_body.c_str(), &q, 16);
+        if (q)
+          response_body.clear();
+      }
+
+      else if (response_body.size() == l)
+      {
+        response_cb(response_body);
+        response_body.clear();
+        l = 0;
+      }
     }
   }
 }
@@ -322,8 +336,8 @@ HttpClient::HttpClient(const float httpver, const std::string &hostname, const u
     }
     return true;
   };
-  reader = [this](char *p) -> bool {
-    if (::recv(sd, p, sizeof *p, 0) < 1)
+  reader = [this](char &p) -> bool {
+    if (::recv(sd, &p, sizeof p, 0) < 1)
     {
       report = "Read error";
       return false;
@@ -368,8 +382,8 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
     }
     return true;
   };
-  reader = [this](char *p) -> bool {
-    ssize_t err { sslclient.read(p, sizeof *p) };
+  reader = [this](char &p) -> bool {
+    ssize_t err { sslclient.read(&p, sizeof p) };
     if (err < 1)
     {
       report = "Read: " + std::to_string(sslclient.get_error(err));

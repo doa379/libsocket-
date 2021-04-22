@@ -24,7 +24,7 @@ protected:
   std::string hostname, report;
   unsigned port;
   std::function<bool(void)> connector;
-  std::function<bool(char *)> reader;
+  std::function<bool(char &)> reader;
   std::function<bool(const std::string &)> writer;
 public:
   Http(const float, const std::string &hostname, const unsigned port);
@@ -74,13 +74,15 @@ public:
   ~SecureServerPair(void);
 };
 
+using Cb = std::function<void(const std::string &)>;
+
 class Client : public Http
 {
   friend class MultiClient;
   std::string agent { "HttpRequest" }, response_header, response_body;
   std::smatch match;
   const std::regex content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) };
-  std::function<void(std::string &)> response_cb { [](std::string &) { } };
+  Cb response_cb { [](const std::string &) { } };
 public:
   Client(const float, const std::string &, const unsigned);
   ~Client(void);
@@ -90,7 +92,8 @@ public:
   void recvreq(void);
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
-  void set_cb(decltype(response_cb) &callback) { response_cb = callback; };
+  void set_cb(const decltype(response_cb) &callback) { response_cb = callback; };
+  void clear_buffer(void) { response_body.clear(); };
 };
 
 class HttpClient : public Client
