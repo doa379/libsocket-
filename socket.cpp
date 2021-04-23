@@ -282,6 +282,8 @@ bool Client::sendreq(REQUEST req, const std::string &endpoint, const std::vector
 
 void Client::recvreq(void)
 {
+  response_header.clear();
+  response_body.clear();
   char p;
   bool res;
   do
@@ -304,12 +306,12 @@ void Client::recvreq(void)
   else
   {
     std::size_t l { };
-    char *q;
     while (reader(p))
     {
       response_body += p;
       if (!l && response_body.find("\r\n") < std::string::npos)
       {
+        char *q;
         l = std::strtol(response_body.c_str(), &q, 16);
         if (q)
           response_body.clear();

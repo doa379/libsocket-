@@ -65,5 +65,11 @@ multisslclient_example: ${OBJ_TEST5}
 
 clean:
 		@echo Cleaning
-		@rm -f ${OBJ_LIBSOCKET} ${OBJ_TEST0} ${OBJ_TEST1} ${OBJ_TEST2} ${OBJ_TEST3} ${OBJ_TEST4} ${OBJ_TEST5}
+		@rm -f ${OBJ_LIBSOCKET} \
+		  ${OBJ_TEST0} \
+		  ${OBJ_TEST1} \
+		  ${OBJ_TEST2} \
+		  ${OBJ_TEST3} \
+		  ${OBJ_TEST4} \
+		  ${OBJ_TEST5}
 		@rm -f *example
