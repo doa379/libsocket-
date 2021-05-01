@@ -248,7 +248,7 @@ bool Client::sendreq(const std::vector<std::string> &HEADERS, const std::string 
   return writer(request);
 }
 
-bool Client::sendreq(REQUEST req, const std::string &endpoint, const std::vector<std::string> &HEADERS, const std::string &data)
+bool Client::sendreq(REQUEST req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
   std::string req_type { 
     req == GET ? "GET" : 
@@ -265,12 +265,12 @@ bool Client::sendreq(REQUEST req, const std::string &endpoint, const std::vector
   }
 
   std::string request { 
-    req_type + " " + endpoint + " " + "HTTP/" + std::string(httpver) + "\r\n" +
+    req_type + " " + endp + " " + "HTTP/" + std::string(httpver) + "\r\n" +
     "Host: " + hostname + "\r\n" +
     "User-Agent: " + agent + "\r\n" +
     "Accept: */*" + "\r\n" };
 
-  for (auto &h : HEADERS)
+  for (auto &h : H)
     request += h + "\r\n";
 
   if (data.size())
@@ -293,36 +293,33 @@ void Client::recvreq(void)
   }
   while (res && response_header.find("\r\n\r\n") == std::string::npos);
 
-  std::size_t content_length { 0 };
+  std::size_t l { };
   if (std::regex_search(response_header, match, content_length_regex) &&
-      (content_length = std::stol(response_header.substr(match.prefix().length() + 16))))
+      (l = std::stoull(response_header.substr(match.prefix().length() + 16))))
     do
     {
       res = reader(p);
       response_body += p;
     }
-    while (res && response_body.size() < content_length);
+    while (res && response_body.size() < l);
 
   else
   {
-    std::size_t l { };
     while (reader(p))
     {
       response_body += p;
-      if (!l && response_body.find("\r\n") < std::string::npos)
-      {
-        char *q;
-        l = std::strtol(response_body.c_str(), &q, 16);
-        if (q)
-          response_body.clear();
-      }
-
+      if (response_body == "\r\n");
+      else if (!l && response_body.find("\r\n") < std::string::npos)
+        l = std::stoull(response_body, nullptr, 16);
       else if (response_body.size() == l)
       {
         response_cb(response_body);
-        response_body.clear();
         l = 0;
       }
+      else
+        continue;
+
+      response_body.clear();
     }
   }
 }
