@@ -7,6 +7,8 @@
 #include <sys/poll.h>
 #include <ctime>
 #include <bitset>
+#include <thread>
+#include <chrono>
 #include "socket.h"
 
 Http::Http(const float httpver, const std::string &hostname, const unsigned port) : 
@@ -324,6 +326,17 @@ void Client::recvreq(void)
   }
 }
 
+void Client::recvreq_raw(void)
+{
+  char p;
+  while (reader(p))
+  {
+    response_body += p;
+    response_cb(response_body);
+    response_body.clear();
+  }
+}
+
 HttpClient::HttpClient(const float httpver, const std::string &hostname, const unsigned port) : 
   Client(httpver, hostname, port)
 {
@@ -493,7 +506,7 @@ HttpServer::~HttpServer(void)
 
 }
 
-bool HttpServer::run(const std::string &document)
+bool HttpServer::run(const std::function<void(std::string &)> &cb)
 {
   is_running = true;
   while(is_running)
@@ -506,11 +519,20 @@ bool HttpServer::run(const std::string &document)
       report = "Unable to accept client";
       continue;
     }
-    if (::write(clientsd, document.c_str(), document.size()) < 0)
+    std::string document;
+    std::thread th([&](void) { cb(document); });
+
+    while (is_running)
     {
-      report = "Error writing";
-      return false;
+      if (::write(clientsd, document.c_str(), document.size()) < 0)
+      {
+        report = "Error writing";
+        return false;
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
+    th.join();
     close(clientsd);
   }
 
@@ -529,7 +551,8 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-bool HttpsServer::run(const std::string &document)
+//bool HttpsServer::run(const std::string &document)
+bool HttpsServer::run(const std::function<void(std::string &)> &cb)
 {
   is_running = true;
   while (is_running)
@@ -551,6 +574,7 @@ bool HttpsServer::run(const std::string &document)
       return false;
     }
 
+    std::string document { "void" };
 	  client.set_tlsext_hostname(hostname);
     sslserver.set_fd(clientsd);
     sslserver.set_CTX(client);

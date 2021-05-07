@@ -18,6 +18,8 @@ SRC_TEST4 = multiclient_example.cpp
 OBJ_TEST4 = ${SRC_TEST4:.cpp=.o}
 SRC_TEST5 = multisslclient_example.cpp
 OBJ_TEST5 = ${SRC_TEST5:.cpp=.o}
+SRC_TEST6 = streaming_example.cpp
+OBJ_TEST6 = ${SRC_TEST6:.cpp=.o}
 
 CC = c++
 CFLAGS = -std=c++14 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
@@ -29,7 +31,8 @@ all: libsocket++.so \
   sslclient_example \
   sslserver_example \
   multiclient_example \
-  multisslclient_example
+  multisslclient_example \
+  streaming_example
 
 .cpp.o:
 		@echo CC $<
@@ -63,6 +66,10 @@ multisslclient_example: ${OBJ_TEST5}
 		@echo CC -o $@
 		@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS} -l socket++
 
+streaming_example: ${OBJ_TEST6}
+		@echo CC -o $@
+		@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS} -l socket++
+
 clean:
 		@echo Cleaning
 		@rm -f ${OBJ_LIBSOCKET} \
@@ -71,5 +78,6 @@ clean:
 		  ${OBJ_TEST2} \
 		  ${OBJ_TEST3} \
 		  ${OBJ_TEST4} \
-		  ${OBJ_TEST5}
+		  ${OBJ_TEST5} \
+      ${OBJ_TEST6}
 		@rm -f *example

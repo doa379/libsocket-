@@ -33,6 +33,6 @@ int main(int argc, char *argv[])
   std::cout << "Running SSL server on " << hostname << ":" << std::to_string(port_no) << std::endl;
   const std::string header { "HTTP/1.1 200 OK" },
     document { "Document" };
-  server.run(header + "\r\n\r\n" + document);
+  //server.run(header + "\r\n\r\n" + document);
   return 0;
 }

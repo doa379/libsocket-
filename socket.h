@@ -90,6 +90,7 @@ public:
   bool sendreq(const std::vector<std::string> &, const std::string &);
   bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   void recvreq(void);
+  void recvreq_raw(void);
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
   void set_cb(const decltype(response_cb) &callback) { response_cb = callback; };
@@ -129,7 +130,8 @@ protected:
 public:
   Server(const float, const std::string &, const unsigned);
   bool connect(void);
-  virtual bool run(const std::string &) = 0;
+  //virtual bool run(const std::string &) = 0;
+  virtual bool run(const std::function<void(std::string &)> &) = 0;
   void stop(void) { is_running = false; };
 };
 
@@ -138,7 +140,8 @@ class HttpServer : public Server
 public:
   HttpServer(const std::string &, const unsigned);
   ~HttpServer(void);
-  bool run(const std::string &);
+  //bool run(const std::string &);
+  bool run(const std::function<void(std::string &)> &);
 };
 
 class HttpsServer : public Server
@@ -147,5 +150,6 @@ class HttpsServer : public Server
 public:
   HttpsServer(const std::string &, const unsigned);
   ~HttpsServer(void);
-  bool run(const std::string &);
+  //bool run(const std::string &);
+  bool run(const std::function<void(std::string &)> &);
 };
