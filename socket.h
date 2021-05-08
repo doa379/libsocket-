@@ -6,6 +6,8 @@
 #include <functional>
 #include <openssl/ssl.h>
 #include <regex>
+#include <mutex>
+#include <condition_variable>
 
 static const float DEFAULT_HTTPVER { 2.0 };
 static const std::string CERTPEM { "/tmp/cert.pem" };
@@ -126,13 +128,12 @@ public:
 class Server : public Http
 {
 protected:
-  bool is_running;
+  std::mutex mtx;
+  std::condition_variable cv;
 public:
   Server(const float, const std::string &, const unsigned);
   bool connect(void);
-  //virtual bool run(const std::string &) = 0;
   virtual bool run(const std::function<void(std::string &)> &) = 0;
-  void stop(void) { is_running = false; };
 };
 
 class HttpServer : public Server
@@ -140,7 +141,7 @@ class HttpServer : public Server
 public:
   HttpServer(const std::string &, const unsigned);
   ~HttpServer(void);
-  //bool run(const std::string &);
+  void write(void);
   bool run(const std::function<void(std::string &)> &);
 };
 
@@ -150,6 +151,5 @@ class HttpsServer : public Server
 public:
   HttpsServer(const std::string &, const unsigned);
   ~HttpsServer(void);
-  //bool run(const std::string &);
   bool run(const std::function<void(std::string &)> &);
 };

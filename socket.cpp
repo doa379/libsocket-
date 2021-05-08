@@ -506,10 +506,15 @@ HttpServer::~HttpServer(void)
 
 }
 
+void HttpServer::write(void)
+{
+  std::unique_lock<std::mutex> lock { mtx };
+  cv.notify_all();
+}
+
 bool HttpServer::run(const std::function<void(std::string &)> &cb)
 {
-  is_running = true;
-  while(is_running)
+  while(1)
   {
     struct sockaddr_in addr;
     uint len { sizeof addr };
@@ -519,19 +524,16 @@ bool HttpServer::run(const std::function<void(std::string &)> &cb)
       report = "Unable to accept client";
       continue;
     }
+
     std::string document;
     std::thread th([&](void) { cb(document); });
-
-    while (is_running)
+    while (1)
     {
-      if (::write(clientsd, document.c_str(), document.size()) < 0)
-      {
-        report = "Error writing";
-        return false;
-      }
-
-      std::this_thread::sleep_for(std::chrono::milliseconds(250));
+      std::unique_lock<std::mutex> lock { mtx };
+      cv.wait(lock);
+      ::write(clientsd, document.c_str(), document.size());
     }
+    
     th.join();
     close(clientsd);
   }
@@ -551,11 +553,9 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-//bool HttpsServer::run(const std::string &document)
 bool HttpsServer::run(const std::function<void(std::string &)> &cb)
 {
-  is_running = true;
-  while (is_running)
+  while (1)
   {
     struct sockaddr_in addr;
     uint len { sizeof addr };

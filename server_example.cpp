@@ -6,8 +6,6 @@
 
 static const std::string host0 { "localhost" };
 static const unsigned port0 { 8080 };
-static const std::string host1 { "..." };
-static const unsigned port1 { 8080 };
 
 int rand(int a, int b)
 {
@@ -43,17 +41,18 @@ int main(const int argc, const char *argv[])
 
   const std::string document { "Document being served at " +
     hostname + " port " + std::to_string(port_no) + '\n' },
-        header { "Content-Length: " + std::to_string(document.size()) +
-          "\r\n\r\n" };
+        header { "\r\n\r\n" };
 
   auto cb { 
     [&](std::string &res) {
       res = header + document;
+      server.write();
       while (1)
       {
         std::string s { std::to_string(rand(100, 999)) };
         res = std::to_string(s.size()) + "\r\n" + s + "\r\n\r\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        server.write();
+        std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
       }
     } 
   };
