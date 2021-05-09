@@ -9,7 +9,7 @@ static const unsigned port1 { 4433 };
 int main(const int argc, const char *argv[])
 {
   HttpsClient client0(1.1, host0, port0), client1(1.1, host1, port1);
-  MultiClient mc(10);
+  MultiClient mc;
   mc.set_client(client0);
   mc.set_client(client1);
   if (!mc.connect())

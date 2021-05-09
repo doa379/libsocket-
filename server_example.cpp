@@ -1,7 +1,6 @@
 #include <iostream>
 #include <random>
 #include <thread>
-#include <chrono>
 #include "socket.h"
 
 static const std::string host0 { "localhost" };
@@ -39,13 +38,13 @@ int main(const int argc, const char *argv[])
     return 1;
   }
 
-  const std::string document { "Document being served at " +
-    hostname + " port " + std::to_string(port_no) + '\n' },
-        header { "\r\n\r\n" };
+  const std::string header { 
+    "HTTP/1.1 Stream\r\n" + 
+    hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
 
   auto cb { 
     [&](std::string &res) {
-      res = header + document;
+      res = header;
       server.write();
       while (1)
       {
@@ -57,6 +56,7 @@ int main(const int argc, const char *argv[])
     } 
   };
 
+  std::cout << "Running server...\n";
   server.run(cb);
   return 0;
 }

@@ -1,11 +1,10 @@
-LOCAL = ../
+LOCAL = ..
 LIBSPATH = -L ${LOCAL}/libsocket++ -Wl,-R$(LOCAL)/libsocket++ '-Wl,-R$$ORIGIN'
-INCS = -I /usr/local/include -I ${LOCAL}
+INCS = -I /usr/local/include -I ${LOCAL}/
 LIBS = -l ssl -l crypto
 
 SRC_LIBSOCKET = socket.cpp
 OBJ_LIBSOCKET = ${SRC_LIBSOCKET:.cpp=.o}
-
 SRC_TEST0 = client_example.cpp
 OBJ_TEST0 = ${SRC_TEST0:.cpp=.o}
 SRC_TEST1 = server_example.cpp
@@ -35,49 +34,49 @@ all: libsocket++.so \
   streaming_example
 
 .cpp.o:
-		@echo CC $<
-		@${CC} ${CFLAGS} $<
+	@echo CC $<
+	@${CC} ${CFLAGS} $<
 
 libsocket++.so: ${OBJ_LIBSOCKET}
-		@echo CC -o $@
-		@${CC} -shared -o $@ ${OBJ_LIBSOCKET} ${LDFLAGS} ${LIBS}
+	@echo CC -o $@
+	@${CC} -shared -o $@ ${OBJ_LIBSOCKET} ${LDFLAGS} ${LIBS}
 
 client_example: ${OBJ_TEST0}
-		@echo CC -o $@
-		@${CC} -o $@ ${OBJ_TEST0} ${LDFLAGS} -l socket++
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST0} ${LDFLAGS} -l socket++
 
 server_example: ${OBJ_TEST1}
-		@echo CC -o $@
-		@${CC} -o $@ ${OBJ_TEST1} ${LDFLAGS} -l socket++
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST1} ${LDFLAGS} -l socket++
 
 sslclient_example: ${OBJ_TEST2}
-		@echo CC -o $@
-		@${CC} -o $@ ${OBJ_TEST2} ${LDFLAGS} -l socket++
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST2} ${LDFLAGS} -l socket++
 
 sslserver_example: ${OBJ_TEST3}
-		@echo CC -o $@
-		@${CC} -o $@ ${OBJ_TEST3} ${LDFLAGS} -l socket++
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST3} ${LDFLAGS} -l socket++
 
 multiclient_example: ${OBJ_TEST4}
-		@echo CC -o $@
-		@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS} -l socket++
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS} -l socket++
 
 multisslclient_example: ${OBJ_TEST5}
-		@echo CC -o $@
-		@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS} -l socket++
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS} -l socket++
 
 streaming_example: ${OBJ_TEST6}
-		@echo CC -o $@
-		@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS} -l socket++
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS} -l socket++
 
 clean:
-		@echo Cleaning
-		@rm -f ${OBJ_LIBSOCKET} \
-		  ${OBJ_TEST0} \
-		  ${OBJ_TEST1} \
-		  ${OBJ_TEST2} \
-		  ${OBJ_TEST3} \
-		  ${OBJ_TEST4} \
-		  ${OBJ_TEST5} \
-      ${OBJ_TEST6}
-		@rm -f *example
+	@echo Cleaning
+	@rm -f ${OBJ_LIBSOCKET} \
+    ${OBJ_TEST0} \
+    ${OBJ_TEST1} \
+    ${OBJ_TEST2} \
+    ${OBJ_TEST3} \
+    ${OBJ_TEST4} \
+    ${OBJ_TEST5} \
+    ${OBJ_TEST6}
+	@rm -f *example

@@ -5,10 +5,8 @@
 #include <iostream>
 #include <openssl/err.h>
 #include <sys/poll.h>
-#include <ctime>
 #include <bitset>
 #include <thread>
-#include <chrono>
 #include "socket.h"
 
 Http::Http(const float httpver, const std::string &hostname, const unsigned port) : 
@@ -307,9 +305,12 @@ void Client::recvreq(void)
 
   else
   {
-    while (reader(p))
+    const auto init { this->now() };
+    auto now { init };
+    while (reader(p) && difftime(now, init) < timeout)
     {
       response_body += p;
+      now = this->now();
       if (response_body == "\r\n");
       else if (!l && response_body.find("\r\n") < std::string::npos)
         l = std::stoull(response_body, nullptr, 16);
@@ -419,7 +420,7 @@ HttpsClient::~HttpsClient(void)
 
 }
 
-MultiClient::MultiClient(const unsigned timeout_s) : timeout_s(timeout_s)
+MultiClient::MultiClient(void)
 {
 
 }
@@ -455,10 +456,9 @@ void MultiClient::recvreq(void)
     PFD[i].events = POLLIN;
   }
 
-  std::time_t init, now;
-  std::time(&init);
-  std::time(&now);
-  while (M.count() < C.size() && std::difftime(now, init) < timeout_s)
+  const auto init { this->now() };
+  auto now { init };
+  while (M.count() < C.size() && difftime(now, init) < timeout)
   {
     for (auto i { 0U }; i < C.size(); i++)
       if (PFD[i].revents & POLLIN && !M[i])
@@ -467,7 +467,7 @@ void MultiClient::recvreq(void)
         M |= 1 << i;
       }
 
-    std::time(&now);
+    now = this->now();
     poll(PFD, C.size(), WAITMS);
   }
 }
@@ -514,7 +514,7 @@ void HttpServer::write(void)
 
 bool HttpServer::run(const std::function<void(std::string &)> &cb)
 {
-  while(1)
+  while (1)
   {
     struct sockaddr_in addr;
     uint len { sizeof addr };
@@ -531,13 +531,15 @@ bool HttpServer::run(const std::function<void(std::string &)> &cb)
     {
       std::unique_lock<std::mutex> lock { mtx };
       cv.wait(lock);
-      ::write(clientsd, document.c_str(), document.size());
+      if (::write(clientsd, document.c_str(), document.size()) < 0)
+        break;
     }
     
     th.join();
     close(clientsd);
   }
 
+  std::cerr << report << '\n';
   return true;
 }
 

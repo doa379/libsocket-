@@ -6,6 +6,7 @@
 #include <functional>
 #include <openssl/ssl.h>
 #include <regex>
+#include <chrono>
 #include <mutex>
 #include <condition_variable>
 
@@ -14,6 +15,7 @@ static const std::string CERTPEM { "/tmp/cert.pem" };
 static const std::string KEYPEM { "/tmp/key.pem" };
 static const unsigned MAX_CLIENTS { 256 };
 static const unsigned WAITMS { 100 };
+static const unsigned DEFAULT_TIMEOUT { 30 * 1000 };
 
 enum REQUEST { GET, POST, PUT, DELETE };
 
@@ -76,9 +78,26 @@ public:
   ~SecureServerPair(void);
 };
 
+using time_p = std::chrono::time_point<std::chrono::system_clock>;
+
+template<typename T>
+class Time
+{
+protected:
+  unsigned timeout { DEFAULT_TIMEOUT };
+public:
+  time_p now(void) noexcept { return std::chrono::system_clock::now(); };
+  std::size_t difftime(time_p t1, time_p t0)
+  {
+    return std::chrono::duration_cast<T>(t1.time_since_epoch()).count() -
+      std::chrono::duration_cast<T>(t0.time_since_epoch()).count();
+  }
+  void set_timeout(const unsigned timeout) { this->timeout = timeout; };
+};
+
 using Cb = std::function<void(const std::string &)>;
 
-class Client : public Http
+class Client : public Http, public Time<std::chrono::milliseconds>
 {
   friend class MultiClient;
   std::string agent { "HttpRequest" }, response_header, response_body;
@@ -114,12 +133,11 @@ public:
   ~HttpsClient(void);
 };
 
-class MultiClient
+class MultiClient : public Time<std::chrono::milliseconds>
 {
-  const unsigned timeout_s;
   std::vector<std::reference_wrapper<Client>> C;
 public:
-  MultiClient(const unsigned);
+  MultiClient(void);
   bool set_client(Client &);
   bool connect(void);
   void recvreq(void);
