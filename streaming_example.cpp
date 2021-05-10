@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
   HttpClient client(1.1, hostname, port_no);
   Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
   client.set_cb(cb);
-  client.set_timeout(1500);
+  client.set_timeout(1750);
   if (client.connect())
   {
     if (!client.sendreq(GET, "/", { }, { }))
@@ -32,8 +32,11 @@ int main(int argc, char *argv[])
       std::cout << client.get_report() << std::endl;
       return 1;
     }
-    client.recvreq_raw();
-    std::cerr << "Stream disconnected\n";
+
+    client.recvreq();
+    std::cout << "Stream disconnected\n";
+    std::cout << "The response header:\n===================\n";
+    std::cout << client.get_header() << std::endl;
   }
 
   else

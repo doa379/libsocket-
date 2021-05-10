@@ -291,7 +291,7 @@ void Client::recvreq(void)
     res = reader(p);
     response_header += p;
   }
-  while (res && response_header.find("\r\n\r\n") == std::string::npos);
+  while (res && !(response_header.find("\r\n\r\n") < std::string::npos));
 
   std::size_t l { };
   if (std::regex_search(response_header, match, content_length_regex) &&
@@ -305,9 +305,8 @@ void Client::recvreq(void)
 
   else
   {
-    const auto init { this->now() };
-    auto now { init };
-    while (reader(p) && difftime(now, init) < timeout)
+    auto now { this->now() };
+    while (reader(p) && difftime(this->now(), now) < timeout)
     {
       response_body += p;
       now = this->now();
@@ -330,9 +329,11 @@ void Client::recvreq(void)
 void Client::recvreq_raw(void)
 {
   char p;
-  while (reader(p))
+  auto now { this->now() };
+  while (reader(p) && difftime(this->now(), now) < timeout)
   {
     response_body += p;
+    now = this->now();
     response_cb(response_body);
     response_body.clear();
   }
@@ -506,13 +507,15 @@ HttpServer::~HttpServer(void)
 
 }
 
-void HttpServer::write(void)
+bool HttpServer::write(const int clientsd, const std::string &document)
 {
-  std::unique_lock<std::mutex> lock { mtx };
-  cv.notify_all();
+  if (::write(clientsd, document.c_str(), document.size()) < 0)
+    return false;
+
+  return true;
 }
 
-bool HttpServer::run(const std::function<void(std::string &)> &cb)
+bool HttpServer::run(const std::function<void(const int)> &cb)
 {
   while (1)
   {
@@ -525,18 +528,10 @@ bool HttpServer::run(const std::function<void(std::string &)> &cb)
       continue;
     }
 
-    std::string document;
-    std::thread th([&](void) { cb(document); });
-    while (1)
-    {
-      std::unique_lock<std::mutex> lock { mtx };
-      cv.wait(lock);
-      if (::write(clientsd, document.c_str(), document.size()) < 0)
-        break;
-    }
-    
-    th.join();
+    std::cout << "Received client\n";
+    cb(clientsd);
     close(clientsd);
+    std::cout << "Client closed\n";
   }
 
   std::cerr << report << '\n';
@@ -555,7 +550,7 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-bool HttpsServer::run(const std::function<void(std::string &)> &cb)
+bool HttpsServer::run(const std::function<void(const int)> &cb)
 {
   while (1)
   {
