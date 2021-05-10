@@ -515,7 +515,7 @@ bool HttpServer::write(const int clientsd, const std::string &document)
   return true;
 }
 
-bool HttpServer::run(const std::function<void(const int)> &cb)
+bool HttpServer::run(const std::function<void(const std::any)> &cb)
 {
   while (1)
   {
@@ -550,7 +550,7 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-bool HttpsServer::run(const std::function<void(const int)> &cb)
+bool HttpsServer::run(const std::function<void(const std::any)> &cb)
 {
   while (1)
   {
@@ -571,7 +571,6 @@ bool HttpsServer::run(const std::function<void(const int)> &cb)
       return false;
     }
 
-    std::string document { "void" };
 	  client.set_tlsext_hostname(hostname);
     sslserver.set_fd(clientsd);
     sslserver.set_CTX(client);
@@ -579,7 +578,7 @@ bool HttpsServer::run(const std::function<void(const int)> &cb)
     if ((err = sslserver.accept()) < 1)
       report = "[SSL] SSL_accept(): " + std::to_string(sslserver.get_error(err));
     else
-      sslserver.write(document);
+      cb(&sslserver);
 
     sslserver.clear();
     close(clientsd);

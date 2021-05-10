@@ -3,7 +3,7 @@ LIBSPATH = -L ${LOCAL}/libsocket++ -Wl,-R$(LOCAL)/libsocket++ '-Wl,-R$$ORIGIN'
 INCS = -I /usr/local/include -I ${LOCAL}/
 LIBS = -l ssl -l crypto
 
-SRC_LIBSOCKET = socket.cpp
+SRC_LIBSOCKET = socket.cpp utils.cpp
 OBJ_LIBSOCKET = ${SRC_LIBSOCKET:.cpp=.o}
 SRC_TEST0 = client_example.cpp
 OBJ_TEST0 = ${SRC_TEST0:.cpp=.o}
@@ -19,9 +19,11 @@ SRC_TEST5 = multisslclient_example.cpp
 OBJ_TEST5 = ${SRC_TEST5:.cpp=.o}
 SRC_TEST6 = streaming_example.cpp
 OBJ_TEST6 = ${SRC_TEST6:.cpp=.o}
+SRC_TEST7 = sslstreaming_example.cpp
+OBJ_TEST7 = ${SRC_TEST7:.cpp=.o}
 
 CC = c++
-CFLAGS = -std=c++14 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
+CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
 LDFLAGS += ${LIBSPATH}
 
 all: libsocket++.so \
@@ -31,7 +33,8 @@ all: libsocket++.so \
   sslserver_example \
   multiclient_example \
   multisslclient_example \
-  streaming_example
+  streaming_example \
+  sslstreaming_example
 
 .cpp.o:
 	@echo CC $<
@@ -69,6 +72,10 @@ streaming_example: ${OBJ_TEST6}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS} -l socket++
 
+sslstreaming_example: ${OBJ_TEST7}
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST7} ${LDFLAGS} -l socket++
+
 clean:
 	@echo Cleaning
 	@rm -f ${OBJ_LIBSOCKET} \
@@ -78,5 +85,6 @@ clean:
     ${OBJ_TEST3} \
     ${OBJ_TEST4} \
     ${OBJ_TEST5} \
-    ${OBJ_TEST6}
+    ${OBJ_TEST6} \
+    ${OBJ_TEST7}
 	@rm -f *example

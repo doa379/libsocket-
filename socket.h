@@ -7,6 +7,7 @@
 #include <openssl/ssl.h>
 #include <regex>
 #include <chrono>
+#include <any>
 
 static const float DEFAULT_HTTPVER { 2.0 };
 static const std::string CERTPEM { "/tmp/cert.pem" };
@@ -147,7 +148,7 @@ protected:
 public:
   Server(const float, const std::string &, const unsigned);
   bool connect(void);
-  virtual bool run(const std::function<void(const int)> &) = 0;
+  virtual bool run(const std::function<void(const std::any)> &) = 0;
 };
 
 class HttpServer : public Server
@@ -156,7 +157,7 @@ public:
   HttpServer(const std::string &, const unsigned);
   ~HttpServer(void);
   bool write(const int, const std::string &);
-  bool run(const std::function<void(const int)> &);
+  bool run(const std::function<void(const std::any)> &);
 };
 
 class HttpsServer : public Server
@@ -165,5 +166,5 @@ class HttpsServer : public Server
 public:
   HttpsServer(const std::string &, const unsigned);
   ~HttpsServer(void);
-  bool run(const std::function<void(const int)> &);
+  bool run(const std::function<void(const std::any)> &);
 };

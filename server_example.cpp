@@ -1,25 +1,11 @@
 #include <iostream>
-#include <random>
 #include <thread>
+#include <cmath>
 #include "socket.h"
+#include "utils.h"
 
 static const std::string host0 { "localhost" };
 static const unsigned port0 { 8080 };
-
-int rand(std::size_t a, std::size_t b)
-{
-  std::random_device dev;
-  std::mt19937 rng(dev());
-  std::uniform_int_distribution<std::mt19937::result_type> dist(a, b);
-  return dist(rng);
-}
-
-std::string to_base16(std::size_t arg)
-{
-  std::stringstream stream;
-  stream << std::hex << arg;
-  return "0x" + stream.str();
-}
 
 int main(const int argc, const char *argv[])
 {
@@ -46,7 +32,8 @@ int main(const int argc, const char *argv[])
   }
 
   auto cb { 
-    [&](const int clientsd) {
+    [&](const std::any arg) {
+      const int clientsd { std::any_cast<int>(arg) };
       const std::string header { 
         "HTTP/1.1 Stream\r\n" + 
         hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };

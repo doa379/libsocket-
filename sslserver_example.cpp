@@ -1,10 +1,11 @@
 #include <iostream>
+#include <thread>
+#include <cmath>
 #include "socket.h"
+#include "utils.h"
 
 static const std::string host0 { "localhost" };
 static const unsigned port0 { 4433 };
-static const std::string host1 { "..." };
-static const unsigned port1 { 8080 };
 
 int main(int argc, char *argv[])
 {
@@ -30,9 +31,28 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  std::cout << "Running SSL server on " << hostname << ":" << std::to_string(port_no) << std::endl;
-  const std::string header { "HTTP/1.1 200 OK" },
-    document { "Document" };
-  //server.run(header + "\r\n\r\n" + document);
+  auto cb { 
+    [&](const std::any arg) {
+      SecureServerPair *sslserver { std::any_cast<SecureServerPair *>(arg) };
+      const std::string header { 
+        "HTTP/1.1 SSL Stream\r\n" + 
+        hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
+      if (sslserver->write(header) < 0)
+        return;
+      std::string document;
+      while (1)
+      {
+        auto s { std::to_string(pow(2, rand(8, 32))) };
+        std::cout << s << std::endl;
+        document = to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
+        if (sslserver->write(document) < 0)
+          break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
+      }
+    } 
+  };
+
+  std::cout << "Running SSL server...\n";
+  server.run(cb);
   return 0;
 }

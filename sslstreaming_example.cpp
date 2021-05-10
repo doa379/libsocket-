@@ -2,7 +2,10 @@
 #include "socket.h"
 
 static const std::string host0 { "localhost" };
-static const unsigned port0 { 8080 };
+static const unsigned port0 { 4433 };
+
+// Remember to generate a set of pems
+// $ openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout /tmp/key.pem -out /tmp/cert.pem
 
 int main(int argc, char *argv[])
 {
@@ -10,7 +13,7 @@ int main(int argc, char *argv[])
   unsigned port_no;
   if (argc != 3)
   {
-    std::cerr << "Usage: ./streaming_example <hostname> <port>\n";
+    std::cerr << "Usage: ./sslstreaming_example <hostname> <port>\n";
     hostname = host0;
     port_no = port0;
   }
@@ -21,7 +24,7 @@ int main(int argc, char *argv[])
     port_no = std::atoi(argv[2]);
   }
 
-  HttpClient client(1.1, hostname, port_no);
+  HttpsClient client(1.1, hostname, port_no);
   Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
   client.set_cb(cb);
   client.set_timeout(1750);
