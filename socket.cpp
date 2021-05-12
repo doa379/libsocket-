@@ -235,10 +235,10 @@ bool Client::connect(void)
   return connector();
 }
 
-bool Client::sendreq(const std::vector<std::string> &HEADERS, const std::string &data)
+bool Client::sendreq(const std::vector<std::string> &H, const std::string &data)
 {
   std::string request;
-  for (auto &h : HEADERS)
+  for (auto &h : H)
     request += h + "\r\n";
 
   if (data.size())
@@ -337,6 +337,34 @@ void Client::recvreq_raw(void)
     response_cb(response_body);
     response_body.clear();
   }
+}
+
+bool Client::performreq(const std::vector<std::string> &H, const std::string &data)
+{
+  if (connect())
+  {
+    if (!sendreq(H, data))
+      return false;
+
+    recvreq();
+    return true;
+  }
+
+  return false;
+}
+
+bool Client::performreq(REQUEST req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+{
+  if (connect())
+  {
+    if (!sendreq(req, endp, H, data))
+      return false;
+
+    recvreq();
+    return true;
+  }
+
+  return false;
 }
 
 HttpClient::HttpClient(const float httpver, const std::string &hostname, const unsigned port) : 
@@ -571,7 +599,7 @@ bool HttpsServer::run(const std::function<void(const std::any)> &cb)
       return false;
     }
 
-	  client.set_tlsext_hostname(hostname);
+    client.set_tlsext_hostname(hostname);
     sslserver.set_fd(clientsd);
     sslserver.set_CTX(client);
     ssize_t err;

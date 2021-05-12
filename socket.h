@@ -6,15 +6,14 @@
 #include <functional>
 #include <openssl/ssl.h>
 #include <regex>
-#include <chrono>
 #include <any>
+#include "time.h"
 
 static const float DEFAULT_HTTPVER { 2.0 };
 static const std::string CERTPEM { "/tmp/cert.pem" };
 static const std::string KEYPEM { "/tmp/key.pem" };
 static const unsigned MAX_CLIENTS { 256 };
 static const unsigned WAITMS { 100 };
-static const unsigned DEFAULT_TIMEOUT { 30 * 1000 };
 
 enum REQUEST { GET, POST, PUT, DELETE };
 
@@ -77,23 +76,6 @@ public:
   ~SecureServerPair(void);
 };
 
-using time_p = std::chrono::time_point<std::chrono::system_clock>;
-
-template<typename T>
-class Time
-{
-protected:
-  unsigned timeout { DEFAULT_TIMEOUT };
-public:
-  time_p now(void) noexcept { return std::chrono::system_clock::now(); };
-  std::size_t difftime(time_p t1, time_p t0)
-  {
-    return std::chrono::duration_cast<T>(t1.time_since_epoch()).count() -
-      std::chrono::duration_cast<T>(t0.time_since_epoch()).count();
-  }
-  void set_timeout(const unsigned timeout) { this->timeout = timeout; };
-};
-
 using Cb = std::function<void(const std::string &)>;
 
 class Client : public Http, public Time<std::chrono::milliseconds>
@@ -111,6 +93,8 @@ public:
   bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   void recvreq(void);
   void recvreq_raw(void);
+  bool performreq(const std::vector<std::string> &, const std::string &);
+  bool performreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
   void set_cb(const decltype(response_cb) &callback) { response_cb = callback; };
