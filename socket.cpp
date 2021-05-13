@@ -312,7 +312,11 @@ void Client::recvreq(void)
       now = this->now();
       if (response_body == "\r\n");
       else if (!l && response_body.find("\r\n") < std::string::npos)
-        l = std::stoull(response_body, nullptr, 16);
+      {
+        response_body.erase(response_body.end() - 2, response_body.end());
+        if (!(l = std::stoull(response_body, nullptr, 16)))
+          break;
+      }
       else if (response_body.size() == l)
       {
         response_cb(response_body);

@@ -1,3 +1,4 @@
+#pragma once
 #include <chrono>
 
 static const unsigned DEFAULT_TIMEOUT { 30 * 1000 };
