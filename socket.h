@@ -83,7 +83,10 @@ class Client : public Http, public Time<std::chrono::milliseconds>
   friend class MultiClient;
   std::string agent { "HttpRequest" }, response_header, response_body;
   std::smatch match;
-  const std::regex content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) };
+  const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
+    content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
+    transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
+    chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
   Cb response_cb { [](const std::string &) { } };
 public:
   Client(const float, const std::string &, const unsigned);
@@ -91,7 +94,7 @@ public:
   bool connect(void);
   bool sendreq(const std::vector<std::string> &, const std::string &);
   bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
-  void recvreq(void);
+  bool recvreq(void);
   void recvreq_raw(void);
   bool performreq(const std::vector<std::string> &, const std::string &);
   bool performreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);

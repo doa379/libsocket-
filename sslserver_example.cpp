@@ -35,7 +35,8 @@ int main(int argc, char *argv[])
     [&](const std::any arg) {
       SecureServerPair *sslserver { std::any_cast<SecureServerPair *>(arg) };
       const std::string header { 
-        "HTTP/1.1 SSL Stream\r\n" + 
+        std::string("HTTP/1.1 SSL Stream OK\r\n") +
+        std::string("Transfer-Encoding: chunked\r\n") +
         hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
       if (sslserver->write(header) < 0)
         return;

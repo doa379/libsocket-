@@ -280,10 +280,11 @@ bool Client::sendreq(REQUEST req, const std::string &endp, const std::vector<std
   return writer(request);
 }
 
-void Client::recvreq(void)
+bool Client::recvreq(void)
 {
   response_header.clear();
   response_body.clear();
+  // Response Header
   char p;
   bool res;
   do
@@ -292,7 +293,14 @@ void Client::recvreq(void)
     response_header += p;
   }
   while (res && !(response_header.find("\r\n\r\n") < std::string::npos));
+  
+  if (!std::regex_search(response_header, match, ok_regex))
+  {
+    report = response_header.substr(match.prefix().length(), response_header.find("\r\n"));
+    return 0;
+  }
 
+  // Response Body
   std::size_t l { };
   if (std::regex_search(response_header, match, content_length_regex) &&
       (l = std::stoull(response_header.substr(match.prefix().length() + 16))))
@@ -303,7 +311,8 @@ void Client::recvreq(void)
     }
     while (res && response_body.size() < l);
 
-  else
+  else if (std::regex_search(response_header, match, transfer_encoding_regex) &&
+      std::regex_match(response_header.substr(match.prefix().length() + 19, 7), chunked_regex))
   {
     auto now { this->now() };
     while (reader(p) && difftime(this->now(), now) < timeout)
@@ -328,6 +337,8 @@ void Client::recvreq(void)
       response_body.clear();
     }
   }
+
+  return 1;
 }
 
 void Client::recvreq_raw(void)
@@ -350,8 +361,7 @@ bool Client::performreq(const std::vector<std::string> &H, const std::string &da
     if (!sendreq(H, data))
       return false;
 
-    recvreq();
-    return true;
+    return recvreq();
   }
 
   return false;
@@ -364,8 +374,7 @@ bool Client::performreq(REQUEST req, const std::string &endp, const std::vector<
     if (!sendreq(req, endp, H, data))
       return false;
 
-    recvreq();
-    return true;
+    return recvreq();
   }
 
   return false;

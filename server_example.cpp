@@ -35,7 +35,8 @@ int main(const int argc, const char *argv[])
     [&](const std::any arg) {
       const int clientsd { std::any_cast<int>(arg) };
       const std::string header { 
-        "HTTP/1.1 Stream\r\n" + 
+        std::string("HTTP/1.1 Stream OK\r\n") + 
+        std::string("Transfer-Encoding: chunked\r\n") +
         hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
       if (!server.write(clientsd, header))
         return;
