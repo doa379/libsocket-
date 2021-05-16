@@ -2,7 +2,6 @@
 #include <chrono>
 
 static const unsigned DEFAULT_TIMEOUT { 30 * 1000 };
-
 using time_p = std::chrono::time_point<std::chrono::system_clock>;
 
 template<typename T>

@@ -101,6 +101,7 @@ public:
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
   void set_cb(const decltype(response_cb) &callback) { response_cb = callback; };
+  void set_timeout(const unsigned timeout) { this->timeout = timeout; };
   void clear_buffer(void) { response_body.clear(); };
 };
 

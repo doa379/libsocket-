@@ -558,23 +558,19 @@ bool HttpServer::write(const int clientsd, const std::string &document)
 
 bool HttpServer::run(const std::function<void(const std::any)> &cb)
 {
-  while (1)
+  struct sockaddr_in addr;
+  uint len { sizeof addr };
+  int clientsd { accept(sd, (struct sockaddr *) &addr, &len) };
+  if (clientsd < 0)
   {
-    struct sockaddr_in addr;
-    uint len { sizeof addr };
-    int clientsd { accept(sd, (struct sockaddr *) &addr, &len) };
-    if (clientsd < 0)
-    {
-      report = "Unable to accept client";
-      continue;
-    }
-
-    std::cout << "Received client\n";
-    cb(clientsd);
-    close(clientsd);
-    std::cout << "Client closed\n";
+    report = "Unable to accept client";
+    continue;
   }
 
+  std::cout << "Received client\n";
+  cb(clientsd);
+  close(clientsd);
+  std::cout << "Client closed\n";
   std::cerr << report << '\n';
   return true;
 }
@@ -593,37 +589,33 @@ HttpsServer::~HttpsServer(void)
 
 bool HttpsServer::run(const std::function<void(const std::any)> &cb)
 {
-  while (1)
+  struct sockaddr_in addr;
+  uint len { sizeof addr };
+  int clientsd { accept(sd, (struct sockaddr *) &addr, &len) };
+  if (clientsd < 0)
   {
-    struct sockaddr_in addr;
-    uint len { sizeof addr };
-    int clientsd { accept(sd, (struct sockaddr *) &addr, &len) };
-    if (clientsd < 0)
-    {
-      report = "Unable to accept client";
-      continue;
-    }
-
-    SecureClientPair client;
-    if (!client.configure_context(report))
-    {
-      std::cerr << "Configure client context: " << report << std::endl;
-      close(clientsd);
-      return false;
-    }
-
-    client.set_tlsext_hostname(hostname);
-    sslserver.set_fd(clientsd);
-    sslserver.set_CTX(client);
-    ssize_t err;
-    if ((err = sslserver.accept()) < 1)
-      report = "[SSL] SSL_accept(): " + std::to_string(sslserver.get_error(err));
-    else
-      cb(&sslserver);
-
-    sslserver.clear();
-    close(clientsd);
+    report = "Unable to accept client";
+    continue;
   }
 
+  SecureClientPair client;
+  if (!client.configure_context(report))
+  {
+    std::cerr << "Configure client context: " << report << std::endl;
+    close(clientsd);
+    return false;
+  }
+
+  client.set_tlsext_hostname(hostname);
+  sslserver.set_fd(clientsd);
+  sslserver.set_CTX(client);
+  ssize_t err;
+  if ((err = sslserver.accept()) < 1)
+    report = "[SSL] SSL_accept(): " + std::to_string(sslserver.get_error(err));
+  else
+    cb(&sslserver);
+
+  sslserver.clear();
+  close(clientsd);
   return true;
 }

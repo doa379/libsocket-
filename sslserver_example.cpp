@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
   };
 
   std::cout << "Running SSL server...\n";
-  server.run(cb);
+  while (1)
+    server.run(cb);
   return 0;
 }

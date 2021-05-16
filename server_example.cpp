@@ -54,6 +54,7 @@ int main(const int argc, const char *argv[])
   };
 
   std::cout << "Running server...\n";
-  server.run(cb);
+  while (1)
+    server.run(cb);
   return 0;
 }
