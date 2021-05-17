@@ -564,7 +564,7 @@ bool HttpServer::run(const std::function<void(const std::any)> &cb)
   if (clientsd < 0)
   {
     report = "Unable to accept client";
-    continue;
+    return false;
   }
 
   std::cout << "Received client\n";
@@ -595,7 +595,7 @@ bool HttpsServer::run(const std::function<void(const std::any)> &cb)
   if (clientsd < 0)
   {
     report = "Unable to accept client";
-    continue;
+    return false;
   }
 
   SecureClientPair client;
