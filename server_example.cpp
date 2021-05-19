@@ -1,6 +1,7 @@
 #include <iostream>
 #include <thread>
 #include <cmath>
+#include <csignal>
 #include "socket.h"
 #include "utils.h"
 
@@ -24,6 +25,7 @@ int main(const int argc, const char *argv[])
     port_no = std::atoi(argv[2]);
   }
 
+  signal(SIGPIPE, SIG_IGN);
   HttpServer server(hostname, port_no);
   if (!server.connect())
   {
