@@ -7,6 +7,8 @@
 #include <openssl/ssl.h>
 #include <regex>
 #include <any>
+#include <list>
+#include <future>
 #include "time.h"
 
 static const float DEFAULT_HTTPVER { 2.0 };
@@ -133,10 +135,13 @@ public:
 class Server : public Http
 {
 protected:
+  std::list<std::future<void>> C;
 public:
   Server(const float, const std::string &, const unsigned);
   bool connect(void);
-  virtual bool run(const std::function<void(const std::any)> &) = 0;
+  int recv_client(void);
+  void new_client(const std::function<void(const std::any)> &, std::any);
+  void refresh_clients(void);
 };
 
 class HttpServer : public Server
@@ -145,14 +150,20 @@ public:
   HttpServer(const std::string &, const unsigned);
   ~HttpServer(void);
   bool write(const int, const std::string &);
-  bool run(const std::function<void(const std::any)> &);
+  void close_client(int);
+};
+
+struct LocalSecureClient
+{
+  int clientsd;
+  std::shared_ptr<SecureServerPair> sslserver;
 };
 
 class HttpsServer : public Server
 {
-  SecureServerPair sslserver;
 public:
   HttpsServer(const std::string &, const unsigned);
   ~HttpsServer(void);
-  bool run(const std::function<void(const std::any)> &);
+  LocalSecureClient recv_client(void);
+  void close_client(LocalSecureClient &);
 };

@@ -41,6 +41,5 @@ int main(int argc, char *argv[])
 
   else
     std::cout << client.get_report() << std::endl;
-
   return 0;
 }

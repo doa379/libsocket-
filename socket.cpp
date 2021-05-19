@@ -27,6 +27,8 @@ Http::Http(const float httpver, const std::string &hostname, const unsigned port
 
 Http::~Http(void)
 {
+  struct linger lo { 1, 0 };
+  setsockopt(sd, SOL_SOCKET, SO_LINGER, &lo, sizeof lo);
   close(sd);
 }
 
@@ -537,6 +539,26 @@ bool Server::connect(void)
   return true;
 }
 
+int Server::recv_client(void)
+{
+  struct sockaddr_in addr;
+  uint len { sizeof addr };
+  return accept(sd, (struct sockaddr *) &addr, &len);
+}
+
+void Server::new_client(const std::function<void(const std::any)> &cb, std::any arg)
+{
+  std::cout << "Received new client\n";
+  auto c { std::async(std::launch::async, [=] { cb(arg); }) };
+  C.emplace_back(std::move(c));
+}
+
+void Server::refresh_clients(void)
+{
+  C.remove_if([](auto &c) { 
+    return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
+}
+
 HttpServer::HttpServer(const std::string &hostname, const unsigned port) :
   Server(DEFAULT_HTTPVER, hostname, port)
 {
@@ -553,27 +575,16 @@ bool HttpServer::write(const int clientsd, const std::string &document)
   if (::write(clientsd, document.c_str(), document.size()) < 0)
     return false;
 
+  fsync(clientsd);
   return true;
 }
 
-bool HttpServer::run(const std::function<void(const std::any)> &cb)
+void HttpServer::close_client(int clientsd)
 {
-  struct sockaddr_in addr;
-  uint len { sizeof addr };
-  int clientsd { accept(sd, (struct sockaddr *) &addr, &len) };
-  if (clientsd < 0)
-  {
-    report = "Unable to accept client";
-    return false;
-  }
-
-  std::cout << "Received client\n";
-  cb(clientsd);
   close(clientsd);
   std::cout << "Client closed\n";
-  std::cerr << report << '\n';
-  return true;
 }
+
 
 HttpsServer::HttpsServer(const std::string &hostname, const unsigned port) :
   Server(DEFAULT_HTTPVER, hostname, port)
@@ -587,35 +598,34 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-bool HttpsServer::run(const std::function<void(const std::any)> &cb)
+LocalSecureClient HttpsServer::recv_client(void)
 {
-  struct sockaddr_in addr;
-  uint len { sizeof addr };
-  int clientsd { accept(sd, (struct sockaddr *) &addr, &len) };
-  if (clientsd < 0)
-  {
-    report = "Unable to accept client";
-    return false;
-  }
-
+  auto clientsd { Server::recv_client() };
   SecureClientPair client;
   if (!client.configure_context(report))
   {
     std::cerr << "Configure client context: " << report << std::endl;
     close(clientsd);
-    return false;
+    return { -1 };
   }
 
   client.set_tlsext_hostname(hostname);
-  sslserver.set_fd(clientsd);
-  sslserver.set_CTX(client);
+  std::shared_ptr<SecureServerPair> sslserver { std::make_shared<SecureServerPair>() };
+  sslserver->set_fd(clientsd);
+  sslserver->set_CTX(client);
   ssize_t err;
-  if ((err = sslserver.accept()) < 1)
-    report = "[SSL] SSL_accept(): " + std::to_string(sslserver.get_error(err));
-  else
-    cb(&sslserver);
+  if ((err = sslserver->accept()) < 1)
+  {
+    report = "[SSL] SSL_accept(): " + std::to_string(client.get_error(err));
+    return { -1 };
+  }
 
-  sslserver.clear();
-  close(clientsd);
-  return true;
+  return { clientsd, sslserver };
+}
+
+void HttpsServer::close_client(LocalSecureClient &client)
+{
+  client.sslserver->clear();
+  close(client.clientsd);
+  std::cout << "Client closed\n";
 }

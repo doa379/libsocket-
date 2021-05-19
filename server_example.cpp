@@ -50,11 +50,21 @@ int main(const int argc, const char *argv[])
           break;
         std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
       }
+
+      server.close_client(clientsd);
     } 
   };
 
   std::cout << "Running server...\n";
   while (1)
-    server.run(cb);
+  {
+    auto accept { server.recv_client() };
+    if (accept > -1)
+      server.new_client(cb, accept);
+   
+    server.refresh_clients();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+
   return 0;
 }
