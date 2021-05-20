@@ -4,9 +4,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <openssl/err.h>
-#include <sys/poll.h>
 #include <bitset>
-#include <thread>
 #include "socket.h"
 
 Http::Http(const float httpver, const std::string &hostname, const unsigned port) : 
@@ -490,7 +488,7 @@ bool MultiClient::connect(void)
   return retval;
 }
 
-void MultiClient::recvreq(void)
+void MultiClient::recvreq(unsigned timeout_ms)
 {
   struct pollfd PFD[MAX_CLIENTS] { };
   std::bitset<MAX_CLIENTS> M;
@@ -504,6 +502,7 @@ void MultiClient::recvreq(void)
   auto now { init };
   while (M.count() < C.size() && difftime(now, init) < timeout)
   {
+    poll(PFD, C.size(), timeout_ms);
     for (auto i { 0U }; i < C.size(); i++)
       if (PFD[i].revents & POLLIN && !M[i])
       {
@@ -512,7 +511,6 @@ void MultiClient::recvreq(void)
       }
 
     now = this->now();
-    poll(PFD, C.size(), WAITMS);
   }
 }
 
@@ -527,7 +525,7 @@ bool Server::connect(void)
     return false;
   if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
   {
-    report = "Unable to bind";
+    report = "Unable to bind. Check server address if already in use.";
     return false;
   }
   if (::listen(sd, 1) < 0)
@@ -536,7 +534,18 @@ bool Server::connect(void)
     return false;
   }
 
+  listensd.fd = sd;
+  listensd.events = POLLIN;
   return true;
+}
+
+bool Server::poll_listen(unsigned timeout_ms)
+{
+  poll(&listensd, 1, timeout_ms);
+  if (listensd.revents & POLLIN)
+    return true;
+
+  return false;
 }
 
 int Server::recv_client(void)
@@ -559,6 +568,12 @@ void Server::refresh_clients(void)
     return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
 }
 
+void Server::close_client(int clientsd)
+{
+  if (close(clientsd) > -1)
+    std::cout << "Client closed\n";
+}
+
 HttpServer::HttpServer(const std::string &hostname, const unsigned port) :
   Server(DEFAULT_HTTPVER, hostname, port)
 {
@@ -578,13 +593,6 @@ bool HttpServer::write(const int clientsd, const std::string &document)
   fsync(clientsd);
   return true;
 }
-
-void HttpServer::close_client(int clientsd)
-{
-  close(clientsd);
-  std::cout << "Client closed\n";
-}
-
 
 HttpsServer::HttpsServer(const std::string &hostname, const unsigned port) :
   Server(DEFAULT_HTTPVER, hostname, port)
@@ -621,11 +629,4 @@ LocalSecureClient HttpsServer::recv_client(void)
   }
 
   return { clientsd, sslserver };
-}
-
-void HttpsServer::close_client(LocalSecureClient &client)
-{
-  client.sslserver->clear();
-  close(client.clientsd);
-  std::cout << "Client closed\n";
 }

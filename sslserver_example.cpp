@@ -53,19 +53,21 @@ int main(int argc, char *argv[])
         std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
       }
 
-      server.close_client(*client);
+      server.close_client(client->clientsd);
     }
   };
 
   std::cout << "Running SSL server...\n";
   while (1)
   {
-    auto client { std::make_shared<LocalSecureClient>(server.recv_client()) };
-    if (client->clientsd > -1)
-      server.new_client(cb, client);
+    if (server.poll_listen(100))
+    {
+      auto client { std::make_shared<LocalSecureClient>(server.recv_client()) };
+      if (client->clientsd > -1)
+        server.new_client(cb, client);
+    }
    
     server.refresh_clients();
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
   return 0;

@@ -60,12 +60,14 @@ int main(const int argc, const char *argv[])
   std::cout << "Running server...\n";
   while (1)
   {
-    auto accept { server.recv_client() };
-    if (accept > -1)
-      server.new_client(cb, accept);
+    if (server.poll_listen(100))
+    {
+      auto accept { server.recv_client() };
+      if (accept > -1)
+        server.new_client(cb, accept);
+    }
    
     server.refresh_clients();
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
   return 0;

@@ -9,13 +9,14 @@
 #include <any>
 #include <list>
 #include <future>
+#include <memory>
+#include <sys/poll.h>
 #include "time.h"
 
 static const float DEFAULT_HTTPVER { 2.0 };
 static const std::string CERTPEM { "/tmp/cert.pem" };
 static const std::string KEYPEM { "/tmp/key.pem" };
 static const unsigned MAX_CLIENTS { 256 };
-static const unsigned WAITMS { 100 };
 
 enum REQUEST { GET, POST, PUT, DELETE };
 
@@ -129,19 +130,22 @@ public:
   MultiClient(void);
   bool set_client(Client &);
   bool connect(void);
-  void recvreq(void);
+  void recvreq(unsigned);
 };
 
 class Server : public Http
 {
 protected:
+  struct pollfd listensd { };
   std::list<std::future<void>> C;
 public:
   Server(const float, const std::string &, const unsigned);
   bool connect(void);
+  bool poll_listen(unsigned);
   int recv_client(void);
   void new_client(const std::function<void(const std::any)> &, std::any);
   void refresh_clients(void);
+  void close_client(int);
 };
 
 class HttpServer : public Server
@@ -150,7 +154,6 @@ public:
   HttpServer(const std::string &, const unsigned);
   ~HttpServer(void);
   bool write(const int, const std::string &);
-  void close_client(int);
 };
 
 struct LocalSecureClient
@@ -165,5 +168,4 @@ public:
   HttpsServer(const std::string &, const unsigned);
   ~HttpsServer(void);
   LocalSecureClient recv_client(void);
-  void close_client(LocalSecureClient &);
 };
