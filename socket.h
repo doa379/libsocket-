@@ -146,6 +146,7 @@ public:
   void new_client(const std::function<void(const std::any)> &, std::any);
   void refresh_clients(void);
   void close_client(int);
+  void recvreq(std::string &, int);
 };
 
 class HttpServer : public Server

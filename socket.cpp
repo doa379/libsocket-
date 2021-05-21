@@ -260,7 +260,7 @@ bool Client::sendreq(REQUEST req, const std::string &endp, const std::vector<std
 
   if (!req_type.size())
   {
-    report = "Unknown request type";
+    report = "Bad request type";
     return false;
   }
 
@@ -392,7 +392,7 @@ HttpClient::HttpClient(const float httpver, const std::string &hostname, const u
     return true;
   };
   reader = [this](char &p) -> bool {
-    if (::recv(sd, &p, sizeof p, 0) < 1)
+    if (::recv(sd, &p, sizeof p, 0) < 0)
     {
       report = "Read error";
       return false;
@@ -438,8 +438,8 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
     return true;
   };
   reader = [this](char &p) -> bool {
-    ssize_t err { sslclient.read(&p, sizeof p) };
-    if (err < 1)
+    ssize_t err;
+    if ((err = sslclient.read(&p, sizeof p)) < 0)
     {
       report = "Read: " + std::to_string(sslclient.get_error(err));
       return false;
@@ -572,6 +572,22 @@ void Server::close_client(int clientsd)
 {
   if (close(clientsd) > -1)
     std::cout << "Client closed\n";
+}
+
+void Server::recvreq(std::string &document, int clientsd)
+{
+  char p;
+  while (::recv(clientsd, &p, sizeof p, 0) > -1 &&
+    document.find("\r\n\r\n") > std::string::npos - 1)
+  {
+    document += p;
+  }
+  
+  while (::recv(clientsd, &p, sizeof p, 0) > -1 &&
+    document.find("\r\n") > std::string::npos - 1)
+  {
+    document += p;
+  }
 }
 
 HttpServer::HttpServer(const std::string &hostname, const unsigned port) :
