@@ -248,7 +248,7 @@ bool Client::sendreq(const std::vector<std::string> &H, const std::string &data)
   return writer(request);
 }
 
-bool Client::sendreq(REQUEST req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+bool Client::sendreq(const REQUEST req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
   std::string req_type { 
     req == GET ? "GET" : 
@@ -292,11 +292,11 @@ bool Client::recvreq(void)
     res = reader(p);
     response_header += p;
   }
-  while (res && !(response_header.find("\r\n\r\n") < std::string::npos));
+  while (res && !(response_header.rfind("\r\n\r\n") < std::string::npos));
   
   if (!std::regex_search(response_header, match, ok_regex))
   {
-    report = response_header.substr(match.prefix().length(), response_header.find("\r\n"));
+    report = response_header.substr(match.prefix().length(), response_header.rfind("\r\n"));
     return 0;
   }
 
@@ -320,7 +320,7 @@ bool Client::recvreq(void)
       response_body += p;
       now = this->now();
       if (response_body == "\r\n");
-      else if (!l && response_body.find("\r\n") < std::string::npos)
+      else if (!l && response_body.rfind("\r\n") < std::string::npos)
       {
         response_body.erase(response_body.end() - 2, response_body.end());
         if (!(l = std::stoull(response_body, nullptr, 16)))
@@ -367,13 +367,13 @@ bool Client::performreq(const std::vector<std::string> &H, const std::string &da
   return false;
 }
 
-bool Client::performreq(REQUEST req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+bool Client::performreq(const REQUEST req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
   if (connect())
   {
     if (!sendreq(req, endp, H, data))
       return false;
-
+    
     return recvreq();
   }
 
@@ -526,6 +526,7 @@ bool Server::connect(void)
   if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
   {
     report = "Unable to bind. Check server address if already in use.";
+    close(sd);
     return false;
   }
   if (::listen(sd, 1) < 0)
@@ -574,22 +575,6 @@ void Server::close_client(int clientsd)
     std::cout << "Client closed\n";
 }
 
-void Server::recvreq(std::string &document, int clientsd)
-{
-  char p;
-  while (::recv(clientsd, &p, sizeof p, 0) > -1 &&
-    document.find("\r\n\r\n") > std::string::npos - 1)
-  {
-    document += p;
-  }
-  
-  while (::recv(clientsd, &p, sizeof p, 0) > -1 &&
-    document.find("\r\n") > std::string::npos - 1)
-  {
-    document += p;
-  }
-}
-
 HttpServer::HttpServer(const std::string &hostname, const unsigned port) :
   Server(DEFAULT_HTTPVER, hostname, port)
 {
@@ -599,6 +584,28 @@ HttpServer::HttpServer(const std::string &hostname, const unsigned port) :
 HttpServer::~HttpServer(void)
 {
 
+}
+
+void HttpServer::recvreq(std::string &document, int clientsd)
+{
+  char p;
+  std::string header, body;
+  do
+  {
+    if (::recv(clientsd, &p, sizeof p, 0) < 0)
+      break;
+    header += p;
+  }
+  while (!(header.rfind("\r\n\r\n") < std::string::npos));
+
+  do
+  {
+    if (::recv(clientsd, &p, sizeof p, 0) < 0)
+      break;
+    body += p;
+  }
+  while (!(body.rfind("\r\n") < std::string::npos));
+  document = header + body;
 }
 
 bool HttpServer::write(const int clientsd, const std::string &document)

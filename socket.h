@@ -96,11 +96,11 @@ public:
   ~Client(void);
   bool connect(void);
   bool sendreq(const std::vector<std::string> &, const std::string &);
-  bool sendreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
+  bool sendreq(const REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   bool recvreq(void);
   void recvreq_raw(void);
   bool performreq(const std::vector<std::string> &, const std::string &);
-  bool performreq(REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
+  bool performreq(const REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
   std::string &get_response(void) { return response_body; };
   std::string &get_header(void) { return response_header; };
   void set_cb(const decltype(response_cb) &callback) { response_cb = callback; };
@@ -146,7 +146,6 @@ public:
   void new_client(const std::function<void(const std::any)> &, std::any);
   void refresh_clients(void);
   void close_client(int);
-  void recvreq(std::string &, int);
 };
 
 class HttpServer : public Server
@@ -154,6 +153,7 @@ class HttpServer : public Server
 public:
   HttpServer(const std::string &, const unsigned);
   ~HttpServer(void);
+  void recvreq(std::string &, int);
   bool write(const int, const std::string &);
 };
 
