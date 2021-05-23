@@ -598,13 +598,17 @@ void HttpServer::recvreq(std::string &document, int clientsd)
   }
   while (!(header.rfind("\r\n\r\n") < std::string::npos));
 
-  do
-  {
-    if (::recv(clientsd, &p, sizeof p, 0) < 0)
-      break;
-    body += p;
-  }
-  while (!(body.rfind("\r\n") < std::string::npos));
+  std::size_t l { };
+  if (std::regex_search(header, match, content_length_regex) &&
+      (l = std::stoull(header.substr(match.prefix().length() + 16))))
+    do
+    {
+      if (::recv(clientsd, &p, sizeof p, 0) < 0)
+        break;
+      body += p;
+    }
+    while (body.size() < l);
+
   document = header + body;
 }
 

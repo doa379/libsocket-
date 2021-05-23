@@ -31,6 +31,8 @@ protected:
   std::function<bool(void)> connector;
   std::function<bool(char &)> reader;
   std::function<bool(const std::string &)> writer;
+  std::smatch match;
+  const std::regex content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) };
 public:
   Http(const float, const std::string &hostname, const unsigned port);
   ~Http(void);
@@ -85,9 +87,7 @@ class Client : public Http, public Time<std::chrono::milliseconds>
 {
   friend class MultiClient;
   std::string agent { "HttpRequest" }, response_header, response_body;
-  std::smatch match;
   const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
-    content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
     transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
     chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
   Cb response_cb { [](const std::string &) { } };
