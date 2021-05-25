@@ -303,7 +303,8 @@ bool Client::recvreq(void)
   // Response Body
   std::size_t l { };
   if (std::regex_search(response_header, match, content_length_regex) &&
-      (l = std::stoull(response_header.substr(match.prefix().length() + 16))))
+      (l = std::stoull(response_header.substr(match.prefix().length() + 16,
+        response_header.substr(match.prefix().length() + 16).find("\r\n")))))
     do
     {
       res = reader(p);
@@ -600,7 +601,8 @@ void HttpServer::recvreq(std::string &document, int clientsd)
 
   std::size_t l { };
   if (std::regex_search(header, match, content_length_regex) &&
-      (l = std::stoull(header.substr(match.prefix().length() + 16))))
+      (l = std::stoull(header.substr(match.prefix().length() + 16,
+        header.substr(match.prefix().length() + 16).find("\r\n")))))
     do
     {
       if (::recv(clientsd, &p, sizeof p, 0) < 0)
