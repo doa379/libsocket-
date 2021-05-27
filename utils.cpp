@@ -15,4 +15,3 @@ std::string to_base16(std::size_t arg)
   stream << std::hex << arg;
   return "0x" + stream.str();
 }
-

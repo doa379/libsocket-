@@ -316,7 +316,7 @@ bool Client::recvreq(void)
       std::regex_match(response_header.substr(match.prefix().length() + 19, 7), chunked_regex))
   {
     auto now { this->now() };
-    while (reader(p) && difftime(this->now(), now) < timeout)
+    while (reader(p) && diffpt(this->now(), now) < timeout)
     {
       response_body += p;
       now = this->now();
@@ -346,7 +346,7 @@ void Client::recvreq_raw(void)
 {
   char p;
   auto now { this->now() };
-  while (reader(p) && difftime(this->now(), now) < timeout)
+  while (reader(p) && diffpt(this->now(), now) < timeout)
   {
     response_body += p;
     now = this->now();
@@ -501,7 +501,7 @@ void MultiClient::recvreq(unsigned timeout_ms)
 
   const auto init { this->now() };
   auto now { init };
-  while (M.count() < C.size() && difftime(now, init) < timeout)
+  while (M.count() < C.size() && diffpt(now, init) < timeout)
   {
     poll(PFD, C.size(), timeout_ms);
     for (auto i { 0U }; i < C.size(); i++)

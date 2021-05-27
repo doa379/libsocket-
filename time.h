@@ -11,7 +11,7 @@ protected:
   unsigned timeout { DEFAULT_TIMEOUT };
 public:
   time_p now(void) noexcept { return std::chrono::system_clock::now(); };
-  std::size_t difftime(time_p t1, time_p t0)
+  std::size_t diffpt(time_p t1, time_p t0)
   {
     return std::chrono::duration_cast<T>(t1.time_since_epoch()).count() -
       std::chrono::duration_cast<T>(t0.time_since_epoch()).count();
