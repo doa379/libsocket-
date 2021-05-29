@@ -58,13 +58,16 @@ int main(int argc, char *argv[])
   };
 
   std::cout << "Running SSL server...\n";
+  std::string report;
   while (1)
   {
     if (server.poll_listen(100))
     {
-      auto client { std::make_shared<LocalSecureClient>(server.recv_client()) };
+      auto client { std::make_shared<LocalSecureClient>(server.recv_client(report)) };
       if (client->clientsd > -1)
         server.new_client(cb, client);
+      else
+        std::cout << report << std::endl;
     }
    
     server.refresh_clients();

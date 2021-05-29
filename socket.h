@@ -36,7 +36,7 @@ protected:
 public:
   Http(const float, const std::string &hostname, const unsigned port);
   ~Http(void);
-  std::string &get_report(void) { return report; };
+  std::string &get_report(void) { return report; }
   bool init_connect(void);
 };
 
@@ -51,7 +51,7 @@ public:
   Secure(const std::string &);
   Secure(const std::string &, const std::string &);
   void deinit_ssl(void);
-  void gather_certificate(void);
+  void gather_certificate(std::string &);
   bool configure_context(std::string &);
   int set_tlsext_hostname(const std::string &);
   int set_fd(const int);
@@ -62,22 +62,22 @@ public:
   int accept(void);
   SSL_CTX *set_CTX(const Secure &);
   int clear(void);
-  std::string &get_cipherinfo(void) { return cipherinfo; };
-  std::string &get_certificate(void) { return certificate; };
-  std::string &get_issuer(void) { return issuer; };
+  std::string &get_cipherinfo(void) { return cipherinfo; }
+  std::string &get_certificate(void) { return certificate; }
+  std::string &get_issuer(void) { return issuer; }
 };
 
 class SecureClientPair : public Secure
 {
 public:
-  SecureClientPair(void);
+  SecureClientPair(std::string &);
   ~SecureClientPair(void);
 };
 
 class SecureServerPair : public Secure
 {
 public:
-  SecureServerPair(void);
+  SecureServerPair(std::string &);
   ~SecureServerPair(void);
 };
 
@@ -101,11 +101,11 @@ public:
   void recvreq_raw(void);
   bool performreq(const std::vector<std::string> &, const std::string &);
   bool performreq(const REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
-  std::string &get_response(void) { return response_body; };
-  std::string &get_header(void) { return response_header; };
-  void set_cb(const decltype(response_cb) &callback) { response_cb = callback; };
-  void set_timeout(const unsigned timeout) { this->timeout = timeout; };
-  void clear_buffer(void) { response_body.clear(); };
+  std::string &get_response(void) { return response_body; }
+  std::string &get_header(void) { return response_header; }
+  void set_cb(const decltype(response_cb) &callback) { response_cb = callback; }
+  void set_timeout(const unsigned timeout) { this->timeout = timeout; }
+  void clear_buffer(void) { response_body.clear(); }
 };
 
 class HttpClient : public Client
@@ -117,7 +117,8 @@ public:
 
 class HttpsClient : public Client
 {
-  SecureClientPair sslclient;
+  std::unique_ptr<SecureClientPair> sslclient;
+  ssize_t err;
 public:
   HttpsClient(const float, const std::string &, const unsigned); 
   ~HttpsClient(void);
@@ -145,7 +146,7 @@ public:
   int recv_client(void);
   void new_client(const std::function<void(const std::any)> &, std::any);
   void refresh_clients(void);
-  void close_client(int);
+  bool close_client(int);
 };
 
 class HttpServer : public Server
@@ -168,5 +169,5 @@ class HttpsServer : public Server
 public:
   HttpsServer(const std::string &, const unsigned);
   ~HttpsServer(void);
-  LocalSecureClient recv_client(void);
+  LocalSecureClient recv_client(std::string &);
 };

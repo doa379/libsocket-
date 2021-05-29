@@ -2,7 +2,6 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <iostream>
 #include <openssl/err.h>
 #include <bitset>
 #include "socket.h"
@@ -67,7 +66,7 @@ void Secure::deinit_ssl(void)
   SSL_CTX_free(ctx);
 }
 
-SecureClientPair::SecureClientPair(void)
+SecureClientPair::SecureClientPair(std::string &report)
 {
   try {
     const SSL_METHOD *meth { TLS_client_method() };
@@ -79,7 +78,7 @@ SecureClientPair::SecureClientPair(void)
       throw "ssl";
   }
   catch(const std::string &ex) {
-    std::cerr << "Unable to create " + ex + '\n';
+    report = "Unable to create " + ex;
     throw;
   }
 }
@@ -89,7 +88,7 @@ SecureClientPair::~SecureClientPair(void)
   deinit_ssl();
 }
 
-SecureServerPair::SecureServerPair(void)
+SecureServerPair::SecureServerPair(std::string &report)
 {
   try {
     const SSL_METHOD *meth { TLS_server_method() };
@@ -102,7 +101,7 @@ SecureServerPair::SecureServerPair(void)
   }
   catch(const std::string &ex)
   {
-    std::cerr << "Unable to create " + ex + '\n';
+    report = "Unable to create " + ex;
     throw;
   }
 }
@@ -112,7 +111,7 @@ SecureServerPair::~SecureServerPair(void)
   deinit_ssl();
 }
 
-void Secure::gather_certificate(void)
+void Secure::gather_certificate(std::string &report)
 {
   // Method to be called after connector()
   cipherinfo = std::string(SSL_get_cipher(ssl));
@@ -143,9 +142,9 @@ void Secure::gather_certificate(void)
       X509_free(server_cert);
   }
 
-  catch(std::string &ex)
+  catch(const std::string &ex)
   {
-    std::cerr << "Allocation failure: " + ex + '\n';
+    report = "[SSL] Allocation failure: " + ex;
   }
 }
 
@@ -384,7 +383,7 @@ bool Client::performreq(const REQUEST req, const std::string &endp, const std::v
 HttpClient::HttpClient(const float httpver, const std::string &hostname, const unsigned port) : 
   Client(httpver, hostname, port)
 {
-  connector = [this](void) -> bool { 
+  connector = [&](void) -> bool { 
     if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
     {
       report = "Connect error";
@@ -392,7 +391,8 @@ HttpClient::HttpClient(const float httpver, const std::string &hostname, const u
     }
     return true;
   };
-  reader = [this](char &p) -> bool {
+
+  reader = [&](char &p) -> bool {
     if (::recv(sd, &p, sizeof p, 0) < 0)
     {
       report = "Read error";
@@ -400,7 +400,8 @@ HttpClient::HttpClient(const float httpver, const std::string &hostname, const u
     }
     return true;
   };
-  writer = [this](const std::string &request) -> bool { 
+
+  writer = [&](const std::string &request) -> bool { 
     if (::write(sd, request.c_str(), request.size()) < 0)
     {
       report = "Write error";
@@ -416,42 +417,41 @@ HttpClient::~HttpClient(void)
 }
 
 HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port) : 
-  Client(httpver, hostname, port)
+  Client(httpver, hostname, port),
+  sslclient(std::make_unique<SecureClientPair>(report))
 {
   OpenSSL_add_ssl_algorithms();
   SSL_load_error_strings();
-  connector = [this](void) -> bool {
+  connector = [&](void) -> bool {
     if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
     {
       report = "Connect error";
       return false;
     }
-    sslclient.configure_context(report);
-    sslclient.set_tlsext_hostname(this->hostname);
-    sslclient.set_fd(sd);
-    ssize_t err;
-    if ((err = sslclient.connect()) < 0)
+    sslclient->configure_context(report);
+    sslclient->set_tlsext_hostname(this->hostname);
+    sslclient->set_fd(sd);
+    if ((err = sslclient->connect()) < 0)
     {
-      err = sslclient.get_error(err);
-      report = "[SSL] Connect: " + std::to_string(sslclient.get_error(err));
+      report = "[SSL] Connect: " + std::to_string(sslclient->get_error(err));
       return false;
     }
     return true;
   };
-  reader = [this](char &p) -> bool {
-    ssize_t err;
-    if ((err = sslclient.read(&p, sizeof p)) < 0)
+
+  reader = [&](char &p) -> bool {
+    if ((err = sslclient->read(&p, sizeof p)) < 0)
     {
-      report = "Read: " + std::to_string(sslclient.get_error(err));
+      report = "Read: " + std::to_string(sslclient->get_error(err));
       return false;
     }
     return true;
   };
-  writer = [this](const std::string &request) -> bool {
-    ssize_t err;
-    if ((err = sslclient.write(request)) < 0)
+
+  writer = [&](const std::string &request) -> bool {
+    if ((err = sslclient->write(request)) < 0)
     {
-      report = "Write: " + std::to_string(sslclient.get_error(err));
+      report = "Write: " + std::to_string(sslclient->get_error(err));
       return false;
     }
     return true;
@@ -559,7 +559,6 @@ int Server::recv_client(void)
 
 void Server::new_client(const std::function<void(const std::any)> &cb, std::any arg)
 {
-  std::cout << "Received new client\n";
   auto c { std::async(std::launch::async, [=] { cb(arg); }) };
   C.emplace_back(std::move(c));
 }
@@ -570,10 +569,12 @@ void Server::refresh_clients(void)
     return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
 }
 
-void Server::close_client(int clientsd)
+bool Server::close_client(int clientsd)
 {
   if (close(clientsd) > -1)
-    std::cout << "Client closed\n";
+    return true;
+
+  return false;
 }
 
 HttpServer::HttpServer(const std::string &hostname, const unsigned port) :
@@ -635,25 +636,25 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-LocalSecureClient HttpsServer::recv_client(void)
+LocalSecureClient HttpsServer::recv_client(std::string &report)
 {
   auto clientsd { Server::recv_client() };
-  SecureClientPair client;
+  SecureClientPair client(report);
   if (!client.configure_context(report))
   {
-    std::cerr << "Configure client context: " << report << std::endl;
+    report = "Configure client context: " + report;
     close(clientsd);
     return { -1 };
   }
 
   client.set_tlsext_hostname(hostname);
-  std::shared_ptr<SecureServerPair> sslserver { std::make_shared<SecureServerPair>() };
+  std::shared_ptr<SecureServerPair> sslserver { std::make_shared<SecureServerPair>(report) };
   sslserver->set_fd(clientsd);
   sslserver->set_CTX(client);
   ssize_t err;
   if ((err = sslserver->accept()) < 1)
   {
-    report = "[SSL] SSL_accept(): " + std::to_string(client.get_error(err));
+    report = "[SSL] accept(): " + std::to_string(client.get_error(err));
     return { -1 };
   }
 
