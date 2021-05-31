@@ -113,7 +113,7 @@ SecureClient::SecureClient(void) : Secure(TLS_client_method())
 
 }
 
-bool SecureClient::configure_context(std::string &report, const std::string &certpem = CERTPEM, const std::string &keypem = KEYPEM)
+bool SecureClient::configure_context(std::string &report, const std::string &certpem, const std::string &keypem)
 {
   SSL_CTX_set_ecdh_auto(ctx, 1);
   ssize_t err;
@@ -361,7 +361,7 @@ HttpClient::~HttpClient(void)
 
 }
 
-HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port) : 
+HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port, const std::string &certpem, const std::string &keypem) :
   Client(httpver, hostname, port)
 {
   OpenSSL_add_ssl_algorithms();
@@ -373,7 +373,7 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
       return false;
     }
 
-    sslclient.configure_context(report);
+    sslclient.configure_context(report, certpem, keypem);
     sslclient.set_tlsext_hostname(hostname);
     sslclient.set_fd(sd);
     if ((err = sslclient.connect()) < 0)
@@ -586,12 +586,12 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-SecurePair HttpsServer::recv_client(std::string &report)
+SecurePair HttpsServer::recv_client(std::string &report, const std::string &certpem, const std::string &keypem)
 {
   auto clientsd { Server::recv_client() };
   try {
     SecureClient client;
-    if (!client.configure_context(report))
+    if (!client.configure_context(report, certpem, keypem))
     {
       report = "Configure client context: " + report;
       close(clientsd);

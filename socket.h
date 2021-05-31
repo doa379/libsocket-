@@ -117,7 +117,7 @@ class HttpsClient : public Client
   SecureClient sslclient;
   ssize_t err;
 public:
-  HttpsClient(const float, const std::string &, const unsigned); 
+  HttpsClient(const float, const std::string &, const unsigned, const std::string & = CERTPEM, const std::string & = KEYPEM);
   ~HttpsClient(void);
 };
 
@@ -166,5 +166,5 @@ class HttpsServer : public Server
 public:
   HttpsServer(const std::string &, const unsigned);
   ~HttpsServer(void);
-  SecurePair recv_client(std::string &);
+  SecurePair recv_client(std::string &, const std::string & = CERTPEM, const std::string & = KEYPEM);
 };
