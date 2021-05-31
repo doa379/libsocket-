@@ -18,7 +18,7 @@ static const std::string CERTPEM { "/tmp/cert.pem" };
 static const std::string KEYPEM { "/tmp/key.pem" };
 static const unsigned MAX_CLIENTS { 256 };
 
-enum REQUEST { GET, POST, PUT, DELETE };
+enum REQ { GET, POST, PUT, DELETE };
 
 class Http
 {
@@ -96,11 +96,11 @@ public:
   ~Client(void);
   bool connect(void);
   bool sendreq(const std::vector<std::string> &, const std::string &);
-  bool sendreq(const REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
+  bool sendreq(const REQ, const std::string &, const std::vector<std::string> &, const std::string &);
   bool recvreq(void);
   void recvreq_raw(void);
   bool performreq(const std::vector<std::string> &, const std::string &);
-  bool performreq(const REQUEST, const std::string &, const std::vector<std::string> &, const std::string &);
+  bool performreq(const REQ, const std::string &, const std::vector<std::string> &, const std::string &);
   std::string &get_response(void) { return response_body; }
   std::string &get_header(void) { return response_header; }
   void set_cb(const decltype(response_cb) &callback) { response_cb = callback; }

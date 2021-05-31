@@ -11,15 +11,9 @@ Http::Http(const float httpver, const std::string &hostname, const unsigned port
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
   memset(&sa, 0, sizeof sa);
-  try {
-    sd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sd < 0)
-      throw "Socket creation failed";
-  }
-  catch(const std::string &ex) {
-    report = ex;
-    throw;
-  }
+  sd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sd < 0)
+    throw "Socket creation failed";
 }
 
 Http::~Http(void)
@@ -68,19 +62,13 @@ void Secure::deinit_ssl(void)
 
 SecureClientPair::SecureClientPair(std::string &report)
 {
-  try {
-    const SSL_METHOD *meth { TLS_client_method() };
-    ctx = SSL_CTX_new(meth);
-    ssl = SSL_new(ctx);
-    if (!ctx)
-      throw "context";
-    else if (!ssl)
-      throw "ssl";
-  }
-  catch(const std::string &ex) {
-    report = "Unable to create " + ex;
-    throw;
-  }
+  const SSL_METHOD *meth { TLS_client_method() };
+  ctx = SSL_CTX_new(meth);
+  ssl = SSL_new(ctx);
+  if (!ctx)
+    throw "Unable to create context";
+  else if (!ssl)
+    throw "Unable to create ssl";
 }
 
 SecureClientPair::~SecureClientPair(void)
@@ -90,20 +78,13 @@ SecureClientPair::~SecureClientPair(void)
 
 SecureServerPair::SecureServerPair(std::string &report)
 {
-  try {
-    const SSL_METHOD *meth { TLS_server_method() };
-    ctx = SSL_CTX_new(meth);
-    ssl = SSL_new(ctx);
-    if (!ctx)
-      throw "context";
-    else if (!ssl)
-      throw "ssl";
-  }
-  catch(const std::string &ex)
-  {
-    report = "Unable to create " + ex;
-    throw;
-  }
+  const SSL_METHOD *meth { TLS_server_method() };
+  ctx = SSL_CTX_new(meth);
+  ssl = SSL_new(ctx);
+  if (!ctx)
+    throw "Unable to create context";
+  else if (!ssl)
+    throw "Unabe to create ssl";
 }
 
 SecureServerPair::~SecureServerPair(void)
@@ -115,37 +96,30 @@ void Secure::gather_certificate(std::string &report)
 {
   // Method to be called after connector()
   cipherinfo = std::string(SSL_get_cipher(ssl));
-  try {
-    X509 *server_cert { SSL_get_peer_certificate(ssl) };
-    if (!server_cert)
-      throw "server_cert";
+  X509 *server_cert { SSL_get_peer_certificate(ssl) };
+  if (!server_cert)
+    throw "[SSL] Allocation failure server_cert";
 
-    char *certificate { X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
-    if (!certificate)
-      throw "certificate string";
-    else
-    {
-      this->certificate = std::string(certificate);
-      OPENSSL_free(certificate);
-    }
-
-    char *issuer { X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
-    if (!issuer)
-      throw "issuer string";
-    else
-    {
-      this->issuer = std::string(issuer);
-      OPENSSL_free(issuer);
-    }
-
-    if (server_cert)
-      X509_free(server_cert);
-  }
-
-  catch(const std::string &ex)
+  char *certificate { X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
+  if (!certificate)
+    throw "[SSL] Allocation failure certificate string";
+  else
   {
-    report = "[SSL] Allocation failure: " + ex;
+    this->certificate = std::string(certificate);
+    OPENSSL_free(certificate);
   }
+
+  char *issuer { X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
+  if (!issuer)
+    throw "[SSL] Allocation failure issuer string";
+  else
+  {
+    this->issuer = std::string(issuer);
+    OPENSSL_free(issuer);
+  }
+
+  if (server_cert)
+    X509_free(server_cert);
 }
 
 bool Secure::configure_context(std::string &report)
@@ -247,7 +221,7 @@ bool Client::sendreq(const std::vector<std::string> &H, const std::string &data)
   return writer(request);
 }
 
-bool Client::sendreq(const REQUEST req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+bool Client::sendreq(const REQ req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
   std::string req_type { 
     req == GET ? "GET" : 
@@ -367,7 +341,7 @@ bool Client::performreq(const std::vector<std::string> &H, const std::string &da
   return false;
 }
 
-bool Client::performreq(const REQUEST req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+bool Client::performreq(const REQ req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
   if (connect())
   {

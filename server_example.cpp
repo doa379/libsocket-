@@ -26,48 +26,51 @@ int main(const int argc, const char *argv[])
   }
 
   signal(SIGPIPE, SIG_IGN);
-  HttpServer server(hostname, port_no);
-  if (!server.connect())
-  {
-    std::cout << server.get_report() << std::endl;
-    return 1;
-  }
+  try {
+    HttpServer server(hostname, port_no);
+    if (!server.connect())
+      throw server.get_report();
 
-  auto cb { 
-    [&](const std::any arg) {
-      const int clientsd { std::any_cast<int>(arg) };
-      const std::string header { 
-        std::string("HTTP/1.1 Stream OK\r\n") + 
-        std::string("Transfer-Encoding: chunked\r\n") +
-        hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
-      if (!server.write(clientsd, header))
-        return;
-      std::string document;
-      while (1)
+    auto cb { 
+      [&](const std::any arg) {
+        const int clientsd { std::any_cast<int>(arg) };
+        const std::string header { 
+          std::string("HTTP/1.1 Stream OK\r\n") + 
+            std::string("Transfer-Encoding: chunked\r\n") +
+            hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
+        if (!server.write(clientsd, header))
+          return;
+        std::string document;
+        while (1)
+        {
+          auto s { std::to_string(pow(2, rand(8, 32))) };
+          std::cout << s << std::endl;
+          document = to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
+          if (!server.write(clientsd, document))
+            break;
+          std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
+        }
+
+        server.close_client(clientsd);
+      } 
+    };
+
+    std::cout << "Running server...\n";
+    while (1)
+    {
+      if (server.poll_listen(100))
       {
-        auto s { std::to_string(pow(2, rand(8, 32))) };
-        std::cout << s << std::endl;
-        document = to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
-        if (!server.write(clientsd, document))
-          break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
+        auto accept { server.recv_client() };
+        if (accept > -1)
+          server.new_client(cb, accept);
       }
 
-      server.close_client(clientsd);
-    } 
-  };
-
-  std::cout << "Running server...\n";
-  while (1)
-  {
-    if (server.poll_listen(100))
-    {
-      auto accept { server.recv_client() };
-      if (accept > -1)
-        server.new_client(cb, accept);
+      server.refresh_clients();
     }
-   
-    server.refresh_clients();
+  }
+
+  catch (const char e[]) {
+    std::cout << e << std::endl;
   }
 
   return 0;

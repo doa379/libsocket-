@@ -23,24 +23,27 @@ int main(int argc, char *argv[])
     port_no = std::atoi(argv[2]);
   }
 
-  HttpsClient client(1.1, hostname, port_no);
-  if (client.connect())
-  {
-    if (!client.sendreq(GET, "/", { }, { }))
+  try {
+    HttpsClient client(1.1, hostname, port_no);
+    if (client.connect())
     {
+      if (!client.sendreq(GET, "/", { }, { }))
+        throw client.get_report();
+      client.recvreq();
       std::cout << client.get_report() << std::endl;
-      return 1;
+      std::cout << "The response header:\n===================\n";
+      std::cout << client.get_header() << std::endl;
+      std::cout << "The response body:\n===================\n";
+      std::cout << client.get_response() << std::endl;
     }
-    client.recvreq();
-    std::cout << client.get_report() << std::endl;
-    std::cout << "The response header:\n===================\n";
-    std::cout << client.get_header() << std::endl;
-    std::cout << "The response body:\n===================\n";
-    std::cout << client.get_response() << std::endl;
+
+    else
+      throw client.get_report();
   }
 
-  else
-    std::cout << client.get_report() << std::endl;
+  catch (const char e[]) {
+    std::cout << e << std::endl;
+  }
 
   return 0;
 }

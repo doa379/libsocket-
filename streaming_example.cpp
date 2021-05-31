@@ -21,25 +21,29 @@ int main(int argc, char *argv[])
     port_no = std::atoi(argv[2]);
   }
 
-  HttpClient client(1.1, hostname, port_no);
-  Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
-  client.set_cb(cb);
-  client.set_timeout(1750);
-  if (client.connect())
-  {
-    if (!client.sendreq(GET, "/", { }, { }))
+  try {
+    HttpClient client(1.1, hostname, port_no);
+    Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+    client.set_cb(cb);
+    client.set_timeout(1750);
+    if (client.connect())
     {
-      std::cout << client.get_report() << std::endl;
-      return 1;
+      if (!client.sendreq(GET, "/", { }, { }))
+        throw client.get_report();
+
+      client.recvreq();
+      std::cout << "Stream disconnected\n";
+      std::cout << "The response header:\n===================\n";
+      std::cout << client.get_header() << std::endl;
     }
 
-    client.recvreq();
-    std::cout << "Stream disconnected\n";
-    std::cout << "The response header:\n===================\n";
-    std::cout << client.get_header() << std::endl;
+    else
+      throw client.get_report();
   }
 
-  else
-    std::cout << client.get_report() << std::endl;
+  catch (const char e[]) {
+    std::cout << e << std::endl;
+  }
+
   return 0;
 }
