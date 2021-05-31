@@ -43,26 +43,18 @@ public:
 class Secure
 {
 protected:
-  SSL *ssl { nullptr };
   SSL_CTX *ctx { nullptr };
-  std::string certpem { CERTPEM }, keypem { KEYPEM }, cipherinfo, certificate, issuer;
+  SSL *ssl { nullptr };
+  std::string cipherinfo, certificate, issuer;
 public:
   Secure(const SSL_METHOD *);
-  Secure(const SSL_METHOD *, const std::string &);
-  Secure(const SSL_METHOD *, const std::string &, const std::string &);
   ~Secure(void);
-  void init_ssl(const SSL_METHOD *);
-  void gather_certificate(std::string &);
-  bool configure_context(std::string &);
-  int set_tlsext_hostname(const std::string &);
   int set_fd(const int);
   int connect(void);
-  int get_error(int);
-  int read(void *, int);
   int write(const std::string &);
-  int accept(void);
-  SSL_CTX *set_CTX(const Secure &);
+  int get_error(int);
   int clear(void);
+  void gather_certificate(std::string &);
   std::string &get_cipherinfo(void) { return cipherinfo; }
   std::string &get_certificate(void) { return certificate; }
   std::string &get_issuer(void) { return issuer; }
@@ -72,12 +64,18 @@ class SecureClient : public Secure
 {
 public:
   SecureClient(void);
+  bool configure_context(std::string &, const std::string &, const std::string &);
+  int set_tlsext_hostname(const std::string &);
+  int read(void *, int);
+  SSL_CTX *ctx(void) { return Secure::ctx; }
 };
 
 class SecureServer : public Secure
 {
 public:
   SecureServer(void);
+  SSL_CTX *set_CTX(SSL_CTX *);
+  int accept(void);
 };
 
 using Cb = std::function<void(const std::string &)>;

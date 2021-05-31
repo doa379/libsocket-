@@ -23,7 +23,7 @@ SRC_TEST7 = sslstreaming_example.cpp
 OBJ_TEST7 = ${SRC_TEST7:.cpp=.o}
 
 CC = c++
-CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS} -g
+CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
 LDFLAGS += ${LIBSPATH}
 
 all: libsocket++.so \

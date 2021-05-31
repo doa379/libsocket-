@@ -37,19 +37,12 @@ bool Http::init_connect(void)
   return true;
 }
 
-Secure::Secure(const SSL_METHOD *meth)
+Secure::Secure(const SSL_METHOD *meth) : ctx(SSL_CTX_new(meth)), ssl(SSL_new(ctx))
 {
-  init_ssl(meth);
-}
-
-Secure::Secure(const SSL_METHOD *meth, const std::string &certpem) : certpem(certpem)
-{
-  init_ssl(meth);
-}
-
-Secure::Secure(const SSL_METHOD *meth, const std::string &certpem, const std::string &keypem) : certpem(certpem), keypem(keypem)
-{
-  init_ssl(meth);
+  if (!ctx)
+    throw "Unable to create context";
+  else if (!ssl)
+    throw "Unable to create ssl";
 }
 
 Secure::~Secure(void)
@@ -59,12 +52,29 @@ Secure::~Secure(void)
   SSL_CTX_free(ctx);
 }
 
-void Secure::init_ssl(const SSL_METHOD *meth)
+int Secure::set_fd(const int fd)
 {
-  if (!(ctx = SSL_CTX_new(meth)))
-    throw "Unable to create context";
-  else if (!(ssl = SSL_new(ctx)))
-    throw "Unable to create ssl";
+  return SSL_set_fd(ssl, fd);
+}
+
+int Secure::connect(void)
+{
+  return SSL_connect(ssl);
+}
+
+int Secure::write(const std::string &data)
+{
+  return SSL_write(ssl, data.c_str(), data.size());
+}
+
+int Secure::get_error(int err)
+{
+  return SSL_get_error(ssl, err);
+}
+
+int Secure::clear(void)
+{
+  return SSL_clear(ssl);
 }
 
 void Secure::gather_certificate(std::string &report)
@@ -97,21 +107,27 @@ void Secure::gather_certificate(std::string &report)
     X509_free(server_cert);
 }
 
-bool Secure::configure_context(std::string &report)
+
+SecureClient::SecureClient(void) : Secure(TLS_client_method())
+{
+
+}
+
+bool SecureClient::configure_context(std::string &report, const std::string &certpem = CERTPEM, const std::string &keypem = KEYPEM)
 {
   SSL_CTX_set_ecdh_auto(ctx, 1);
   ssize_t err;
-  if ((err = SSL_CTX_use_certificate_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM)) < 1)
+  if ((err = SSL_CTX_use_certificate_file(Secure::ctx, certpem.c_str(), SSL_FILETYPE_PEM)) < 1)
   {
     report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
     return false;
   }
-  if (keypem.size() && (err = SSL_CTX_use_PrivateKey_file(ctx, keypem.c_str(), SSL_FILETYPE_PEM)) < 1)
+  if (keypem.size() && (err = SSL_CTX_use_PrivateKey_file(Secure::ctx, keypem.c_str(), SSL_FILETYPE_PEM)) < 1)
   {
     report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
     return false;
   }
-  else if (!keypem.size() && (err = SSL_CTX_use_PrivateKey_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM)) < 1)
+  else if (!keypem.size() && (err = SSL_CTX_use_PrivateKey_file(Secure::ctx, certpem.c_str(), SSL_FILETYPE_PEM)) < 1)
   {
     report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
     return false;
@@ -120,59 +136,29 @@ bool Secure::configure_context(std::string &report)
   return true;
 }
 
-int Secure::set_tlsext_hostname(const std::string &hostname)
+int SecureClient::set_tlsext_hostname(const std::string &hostname)
 {
   return SSL_set_tlsext_host_name(ssl, hostname.c_str());
 }
 
-int Secure::set_fd(const int fd)
-{
-  return SSL_set_fd(ssl, fd);
-}
-
-int Secure::connect(void)
-{
-  return SSL_connect(ssl);
-}
-
-int Secure::get_error(int err)
-{
-  return SSL_get_error(ssl, err);
-}
-
-int Secure::read(void *buf, int size)
+int SecureClient::read(void *buf, int size)
 {
   return SSL_read(ssl, buf, size);
-}
-
-int Secure::write(const std::string &data)
-{
-  return SSL_write(ssl, data.c_str(), data.size());
-}
-
-int Secure::accept(void)
-{
-  return SSL_accept(ssl);
-}
-
-SSL_CTX *Secure::set_CTX(const Secure &secure)
-{
-  return SSL_set_SSL_CTX(ssl, secure.ctx);
-}
-
-int Secure::clear(void)
-{
-  return SSL_clear(ssl);
-}
-
-SecureClient::SecureClient(void) : Secure(TLS_client_method())
-{
-
 }
 
 SecureServer::SecureServer(void) : Secure(TLS_server_method())
 {
 
+}
+
+SSL_CTX *SecureServer::set_CTX(SSL_CTX *ctx)
+{
+  return SSL_set_SSL_CTX(ssl, ctx);
+}
+
+int SecureServer::accept(void)
+{
+  return SSL_accept(ssl);
 }
 
 Client::Client(const float httpver, const std::string &hostname, const unsigned port) : 
@@ -615,7 +601,7 @@ SecurePair HttpsServer::recv_client(std::string &report)
     client.set_tlsext_hostname(hostname);
     SecurePair pair { clientsd, std::make_unique<SecureServer>() };
     pair.sslserver->set_fd(clientsd);
-    pair.sslserver->set_CTX(client);
+    pair.sslserver->set_CTX(client.ctx());
     ssize_t err;
     if ((err = pair.sslserver->accept()) < 1)
     {
