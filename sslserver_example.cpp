@@ -33,12 +33,12 @@ int main(int argc, char *argv[])
 
     auto cb { 
       [&](const std::any arg) {
-        std::shared_ptr<LocalSecureClient> client { std::any_cast<std::shared_ptr<LocalSecureClient>>(arg) };
+        auto pair { std::any_cast<std::shared_ptr<SecurePair>>(arg) };
         const std::string header { 
           std::string("HTTP/1.1 SSL Stream OK\r\n") +
             std::string("Transfer-Encoding: chunked\r\n") +
             hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
-        if (client->sslserver->write(header) < 0)
+        if (pair->sslserver->write(header) < 0)
           return;
         std::string document;
         while (1)
@@ -46,12 +46,12 @@ int main(int argc, char *argv[])
           auto s { std::to_string(pow(2, rand(8, 32))) };
           std::cout << s << std::endl;
           document = to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
-          if (client->sslserver->write(document) < 0)
+          if (pair->sslserver->write(document) < 0)
             break;
           std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
         }
 
-        server.close_client(client->clientsd);
+        server.close_client(pair->clientsd);
       }
     };
 
@@ -61,9 +61,9 @@ int main(int argc, char *argv[])
     {
       if (server.poll_listen(100))
       {
-        auto client { std::make_shared<LocalSecureClient>(server.recv_client(report)) };
-        if (client->clientsd > -1)
-          server.new_client(cb, client);
+        auto pair { std::make_shared<SecurePair>(server.recv_client(report)) };
+        if (pair->clientsd > -1)
+          server.new_client(cb, pair);
         else
           std::cout << report << std::endl;
       }
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  catch (const char e[]) {
+  catch (const std::string &e) {
     std::cout << e << std::endl;
   }
 

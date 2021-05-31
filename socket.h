@@ -45,12 +45,13 @@ class Secure
 protected:
   SSL *ssl { nullptr };
   SSL_CTX *ctx { nullptr };
-  std::string certpem, keypem, cipherinfo, certificate, issuer;
+  std::string certpem { CERTPEM }, keypem { KEYPEM }, cipherinfo, certificate, issuer;
 public:
-  Secure(void);
-  Secure(const std::string &);
-  Secure(const std::string &, const std::string &);
-  void deinit_ssl(void);
+  Secure(const SSL_METHOD *);
+  Secure(const SSL_METHOD *, const std::string &);
+  Secure(const SSL_METHOD *, const std::string &, const std::string &);
+  ~Secure(void);
+  void init_ssl(const SSL_METHOD *);
   void gather_certificate(std::string &);
   bool configure_context(std::string &);
   int set_tlsext_hostname(const std::string &);
@@ -67,18 +68,16 @@ public:
   std::string &get_issuer(void) { return issuer; }
 };
 
-class SecureClientPair : public Secure
+class SecureClient : public Secure
 {
 public:
-  SecureClientPair(std::string &);
-  ~SecureClientPair(void);
+  SecureClient(void);
 };
 
-class SecureServerPair : public Secure
+class SecureServer : public Secure
 {
 public:
-  SecureServerPair(std::string &);
-  ~SecureServerPair(void);
+  SecureServer(void);
 };
 
 using Cb = std::function<void(const std::string &)>;
@@ -117,7 +116,7 @@ public:
 
 class HttpsClient : public Client
 {
-  std::unique_ptr<SecureClientPair> sslclient;
+  SecureClient sslclient;
   ssize_t err;
 public:
   HttpsClient(const float, const std::string &, const unsigned); 
@@ -158,10 +157,10 @@ public:
   bool write(const int, const std::string &);
 };
 
-struct LocalSecureClient
+struct SecurePair
 {
   int clientsd;
-  std::shared_ptr<SecureServerPair> sslserver;
+  std::unique_ptr<SecureServer> sslserver;
 };
 
 class HttpsServer : public Server
@@ -169,5 +168,5 @@ class HttpsServer : public Server
 public:
   HttpsServer(const std::string &, const unsigned);
   ~HttpsServer(void);
-  LocalSecureClient recv_client(std::string &);
+  SecurePair recv_client(std::string &);
 };

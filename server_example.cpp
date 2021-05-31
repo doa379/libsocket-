@@ -69,7 +69,7 @@ int main(const int argc, const char *argv[])
     }
   }
 
-  catch (const char e[]) {
+  catch (const std::string &e) {
     std::cout << e << std::endl;
   }
 

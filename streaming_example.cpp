@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
       throw client.get_report();
   }
 
-  catch (const char e[]) {
+  catch (const std::string &e) {
     std::cout << e << std::endl;
   }
 

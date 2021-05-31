@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     std::cout << client1.get_response() << std::endl;
   }
 
-  catch (const char e[]) {
+  catch (const std::string &e) {
     std::cout << e << std::endl;
   }
 

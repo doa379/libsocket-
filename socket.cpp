@@ -11,8 +11,7 @@ Http::Http(const float httpver, const std::string &hostname, const unsigned port
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
   memset(&sa, 0, sizeof sa);
-  sd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sd < 0)
+  if ((sd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     throw "Socket creation failed";
 }
 
@@ -38,58 +37,34 @@ bool Http::init_connect(void)
   return true;
 }
 
-Secure::Secure(void) : certpem(CERTPEM), keypem(KEYPEM)
+Secure::Secure(const SSL_METHOD *meth)
 {
-
+  init_ssl(meth);
 }
 
-Secure::Secure(const std::string &certpem) : certpem(certpem)
+Secure::Secure(const SSL_METHOD *meth, const std::string &certpem) : certpem(certpem)
 {
-
+  init_ssl(meth);
 }
 
-Secure::Secure(const std::string &certpem, const std::string &keypem) : certpem(certpem), keypem(keypem)
+Secure::Secure(const SSL_METHOD *meth, const std::string &certpem, const std::string &keypem) : certpem(certpem), keypem(keypem)
 {
-
+  init_ssl(meth);
 }
 
-void Secure::deinit_ssl(void)
+Secure::~Secure(void)
 {
   SSL_shutdown(ssl);
   SSL_free(ssl);
   SSL_CTX_free(ctx);
 }
 
-SecureClientPair::SecureClientPair(std::string &report)
+void Secure::init_ssl(const SSL_METHOD *meth)
 {
-  const SSL_METHOD *meth { TLS_client_method() };
-  ctx = SSL_CTX_new(meth);
-  ssl = SSL_new(ctx);
-  if (!ctx)
+  if (!(ctx = SSL_CTX_new(meth)))
     throw "Unable to create context";
-  else if (!ssl)
+  else if (!(ssl = SSL_new(ctx)))
     throw "Unable to create ssl";
-}
-
-SecureClientPair::~SecureClientPair(void)
-{
-  deinit_ssl();
-}
-
-SecureServerPair::SecureServerPair(std::string &report)
-{
-  const SSL_METHOD *meth { TLS_server_method() };
-  ctx = SSL_CTX_new(meth);
-  ssl = SSL_new(ctx);
-  if (!ctx)
-    throw "Unable to create context";
-  else if (!ssl)
-    throw "Unabe to create ssl";
-}
-
-SecureServerPair::~SecureServerPair(void)
-{
-  deinit_ssl();
 }
 
 void Secure::gather_certificate(std::string &report)
@@ -98,11 +73,11 @@ void Secure::gather_certificate(std::string &report)
   cipherinfo = std::string(SSL_get_cipher(ssl));
   X509 *server_cert { SSL_get_peer_certificate(ssl) };
   if (!server_cert)
-    throw "[SSL] Allocation failure server_cert";
+    report = "[SSL] Allocation failure server_cert";
 
   char *certificate { X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
   if (!certificate)
-    throw "[SSL] Allocation failure certificate string";
+    report = "[SSL] Allocation failure certificate string";
   else
   {
     this->certificate = std::string(certificate);
@@ -111,7 +86,7 @@ void Secure::gather_certificate(std::string &report)
 
   char *issuer { X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
   if (!issuer)
-    throw "[SSL] Allocation failure issuer string";
+    report = "[SSL] Allocation failure issuer string";
   else
   {
     this->issuer = std::string(issuer);
@@ -188,6 +163,16 @@ SSL_CTX *Secure::set_CTX(const Secure &secure)
 int Secure::clear(void)
 {
   return SSL_clear(ssl);
+}
+
+SecureClient::SecureClient(void) : Secure(TLS_client_method())
+{
+
+}
+
+SecureServer::SecureServer(void) : Secure(TLS_server_method())
+{
+
 }
 
 Client::Client(const float httpver, const std::string &hostname, const unsigned port) : 
@@ -391,8 +376,7 @@ HttpClient::~HttpClient(void)
 }
 
 HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port) : 
-  Client(httpver, hostname, port),
-  sslclient(std::make_unique<SecureClientPair>(report))
+  Client(httpver, hostname, port)
 {
   OpenSSL_add_ssl_algorithms();
   SSL_load_error_strings();
@@ -402,32 +386,36 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
       report = "Connect error";
       return false;
     }
-    sslclient->configure_context(report);
-    sslclient->set_tlsext_hostname(this->hostname);
-    sslclient->set_fd(sd);
-    if ((err = sslclient->connect()) < 0)
+
+    sslclient.configure_context(report);
+    sslclient.set_tlsext_hostname(hostname);
+    sslclient.set_fd(sd);
+    if ((err = sslclient.connect()) < 0)
     {
-      report = "[SSL] Connect: " + std::to_string(sslclient->get_error(err));
+      report = "[SSL] Connect: " + std::to_string(sslclient.get_error(err));
       return false;
     }
+
     return true;
   };
 
   reader = [&](char &p) -> bool {
-    if ((err = sslclient->read(&p, sizeof p)) < 0)
+    if ((err = sslclient.read(&p, sizeof p)) < 0)
     {
-      report = "Read: " + std::to_string(sslclient->get_error(err));
+      report = "Read: " + std::to_string(sslclient.get_error(err));
       return false;
     }
+
     return true;
   };
 
   writer = [&](const std::string &request) -> bool {
-    if ((err = sslclient->write(request)) < 0)
+    if ((err = sslclient.write(request)) < 0)
     {
-      report = "Write: " + std::to_string(sslclient->get_error(err));
+      report = "Write: " + std::to_string(sslclient.get_error(err));
       return false;
     }
+
     return true;
   };
 }
@@ -498,12 +486,14 @@ bool Server::connect(void)
 {
   if (!init_connect())
     return false;
+
   if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
   {
     report = "Unable to bind. Check server address if already in use.";
     close(sd);
     return false;
   }
+
   if (::listen(sd, 1) < 0)
   {
     report = "Unable to listen";
@@ -610,27 +600,35 @@ HttpsServer::~HttpsServer(void)
 
 }
 
-LocalSecureClient HttpsServer::recv_client(std::string &report)
+SecurePair HttpsServer::recv_client(std::string &report)
 {
   auto clientsd { Server::recv_client() };
-  SecureClientPair client(report);
-  if (!client.configure_context(report))
-  {
-    report = "Configure client context: " + report;
-    close(clientsd);
-    return { -1 };
+  try {
+    SecureClient client;
+    if (!client.configure_context(report))
+    {
+      report = "Configure client context: " + report;
+      close(clientsd);
+      return { -1 };
+    }
+
+    client.set_tlsext_hostname(hostname);
+    SecurePair pair { clientsd, std::make_unique<SecureServer>() };
+    pair.sslserver->set_fd(clientsd);
+    pair.sslserver->set_CTX(client);
+    ssize_t err;
+    if ((err = pair.sslserver->accept()) < 1)
+    {
+      report = "[SSL] accept(): " + std::to_string(client.get_error(err));
+      return { -1 };
+    }
+
+    return pair;
   }
 
-  client.set_tlsext_hostname(hostname);
-  std::shared_ptr<SecureServerPair> sslserver { std::make_shared<SecureServerPair>(report) };
-  sslserver->set_fd(clientsd);
-  sslserver->set_CTX(client);
-  ssize_t err;
-  if ((err = sslserver->accept()) < 1)
-  {
-    report = "[SSL] accept(): " + std::to_string(client.get_error(err));
-    return { -1 };
+  catch (const std::string &e) {
+    report = e;
   }
 
-  return { clientsd, sslserver };
+  return { -1 };
 }
