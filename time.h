@@ -3,7 +3,6 @@
 
 using time_p = std::chrono::time_point<std::chrono::system_clock>;
 
-template<typename T>
 class Time
 {
 protected:
@@ -11,6 +10,7 @@ protected:
 public:
   Time(unsigned timeout = 0) : timeout(timeout) { }
   time_p now(void) noexcept { return std::chrono::system_clock::now(); };
+  template<typename T>
   std::size_t diffpt(time_p t1, time_p t0)
   {
     return std::chrono::duration_cast<T>(t1.time_since_epoch()).count() -

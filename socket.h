@@ -81,7 +81,7 @@ public:
 
 using Cb = std::function<void(const std::string &)>;
 
-class Client : public Http, public Time<std::chrono::milliseconds>
+class Client : public Http, public Time
 {
   friend class MultiClient;
   std::string agent { "HttpRequest" }, response_header, response_body;
@@ -122,7 +122,7 @@ public:
   ~HttpsClient(void);
 };
 
-class MultiClient : public Time<std::chrono::milliseconds>
+class MultiClient : public Time
 {
   std::vector<std::reference_wrapper<Client>> C;
 public:
