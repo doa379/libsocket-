@@ -9,7 +9,7 @@ class Time
 protected:
   unsigned timeout;
 public:
-  Time(unsigned timeout) : timeout(timeout) { }
+  Time(unsigned timeout = 0) : timeout(timeout) { }
   time_p now(void) noexcept { return std::chrono::system_clock::now(); };
   std::size_t diffpt(time_p t1, time_p t0)
   {
