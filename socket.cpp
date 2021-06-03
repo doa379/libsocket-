@@ -162,7 +162,8 @@ int SecureServer::accept(void)
 }
 
 Client::Client(const float httpver, const std::string &hostname, const unsigned port) : 
-  Http(httpver, hostname, port)
+  Http(httpver, hostname, port),
+  Time(DEFAULT_TIMEOUTMS)
 {
 
 }
@@ -411,7 +412,7 @@ HttpsClient::~HttpsClient(void)
 
 }
 
-MultiClient::MultiClient(void)
+MultiClient::MultiClient(void) : Time(DEFAULT_TIMEOUTMS)
 {
 
 }

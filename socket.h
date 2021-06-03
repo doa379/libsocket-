@@ -14,6 +14,7 @@
 #include "time.h"
 
 static const float DEFAULT_HTTPVER { 2.0 };
+static const unsigned DEFAULT_TIMEOUTMS { 30 * 1000 };
 static const std::string CERTPEM { "/tmp/cert.pem" };
 static const std::string KEYPEM { "/tmp/key.pem" };
 static const unsigned MAX_CLIENTS { 256 };
