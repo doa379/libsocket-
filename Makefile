@@ -87,4 +87,4 @@ clean:
     ${OBJ_TEST5} \
     ${OBJ_TEST6} \
     ${OBJ_TEST7}
-	@rm -f *example
+	@rm -f libsocket++.so *example

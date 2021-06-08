@@ -130,6 +130,7 @@ public:
   bool set_client(Client &);
   bool connect(void);
   void recvreq(unsigned);
+  decltype(C) &clients(void) { return C; }
 };
 
 class Server : public Http
