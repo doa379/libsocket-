@@ -41,7 +41,14 @@ public:
   bool init_connect(void);
 };
 
-class Secure
+class InitSSL
+{
+public:
+  InitSSL(void);
+  static void init(void);
+};
+
+class Secure : private InitSSL
 {
 protected:
   SSL_CTX *ctx { nullptr };
@@ -53,7 +60,7 @@ public:
   int set_fd(const int);
   int connect(void);
   int write(const std::string &);
-  int get_error(int);
+  int error(int);
   int clear(void);
   void gather_certificate(std::string &);
   std::string &cipherinfo(void) { return _cipherinfo; }

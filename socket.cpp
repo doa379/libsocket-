@@ -27,14 +27,25 @@ bool Http::init_connect(void)
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
   struct hostent *host { gethostbyname(hostname.c_str()) };
-  if (!host)
+  if (host)
   {
-    _report = "Unable to resolve hostname";
-    return false;
+    sa.sin_addr.s_addr = *(long *) host->h_addr;
+    return true;
   }
+  
+  _report = "Unable to resolve hostname";
+  return false;
+}
 
-  sa.sin_addr.s_addr = *(long *) host->h_addr;
-  return true;
+InitSSL::InitSSL(void)
+{
+  InitSSL::init();
+}
+
+void InitSSL::init(void)
+{
+  OpenSSL_add_ssl_algorithms();
+  SSL_load_error_strings();
 }
 
 Secure::Secure(const SSL_METHOD *meth) : ctx(SSL_CTX_new(meth)), ssl(SSL_new(ctx))
@@ -67,7 +78,7 @@ int Secure::write(const std::string &data)
   return SSL_write(ssl, data.c_str(), data.size());
 }
 
-int Secure::get_error(int err)
+int Secure::error(int err)
 {
   return SSL_get_error(ssl, err);
 }
@@ -175,9 +186,10 @@ Client::~Client(void)
 
 bool Client::connect(void)
 {
-  if (!init_connect())
-    return false;
-  return connector();
+  if (init_connect())
+    return connector();
+  
+  return false;
 }
 
 bool Client::sendreq(const std::vector<std::string> &H, const std::string &data)
@@ -242,7 +254,7 @@ bool Client::recvreq(void)
   if (!std::regex_search(response_header, match, ok_regex))
   {
     _report = response_header.substr(match.prefix().length(), response_header.rfind("\r\n"));
-    return 0;
+    return false;
   }
 
   // Response Body
@@ -284,7 +296,7 @@ bool Client::recvreq(void)
     }
   }
 
-  return 1;
+  return true;
 }
 
 void Client::recvreq_raw(void)
@@ -302,26 +314,16 @@ void Client::recvreq_raw(void)
 
 bool Client::performreq(const std::vector<std::string> &H, const std::string &data)
 {
-  if (connect())
-  {
-    if (!sendreq(H, data))
-      return false;
-
+  if (connect() && sendreq(H, data))
     return recvreq();
-  }
 
   return false;
 }
 
 bool Client::performreq(const REQ req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
-  if (connect())
-  {
-    if (!sendreq(req, endp, H, data))
-      return false;
-    
+  if (connect() && sendreq(req, endp, H, data))
     return recvreq();
-  }
 
   return false;
 }
@@ -330,30 +332,24 @@ HttpClient::HttpClient(const float httpver, const std::string &hostname, const u
   Client(httpver, hostname, port)
 {
   connector = [&](void) -> bool { 
-    if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
-    {
-      _report = "Connect error";
-      return false;
-    }
-    return true;
+    if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) > -1)
+      return true;
+    _report = "Connect error";
+    return false;
   };
 
   reader = [&](char &p) -> bool {
-    if (::recv(sd, &p, sizeof p, 0) < 0)
-    {
-      _report = "Read error";
-      return false;
-    }
-    return true;
+    if (::recv(sd, &p, sizeof p, 0) > -1)
+      return true;
+    _report = "Read error";
+    return false;
   };
 
   writer = [&](const std::string &request) -> bool { 
-    if (::write(sd, request.c_str(), request.size()) < 0)
-    {
-      _report = "Write error";
-      return false;
-    }
-    return true;
+    if (::write(sd, request.c_str(), request.size()) > -1)
+      return true;
+    _report = "Write error";
+    return false;
   };
 }
 
@@ -365,8 +361,6 @@ HttpClient::~HttpClient(void)
 HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port, const std::string &certpem, const std::string &keypem) :
   Client(httpver, hostname, port)
 {
-  OpenSSL_add_ssl_algorithms();
-  SSL_load_error_strings();
   connector = [&](void) -> bool {
     if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
     {
@@ -377,33 +371,24 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
     sslclient.configure_context(_report, certpem, keypem);
     sslclient.set_tlsext_hostname(hostname);
     sslclient.set_fd(sd);
-    if ((err = sslclient.connect()) < 0)
-    {
-      _report = "[SSL] Connect: " + std::to_string(sslclient.get_error(err));
-      return false;
-    }
-
-    return true;
+    if ((err = sslclient.connect()) > 0)
+      return true;
+    _report = "[SSL] Connect: " + std::to_string(sslclient.error(err));
+    return false;
   };
 
   reader = [&](char &p) -> bool {
-    if ((err = sslclient.read(&p, sizeof p)) < 0)
-    {
-      _report = "Read: " + std::to_string(sslclient.get_error(err));
-      return false;
-    }
-
-    return true;
+    if ((err = sslclient.read(&p, sizeof p)) > 0)
+      return true;
+    _report = "Read: " + std::to_string(sslclient.error(err));
+    return false;
   };
 
   writer = [&](const std::string &request) -> bool {
-    if ((err = sslclient.write(request)) < 0)
-    {
-      _report = "Write: " + std::to_string(sslclient.get_error(err));
-      return false;
-    }
-
-    return true;
+    if ((err = sslclient.write(request)) > 0)
+      return true;
+    _report = "Write: " + std::to_string(sslclient.error(err));
+    return false;
   };
 }
 
@@ -578,8 +563,7 @@ bool HttpServer::write(const int clientsd, const std::string &document)
 HttpsServer::HttpsServer(const std::string &hostname, const unsigned port) :
   Server(DEFAULT_HTTPVER, hostname, port)
 {
-  OpenSSL_add_ssl_algorithms();
-  SSL_load_error_strings();
+
 }
 
 HttpsServer::~HttpsServer(void)
@@ -606,7 +590,7 @@ SecurePair HttpsServer::recv_client(std::string &report, const std::string &cert
     ssize_t err;
     if ((err = pair.sslserver->accept()) < 1)
     {
-      report = "[SSL] accept(): " + std::to_string(client.get_error(err));
+      report = "[SSL] accept(): " + std::to_string(client.error(err));
       return { -1 };
     }
 
