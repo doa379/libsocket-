@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
   try {
     HttpsServer server(hostname, port_no);
     if (!server.connect())
-      throw server.get_report();
+      throw server.report();
 
     auto cb { 
       [&](const std::any arg) {

@@ -10,7 +10,7 @@
 #include <list>
 #include <future>
 #include <memory>
-#include <sys/poll.h>
+#include <poll.h>
 #include "time.h"
 
 static const float DEFAULT_HTTPVER { 2.0 };
@@ -27,7 +27,7 @@ protected:
   int sd;
   struct sockaddr_in sa;
   char httpver[8];
-  std::string hostname, report;
+  std::string hostname, _report;
   unsigned port;
   std::function<bool(void)> connector;
   std::function<bool(char &)> reader;
@@ -37,7 +37,7 @@ protected:
 public:
   Http(const float, const std::string &hostname, const unsigned port);
   ~Http(void);
-  std::string &get_report(void) { return report; }
+  std::string &report(void) { return _report; }
   bool init_connect(void);
 };
 
@@ -46,7 +46,7 @@ class Secure
 protected:
   SSL_CTX *ctx { nullptr };
   SSL *ssl { nullptr };
-  std::string cipherinfo, certificate, issuer;
+  std::string _cipherinfo, _certificate, _issuer;
 public:
   Secure(const SSL_METHOD *);
   ~Secure(void);
@@ -56,9 +56,9 @@ public:
   int get_error(int);
   int clear(void);
   void gather_certificate(std::string &);
-  std::string &get_cipherinfo(void) { return cipherinfo; }
-  std::string &get_certificate(void) { return certificate; }
-  std::string &get_issuer(void) { return issuer; }
+  std::string &cipherinfo(void) { return _cipherinfo; }
+  std::string &certificate(void) { return _certificate; }
+  std::string &issuer(void) { return _issuer; }
 };
 
 class SecureClient : public Secure
@@ -93,14 +93,14 @@ public:
   Client(const float, const std::string &, const unsigned);
   ~Client(void);
   bool connect(void);
-  bool sendreq(const std::vector<std::string> &, const std::string &);
-  bool sendreq(const REQ, const std::string &, const std::vector<std::string> &, const std::string &);
+  bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
+  bool sendreq(const REQ, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
   bool recvreq(void);
   void recvreq_raw(void);
-  bool performreq(const std::vector<std::string> &, const std::string &);
-  bool performreq(const REQ, const std::string &, const std::vector<std::string> &, const std::string &);
-  std::string &get_response(void) { return response_body; }
-  std::string &get_header(void) { return response_header; }
+  bool performreq(const std::vector<std::string> & = { }, const std::string & = { });
+  bool performreq(const REQ, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
+  std::string &response(void) { return response_body; }
+  std::string &header(void) { return response_header; }
   void set_cb(const decltype(response_cb) &callback) { response_cb = callback; }
   void set_timeout(const unsigned timeout) { this->timeout = timeout; }
   void clear_buffer(void) { response_body.clear(); }

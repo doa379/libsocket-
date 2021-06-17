@@ -29,7 +29,7 @@ bool Http::init_connect(void)
   struct hostent *host { gethostbyname(hostname.c_str()) };
   if (!host)
   {
-    report = "Unable to resolve hostname";
+    _report = "Unable to resolve hostname";
     return false;
   }
 
@@ -80,7 +80,7 @@ int Secure::clear(void)
 void Secure::gather_certificate(std::string &report)
 {
   // Method to be called after connector()
-  cipherinfo = std::string(SSL_get_cipher(ssl));
+  _cipherinfo = std::string(SSL_get_cipher(ssl));
   X509 *server_cert { SSL_get_peer_certificate(ssl) };
   if (!server_cert)
     report = "[SSL] Allocation failure server_cert";
@@ -90,7 +90,7 @@ void Secure::gather_certificate(std::string &report)
     report = "[SSL] Allocation failure certificate string";
   else
   {
-    this->certificate = std::string(certificate);
+    this->_certificate = std::string(certificate);
     OPENSSL_free(certificate);
   }
 
@@ -99,7 +99,7 @@ void Secure::gather_certificate(std::string &report)
     report = "[SSL] Allocation failure issuer string";
   else
   {
-    this->issuer = std::string(issuer);
+    this->_issuer = std::string(issuer);
     OPENSSL_free(issuer);
   }
 
@@ -205,7 +205,7 @@ bool Client::sendreq(const REQ req, const std::string &endp, const std::vector<s
 
   if (!req_type.size())
   {
-    report = "Bad request type";
+    _report = "Bad request type";
     return false;
   }
 
@@ -241,7 +241,7 @@ bool Client::recvreq(void)
   
   if (!std::regex_search(response_header, match, ok_regex))
   {
-    report = response_header.substr(match.prefix().length(), response_header.rfind("\r\n"));
+    _report = response_header.substr(match.prefix().length(), response_header.rfind("\r\n"));
     return 0;
   }
 
@@ -332,7 +332,7 @@ HttpClient::HttpClient(const float httpver, const std::string &hostname, const u
   connector = [&](void) -> bool { 
     if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
     {
-      report = "Connect error";
+      _report = "Connect error";
       return false;
     }
     return true;
@@ -341,7 +341,7 @@ HttpClient::HttpClient(const float httpver, const std::string &hostname, const u
   reader = [&](char &p) -> bool {
     if (::recv(sd, &p, sizeof p, 0) < 0)
     {
-      report = "Read error";
+      _report = "Read error";
       return false;
     }
     return true;
@@ -350,7 +350,7 @@ HttpClient::HttpClient(const float httpver, const std::string &hostname, const u
   writer = [&](const std::string &request) -> bool { 
     if (::write(sd, request.c_str(), request.size()) < 0)
     {
-      report = "Write error";
+      _report = "Write error";
       return false;
     }
     return true;
@@ -370,16 +370,16 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
   connector = [&](void) -> bool {
     if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
     {
-      report = "Connect error";
+      _report = "Connect error";
       return false;
     }
 
-    sslclient.configure_context(report, certpem, keypem);
+    sslclient.configure_context(_report, certpem, keypem);
     sslclient.set_tlsext_hostname(hostname);
     sslclient.set_fd(sd);
     if ((err = sslclient.connect()) < 0)
     {
-      report = "[SSL] Connect: " + std::to_string(sslclient.get_error(err));
+      _report = "[SSL] Connect: " + std::to_string(sslclient.get_error(err));
       return false;
     }
 
@@ -389,7 +389,7 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
   reader = [&](char &p) -> bool {
     if ((err = sslclient.read(&p, sizeof p)) < 0)
     {
-      report = "Read: " + std::to_string(sslclient.get_error(err));
+      _report = "Read: " + std::to_string(sslclient.get_error(err));
       return false;
     }
 
@@ -399,7 +399,7 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
   writer = [&](const std::string &request) -> bool {
     if ((err = sslclient.write(request)) < 0)
     {
-      report = "Write: " + std::to_string(sslclient.get_error(err));
+      _report = "Write: " + std::to_string(sslclient.get_error(err));
       return false;
     }
 
@@ -476,14 +476,14 @@ bool Server::connect(void)
 
   if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
   {
-    report = "Unable to bind. Check server address if already in use.";
+    _report = "Unable to bind. Check server address if already in use.";
     close(sd);
     return false;
   }
 
   if (::listen(sd, 1) < 0)
   {
-    report = "Unable to listen";
+    _report = "Unable to listen";
     return false;
   }
 

@@ -28,17 +28,17 @@ int main(int argc, char *argv[])
     if (client.connect())
     {
       if (!client.sendreq(GET, "/", { }, { }))
-        throw client.get_report();
+        throw client.report();
       client.recvreq();
-      std::cout << client.get_report() << std::endl;
+      std::cout << client.report() << std::endl;
       std::cout << "The response header:\n===================\n";
-      std::cout << client.get_header() << std::endl;
+      std::cout << client.header() << std::endl;
       std::cout << "The response body:\n===================\n";
-      std::cout << client.get_response() << std::endl;
+      std::cout << client.response() << std::endl;
     }
 
     else
-      throw client.get_report();
+      throw client.report();
   }
 
   catch (const std::string &e) {

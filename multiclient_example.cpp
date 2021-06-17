@@ -21,14 +21,14 @@ int main(int argc, char *argv[])
     std::cout << "All transfer(s) completed\n";
     std::cout << "(Client0):\n===================\n";
     std::cout << "The response header (client0):\n===================\n";
-    std::cout << client0.get_header() << std::endl;
+    std::cout << client0.header() << std::endl;
     std::cout << "The response body (client0):\n===================\n";
-    std::cout << client0.get_response() << std::endl;
+    std::cout << client0.response() << std::endl;
     std::cout << "(Client1):\n===================\n";
     std::cout << "The response header (client1):\n===================\n";
-    std::cout << client1.get_header() << std::endl;
+    std::cout << client1.header() << std::endl;
     std::cout << "The response body (client1):\n===================\n";
-    std::cout << client1.get_response() << std::endl;
+    std::cout << client1.response() << std::endl;
   }
 
   catch (const std::string &e) {
