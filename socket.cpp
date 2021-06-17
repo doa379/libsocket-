@@ -101,7 +101,7 @@ void Secure::gather_certificate(std::string &report)
     report = "[SSL] Allocation failure certificate string";
   else
   {
-    this->_certificate = std::string(certificate);
+    _certificate = std::string(certificate);
     OPENSSL_free(certificate);
   }
 
@@ -110,7 +110,7 @@ void Secure::gather_certificate(std::string &report)
     report = "[SSL] Allocation failure issuer string";
   else
   {
-    this->_issuer = std::string(issuer);
+    _issuer = std::string(issuer);
     OPENSSL_free(issuer);
   }
 
@@ -361,7 +361,7 @@ HttpClient::~HttpClient(void)
 HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port, const std::string &certpem, const std::string &keypem) :
   Client(httpver, hostname, port)
 {
-  connector = [&](void) -> bool {
+  connector = [&, this, certpem, keypem](void) -> bool {
     if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
     {
       _report = "Connect error";
@@ -369,7 +369,7 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
     }
 
     sslclient.configure_context(_report, certpem, keypem);
-    sslclient.set_tlsext_hostname(hostname);
+    sslclient.set_tlsext_hostname(this->hostname);
     sslclient.set_fd(sd);
     if ((err = sslclient.connect()) > 0)
       return true;
