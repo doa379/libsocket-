@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
       std::cerr << "There was at least one failure in connecting, proceeding...\n";
     client0.sendreq(GET, "/", { }, { });
     client1.sendreq(GET, "/", { }, { });
-    mc.recvreq(100);
+    mc.recvreq(30);
     std::cout << "All transfer(s) completed\n";
     std::cout << "(Client0):\n===================\n";
     std::cout << "The response header (client0):\n===================\n";

@@ -397,7 +397,7 @@ HttpsClient::~HttpsClient(void)
 
 }
 
-MultiClient::MultiClient(void) : Time(DEFAULT_TIMEOUTMS)
+MultiClient::MultiClient(void) : Time()
 {
 
 }
@@ -423,7 +423,7 @@ bool MultiClient::connect(void)
   return retval;
 }
 
-void MultiClient::recvreq(unsigned timeout_ms)
+void MultiClient::recvreq(unsigned timeout)
 {
   struct pollfd PFD[MAX_CLIENTS] { };
   std::bitset<MAX_CLIENTS> M;
@@ -435,9 +435,9 @@ void MultiClient::recvreq(unsigned timeout_ms)
 
   const auto init { this->now() };
   auto now { init };
-  while (M.count() < C.size() && diffpt<std::chrono::milliseconds>(now, init) < timeout)
+  while (M.count() < C.size() && diffpt<std::chrono::seconds>(now, init) < timeout)
   {
-    poll(PFD, C.size(), timeout_ms);
+    poll(PFD, C.size(), 100);
     for (auto i { 0U }; i < C.size(); i++)
       if (PFD[i].revents & POLLIN && !M[i])
       {
