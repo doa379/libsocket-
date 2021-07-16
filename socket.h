@@ -3,6 +3,7 @@
 #include <string>
 #include <netinet/in.h>
 #include <vector>
+#include <array>
 #include <functional>
 #include <openssl/ssl.h>
 #include <regex>
@@ -18,8 +19,8 @@ static const unsigned DEFAULT_TIMEOUTMS { 30 * 1000 };
 static const char CERTPEM[] { "/tmp/cert.pem" };
 static const char KEYPEM[] { "/tmp/key.pem" };
 static const unsigned MAX_CLIENTS { 256 };
-
-enum REQ { GET, POST, PUT, DELETE };
+static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
+enum { GET, POST, PUT, DELETE };
 
 class Http
 {
@@ -101,11 +102,11 @@ public:
   ~Client(void);
   bool connect(void);
   bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
-  bool sendreq(const REQ, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
+  bool sendreq(const unsigned, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
   bool recvreq(void);
   void recvreq_raw(void);
   bool performreq(const std::vector<std::string> & = { }, const std::string & = { });
-  bool performreq(const REQ, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
+  bool performreq(const unsigned, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
   std::string &response(void) { return response_body; }
   std::string &header(void) { return response_header; }
   void set_cb(const decltype(response_cb) &callback) { response_cb = callback; }

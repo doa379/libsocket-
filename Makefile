@@ -1,5 +1,5 @@
 LOCAL = ..
-LIBSPATH = -L ${LOCAL}/libsocket++ -Wl,-R$(LOCAL)/libsocket++ '-Wl,-R$$ORIGIN'
+LIBSPATH = -L ${LOCAL}/libsocket++ -Wl,-R$(LOCAL)/libsocket++ '-Wl,-R$$ORIGIN' -L /usr/local/lib
 INCS = -I /usr/local/include -I ${LOCAL}/
 LIBS = -l ssl -l crypto
 

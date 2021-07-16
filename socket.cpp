@@ -205,24 +205,17 @@ bool Client::sendreq(const std::vector<std::string> &H, const std::string &data)
   return writer(request);
 }
 
-bool Client::sendreq(const REQ req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+bool Client::sendreq(const unsigned req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
-  std::string req_type { 
-    req == GET ? "GET" : 
-    req == POST ? "POST" : 
-    req == PUT ? "PUT" : 
-    req == DELETE ? "DELETE" : 
-    std::string() 
-  };
-
-  if (!req_type.size())
+  if (&REQ[req] > &REQ[REQ.size() - 1]
+    || (req == GET && data.size()))
   {
     _report = "Bad request type";
     return false;
   }
 
   std::string request { 
-    req_type + " " + endp + " " + "HTTP/" + std::string(httpver) + "\r\n" +
+    REQ[req] + " " + endp + " " + "HTTP/" + std::string(httpver) + "\r\n" +
     "Host: " + hostname + "\r\n" +
     "User-Agent: " + agent + "\r\n" +
     "Accept: */*" + "\r\n" };
@@ -320,7 +313,7 @@ bool Client::performreq(const std::vector<std::string> &H, const std::string &da
   return false;
 }
 
-bool Client::performreq(const REQ req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+bool Client::performreq(const unsigned req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
   if (connect() && sendreq(req, endp, H, data))
     return recvreq();
