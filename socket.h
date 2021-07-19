@@ -92,11 +92,11 @@ using Cb = std::function<void(const std::string &)>;
 class Client : public Http, public Time
 {
   friend class MultiClient;
-  std::string agent { "HttpRequest" }, response_header, response_body;
+  std::string agent { "HttpRequest" }, header, body;
   const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
     transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
     chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
-  Cb response_cb { [](const std::string &) { } };
+  Cb cb { [](const std::string &) { } };
 public:
   Client(const float, const std::string &, const unsigned);
   ~Client(void);
@@ -107,11 +107,11 @@ public:
   void recvreq_raw(void);
   bool performreq(const std::vector<std::string> & = { }, const std::string & = { });
   bool performreq(const unsigned, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
-  std::string &response(void) { return response_body; }
-  std::string &header(void) { return response_header; }
-  void set_cb(const decltype(response_cb) &callback) { response_cb = callback; }
+  std::string &resp_header(void) { return header; }
+  std::string &resp_body(void) { return body; }
+  void set_cb(const Cb &cb) { this->cb = cb; }
   void set_timeout(const unsigned timeout) { this->timeout = timeout; }
-  void clear_buffer(void) { response_body.clear(); }
+  void resp_clear(void) { header.clear(); body.clear(); }
 };
 
 class HttpClient : public Client
@@ -146,6 +146,7 @@ class Server : public Http
 protected:
   struct pollfd listensd { };
   std::list<std::future<void>> C;
+  std::string header, body;
 public:
   Server(const float, const std::string &, const unsigned);
   bool connect(void);
@@ -154,6 +155,8 @@ public:
   void new_client(const std::function<void(const std::any)> &, std::any);
   void refresh_clients(void);
   bool close_client(int);
+  std::string &recv_header(void) { return header; }
+  std::string &recv_body(void) { return body; }
 };
 
 class HttpServer : public Server
@@ -161,7 +164,7 @@ class HttpServer : public Server
 public:
   HttpServer(const std::string &, const unsigned);
   ~HttpServer(void);
-  void recvreq(std::string &, int);
+  void recvreq(int);
   bool write(const int, const std::string &);
 };
 

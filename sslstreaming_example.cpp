@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
       client.recvreq();
       std::cout << "Stream disconnected\n";
       std::cout << "The response header:\n===================\n";
-      std::cout << client.header() << std::endl;
+      std::cout << client.resp_header() << std::endl;
     }
 
     else

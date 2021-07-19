@@ -12,7 +12,7 @@ Http::Http(const float httpver, const std::string &hostname, const unsigned port
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
   memset(&sa, 0, sizeof sa);
   if ((sd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    throw "Socket creation failed";
+    throw "Failed to create socket";
 }
 
 Http::~Http(void)
@@ -232,60 +232,58 @@ bool Client::sendreq(const unsigned req, const std::string &endp, const std::vec
 
 bool Client::recvreq(void)
 {
-  response_header.clear();
-  response_body.clear();
-  // Response Header
+  resp_clear();
+  // Header
   char p;
   bool res;
   do
   {
     res = reader(p);
-    response_header += p;
+    header += p;
   }
-  while (res && !(response_header.rfind("\r\n\r\n") < std::string::npos));
+  while (res && !(header.rfind("\r\n\r\n") < std::string::npos));
   
-  if (!std::regex_search(response_header, match, ok_regex))
+  if (!std::regex_search(header, match, ok_regex))
   {
-    _report = response_header.substr(match.prefix().length(), response_header.rfind("\r\n"));
+    _report = header.substr(match.prefix().length(), header.rfind("\r\n"));
     return false;
   }
-
-  // Response Body
+  // Body
   std::size_t l { };
-  if (std::regex_search(response_header, match, content_length_regex) &&
-      (l = std::stoull(response_header.substr(match.prefix().length() + 16,
-        response_header.substr(match.prefix().length() + 16).find("\r\n")))))
+  if (std::regex_search(header, match, content_length_regex) &&
+      (l = std::stoull(header.substr(match.prefix().length() + 16,
+        header.substr(match.prefix().length() + 16).find("\r\n")))))
     do
     {
       res = reader(p);
-      response_body += p;
+      body += p;
     }
-    while (res && response_body.size() < l);
+    while (res && body.size() < l);
 
-  else if (std::regex_search(response_header, match, transfer_encoding_regex) &&
-      std::regex_match(response_header.substr(match.prefix().length() + 19, 7), chunked_regex))
+  else if (std::regex_search(header, match, transfer_encoding_regex) &&
+      std::regex_match(header.substr(match.prefix().length() + 19, 7), chunked_regex))
   {
     auto now { this->now() };
     while (reader(p) && diffpt<std::chrono::milliseconds>(this->now(), now) < timeout)
     {
-      response_body += p;
+      body += p;
       now = this->now();
-      if (response_body == "\r\n");
-      else if (!l && response_body.rfind("\r\n") < std::string::npos)
+      if (body == "\r\n");
+      else if (!l && body.rfind("\r\n") < std::string::npos)
       {
-        response_body.erase(response_body.end() - 2, response_body.end());
-        if (!(l = std::stoull(response_body, nullptr, 16)))
+        body.erase(body.end() - 2, body.end());
+        if (!(l = std::stoull(body, nullptr, 16)))
           break;
       }
-      else if (response_body.size() == l)
+      else if (body.size() == l)
       {
-        response_cb(response_body);
+        cb(body);
         l = 0;
       }
       else
         continue;
 
-      response_body.clear();
+      body.clear();
     }
   }
 
@@ -298,10 +296,10 @@ void Client::recvreq_raw(void)
   auto now { this->now() };
   while (reader(p) && diffpt<std::chrono::milliseconds>(this->now(), now) < timeout)
   {
-    response_body += p;
+    body += p;
     now = this->now();
-    response_cb(response_body);
-    response_body.clear();
+    cb(body);
+    resp_clear();
   }
 }
 
@@ -517,10 +515,11 @@ HttpServer::~HttpServer(void)
 
 }
 
-void HttpServer::recvreq(std::string &document, int clientsd)
+void HttpServer::recvreq(int clientsd)
 {
+  header.clear();
+  body.clear();
   char p;
-  std::string header, body;
   do
   {
     if (::recv(clientsd, &p, sizeof p, 0) < 0)
@@ -540,8 +539,6 @@ void HttpServer::recvreq(std::string &document, int clientsd)
       body += p;
     }
     while (body.size() < l);
-
-  document = header + body;
 }
 
 bool HttpServer::write(const int clientsd, const std::string &document)

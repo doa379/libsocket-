@@ -32,9 +32,9 @@ int main(int argc, char *argv[])
       client.recvreq();
       std::cout << client.report() << std::endl;
       std::cout << "The response header:\n===================\n";
-      std::cout << client.header() << std::endl;
+      std::cout << client.resp_header() << std::endl;
       std::cout << "The response body:\n===================\n";
-      std::cout << client.response() << std::endl;
+      std::cout << client.resp_body() << std::endl;
     }
 
     else
