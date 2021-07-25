@@ -24,25 +24,27 @@ int main(int argc, char *argv[])
   }
 
   try {
-    HttpClient client(1.1, hostname, port_no);
+    // Chunked transfer
+     Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+    Client<Sock> client(1.1, hostname, port_no);
     if (client.connect())
     {
       if (!client.sendreq(GET, "/", { }, { }))
-        throw client.report();
+        throw "Unable to sendreq()";
 
-      client.recvreq();
+      client.req(cb);
       std::cout << "The response header:\n===================\n";
-      std::cout << client.resp_header() << std::endl;
+      std::cout << client.header() << std::endl;
       std::cout << "The response body:\n===================\n";
-      std::cout << client.resp_body() << std::endl;
+      std::cout << client.body() << std::endl;
     }
 
     else
-      throw client.report();
+      throw "Client connection failed";
   }
 
-  catch (const std::string &e) {
-    std::cout << e << std::endl;
+  catch (const char e[]) {
+    std::cout << std::string(e) << std::endl;
   }
   return 0;
 }

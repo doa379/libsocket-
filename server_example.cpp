@@ -27,18 +27,19 @@ int main(const int argc, const char *argv[])
 
   signal(SIGPIPE, SIG_IGN);
   try {
-    HttpServer server(hostname, port_no);
+    Server<Sock> server(hostname, port_no);
     if (!server.connect())
-      throw server.report();
+      throw "Server unable to connect";
 
     auto cb { 
-      [&](const std::any arg) {
-        const int clientsd { std::any_cast<int>(arg) };
+      //[&](const std::any arg) {
+        //auto sock { std::any_cast<std::shared_ptr<Sock>>(arg) };
+      [&](Sock &sock) {
         const std::string header { 
           std::string("HTTP/1.1 Stream OK\r\n") + 
             std::string("Transfer-Encoding: chunked\r\n") +
             hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
-        if (!server.write(clientsd, header))
+        if (!sock.write(header))
           return;
         std::string document;
         while (1)
@@ -46,12 +47,10 @@ int main(const int argc, const char *argv[])
           auto s { std::to_string(pow(2, rand(8, 32))) };
           std::cout << s << std::endl;
           document = to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
-          if (!server.write(clientsd, document))
+          if (!sock.write(document))
             break;
           std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
         }
-
-        server.close_client(clientsd);
       } 
     };
 
@@ -60,9 +59,9 @@ int main(const int argc, const char *argv[])
     {
       if (server.poll_listen(100))
       {
-        auto accept { server.recv_client() };
-        if (accept > -1)
-          server.new_client(cb, accept);
+        //auto sock { std::make_shared<Sock>(server.recv_client()) };
+        auto sock { server.recv_client() };
+        server.new_client(sock, cb);
       }
 
       server.refresh_clients();

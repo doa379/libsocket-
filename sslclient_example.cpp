@@ -24,25 +24,26 @@ int main(int argc, char *argv[])
   }
 
   try {
-    HttpsClient client(1.1, hostname, port_no);
+    Client<Socks> client(1.1, hostname, port_no);
+
     if (client.connect())
     {
       if (!client.sendreq(GET, "/", { }, { }))
-        throw client.report();
-      client.recvreq();
-      std::cout << client.report() << std::endl;
+        throw "Unable to sendreq()";
+      client.req();
+      //std::cout << client.report() << std::endl;
       std::cout << "The response header:\n===================\n";
-      std::cout << client.resp_header() << std::endl;
+      std::cout << client.header() << std::endl;
       std::cout << "The response body:\n===================\n";
-      std::cout << client.resp_body() << std::endl;
+      std::cout << client.body() << std::endl;
     }
 
     else
-      throw client.report();
+      throw "Client connection failed";
   }
 
-  catch (const std::string &e) {
-    std::cout << e << std::endl;
+  catch (const char e[]) {
+    std::cout << std::string(e) << std::endl;
   }
 
   return 0;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <netinet/in.h>
 #include <vector>
 #include <array>
@@ -21,27 +22,73 @@ static const char KEYPEM[] { "/tmp/key.pem" };
 static const unsigned MAX_CLIENTS { 256 };
 static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
 enum { GET, POST, PUT, DELETE };
+using Cb = std::function<void(const std::string &)>;
+static const Cb dummy_cb { [](const std::string &) { } };
 
-class Http
+class Sock
 {
 protected:
   int sd;
   struct sockaddr_in sa;
-  char httpver[8];
-  std::string hostname, _report;
-  unsigned port;
-  std::function<bool(void)> connector;
-  std::function<bool(char &)> reader;
-  std::function<bool(const std::string &)> writer;
-  std::smatch match;
-  const std::regex content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) };
 public:
-  Http(const float, const std::string &hostname, const unsigned port);
-  ~Http(void);
-  std::string &report(void) { return _report; }
-  bool init_connect(void);
+  Sock(const int = 0);
+  ~Sock(void);
+  const int get(void) { return sd; }
+  bool init(const int);
+  void deinit(void);
+  bool init_connect(const std::string &, const unsigned);
+  virtual bool connect(void);
+  virtual bool read(char &);
+  virtual bool write(const std::string &);
+  int accept(void);
+  bool bind(void);
+  bool listen(void);
+};
+/*
+class SockServer : public Sock
+{
+public:
+  int accept(void);
+  bool bind(void);
+  bool listen(void);
+};
+*/
+class InitSocks
+{
+public:
+  InitSocks(void);
+  static void init(void);
 };
 
+class Socks : private InitSocks, public Sock
+{
+  SSL_CTX *ctx { nullptr };
+  SSL *ssl { nullptr };
+  std::string hostname, certpem, keypem;
+public:
+  Socks(const SSL_METHOD *, const std::string &, const std::string &, const std::string &, const unsigned = 0);
+  ~Socks(void);
+  bool configure_context(void);
+  bool set_hostname(void);
+  bool set_fd(void);
+  bool connect(void) override;
+  bool read(char &) override;
+  bool write(const std::string &) override;
+  bool clear(void);
+  bool accept(void);
+  SSL_CTX *set_ctx(SSL_CTX *);
+  SSL_CTX *get_ctx(void) { return ctx; }
+};
+/*
+class SocksServer : public Socks
+{
+public:
+  SocksServer(const SSL_METHOD *, const std::string &, const std::string &, const std::string &);
+  bool accept(void);
+  SSL_CTX *set_ctx(SSL_CTX *);
+};
+*/
+/*
 class InitSSL
 {
 public:
@@ -86,88 +133,107 @@ public:
   SSL_CTX *set_CTX(SSL_CTX *);
   int accept(void);
 };
-
-using Cb = std::function<void(const std::string &)>;
-
-class Client : public Http, public Time
+*/
+class Recv
 {
-  friend class MultiClient;
-  std::string agent { "HttpRequest" }, header, body;
+  Time time;
+  unsigned timeout_ms { DEFAULT_TIMEOUTMS };
+  std::string _header, _body;
+  std::smatch match;
   const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
+    content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
     transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
     chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
-  Cb cb { [](const std::string &) { } };
 public:
-  Client(const float, const std::string &, const unsigned);
-  ~Client(void);
+  template<typename T>
+  bool req(T &, const Cb &);
+  template<typename T>
+  void req_raw(T &, const Cb &);
+  std::string &header(void) { return _header; }
+  std::string &body(void) { return _body; }
+  void clear_header(void) { _header.clear(); }
+  void clear_body(void) { _body.clear(); }
+  void set_timeout(const unsigned timeout_ms) { this->timeout_ms = timeout_ms; }
+  //bool close_client(int);
+};
+
+template<typename T>
+class MultiClient;
+
+template<typename T>
+class Client
+{
+  friend class MultiClient<T>;
+  std::unique_ptr<T> sock;
+  std::string hostname;
+  unsigned port;
+  char httpver[8];
+  const std::string_view agent { "HttpRequest" };
+  Recv recv;
+public:
+  Client(const float, const std::string &, const unsigned, const std::string & = CERTPEM, const std::string & = KEYPEM);
   bool connect(void);
   bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
   bool sendreq(const unsigned, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
-  bool recvreq(void);
-  void recvreq_raw(void);
-  bool performreq(const std::vector<std::string> & = { }, const std::string & = { });
-  bool performreq(const unsigned, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
-  std::string &resp_header(void) { return header; }
-  std::string &resp_body(void) { return body; }
-  void set_cb(const Cb &cb) { this->cb = cb; }
-  void set_timeout(const unsigned timeout) { this->timeout = timeout; }
-  void resp_clear(void) { header.clear(); body.clear(); }
+  bool performreq(const Cb & = dummy_cb, const std::vector<std::string> & = { }, const std::string & = { });
+  bool performreq(const unsigned, const Cb & = dummy_cb, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
+  bool req(const Cb &cb = dummy_cb) { return recv.req(*sock, cb); }
+  void req_raw(const Cb &cb = dummy_cb) { recv.req_raw(*sock, cb); }
+  std::string &header(void) { return recv.header(); }
+  std::string &body(void) { return recv.body(); }
+  void set_timeout(const unsigned timeout_ms) { recv.set_timeout(timeout_ms); }
 };
 
-class HttpClient : public Client
+template<typename T>
+class MultiClient
 {
+  Time time;
+  unsigned timeout;
+  std::vector<std::reference_wrapper<Client<T>>> C;
 public:
-  HttpClient(const float, const std::string &, const unsigned); 
-  ~HttpClient(void);
-};
-
-class HttpsClient : public Client
-{
-  SecureClient sslclient;
-  ssize_t err;
-public:
-  HttpsClient(const float, const std::string &, const unsigned, const std::string & = CERTPEM, const std::string & = KEYPEM);
-  ~HttpsClient(void);
-};
-
-class MultiClient : public Time
-{
-  std::vector<std::reference_wrapper<Client>> C;
-public:
-  MultiClient(void);
-  bool set_client(Client &);
+  bool set_client(Client<T> &);
   bool connect(void);
   void recvreq(unsigned);
   decltype(C) &clients(void) { return C; }
 };
 
-class Server : public Http
+template<typename T>
+class Server
 {
 protected:
+  std::unique_ptr<T> sock;
+  std::string hostname;
+  unsigned port;
   struct pollfd listensd { };
   std::list<std::future<void>> C;
-  std::string header, body;
+  //std::string header, body;
 public:
-  Server(const float, const std::string &, const unsigned);
+  Server(const std::string &, const unsigned, const std::string & = CERTPEM, const std::string & = KEYPEM);
   bool connect(void);
   bool poll_listen(unsigned);
-  int recv_client(void);
-  void new_client(const std::function<void(const std::any)> &, std::any);
+  //int recv_client(void);
+  std::shared_ptr<T> recv_client(const std::string & = CERTPEM, const std::string & = KEYPEM);
+  //void new_client(std::any arg, const std::function<void(const std::any)> &);
+  void new_client(std::shared_ptr<T>, const std::function<void(T &)> &);
   void refresh_clients(void);
-  bool close_client(int);
-  std::string &recv_header(void) { return header; }
-  std::string &recv_body(void) { return body; }
+  //bool close_client(int);
+  //std::string &recv_header(void) { return header; }
+  //std::string &recv_body(void) { return body; }
 };
 
-class HttpServer : public Server
+/*
+class SockServer : public Server
 {
+  Sock sock;
 public:
-  HttpServer(const std::string &, const unsigned);
-  ~HttpServer(void);
-  void recvreq(int);
-  bool write(const int, const std::string &);
+  SockServer(const std::string &, const unsigned);
+  ~SockServer(void);
+  //void recvreq(int);
+  //bool write(const int, const std::string &);
 };
+*/
 
+/*
 struct SecurePair
 {
   int clientsd;
@@ -181,3 +247,4 @@ public:
   ~HttpsServer(void);
   SecurePair recv_client(std::string &, const std::string & = CERTPEM, const std::string & = KEYPEM);
 };
+*/

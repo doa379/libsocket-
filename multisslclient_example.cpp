@@ -8,9 +8,9 @@ static const unsigned port1 { 443 };
 
 int main(const int argc, const char *argv[])
 {
-  auto client0 { std::make_shared<HttpsClient>(1.1, host0, port0) }, 
-    client1 { std::make_shared<HttpsClient>(1.1, host1, port1) };
-  MultiClient mc;
+  auto client0 { std::make_shared<Client<Socks>>(1.1, host0, port0) }, 
+    client1 { std::make_shared<Client<Socks>>(1.1, host1, port1) };
+  MultiClient<Socks> mc;
   mc.set_client(*client0);
   mc.set_client(*client1);
   if (!mc.connect())
@@ -21,13 +21,13 @@ int main(const int argc, const char *argv[])
   std::cout << "All transfer(s) completed\n";
   std::cout << "(Client0):\n===================\n";
   std::cout << "The response header (client0):\n===================\n";
-  std::cout << client0->resp_header() << std::endl;
+  std::cout << client0->header() << std::endl;
   std::cout << "The response body (client0):\n===================\n";
-  std::cout << client0->resp_body() << std::endl;
+  std::cout << client0->body() << std::endl;
   std::cout << "(Client1):\n===================\n";
   std::cout << "The response header (client1):\n===================\n";
-  std::cout << client1->resp_header() << std::endl;
+  std::cout << client1->header() << std::endl;
   std::cout << "The response body (client1):\n===================\n";
-  std::cout << client1->resp_body() << std::endl;
+  std::cout << client1->body() << std::endl;
   return 0;
 }

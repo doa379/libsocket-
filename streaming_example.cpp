@@ -22,27 +22,26 @@ int main(int argc, char *argv[])
   }
 
   try {
-    HttpClient client(1.1, hostname, port_no);
+    Client<Sock> client(1.1, hostname, port_no);
     Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
-    client.set_cb(cb);
     client.set_timeout(1750);
     if (client.connect())
     {
       if (!client.sendreq(GET, "/", { }, { }))
-        throw client.report();
+        throw "Unable to sendreq()";
 
-      client.recvreq();
+      client.req(cb);
       std::cout << "Stream disconnected\n";
       std::cout << "The response header:\n===================\n";
-      std::cout << client.resp_header() << std::endl;
+      std::cout << client.header() << std::endl;
     }
 
     else
-      throw client.report();
+      throw "Unable to connect";
   }
 
-  catch (const std::string &e) {
-    std::cout << e << std::endl;
+  catch (const char e[]) {
+    std::cout << std::string(e) << std::endl;
   }
 
   return 0;
