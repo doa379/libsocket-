@@ -8,7 +8,6 @@
 #include <functional>
 #include <openssl/ssl.h>
 #include <regex>
-#include <any>
 #include <list>
 #include <future>
 #include <memory>
@@ -44,15 +43,7 @@ public:
   bool bind(void);
   bool listen(void);
 };
-/*
-class SockServer : public Sock
-{
-public:
-  int accept(void);
-  bool bind(void);
-  bool listen(void);
-};
-*/
+
 class InitSocks
 {
 public:
@@ -79,15 +70,6 @@ public:
   SSL_CTX *set_ctx(SSL_CTX *);
   SSL_CTX *get_ctx(void) { return ctx; }
 };
-/*
-class SocksServer : public Socks
-{
-public:
-  SocksServer(const SSL_METHOD *, const std::string &, const std::string &, const std::string &);
-  bool accept(void);
-  SSL_CTX *set_ctx(SSL_CTX *);
-};
-*/
 /*
 class InitSSL
 {
@@ -206,32 +188,15 @@ protected:
   unsigned port;
   struct pollfd listensd { };
   std::list<std::future<void>> C;
-  //std::string header, body;
 public:
   Server(const std::string &, const unsigned, const std::string & = CERTPEM, const std::string & = KEYPEM);
   bool connect(void);
   bool poll_listen(unsigned);
-  //int recv_client(void);
   std::shared_ptr<T> recv_client(const std::string & = CERTPEM, const std::string & = KEYPEM);
-  //void new_client(std::any arg, const std::function<void(const std::any)> &);
   void new_client(std::shared_ptr<T>, const std::function<void(T &)> &);
   void refresh_clients(void);
   //bool close_client(int);
-  //std::string &recv_header(void) { return header; }
-  //std::string &recv_body(void) { return body; }
 };
-
-/*
-class SockServer : public Server
-{
-  Sock sock;
-public:
-  SockServer(const std::string &, const unsigned);
-  ~SockServer(void);
-  //void recvreq(int);
-  //bool write(const int, const std::string &);
-};
-*/
 
 /*
 struct SecurePair

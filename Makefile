@@ -1,10 +1,10 @@
 LOCAL = ..
-LIBSPATH = -L ${LOCAL}/libsocket++ -Wl,-R$(LOCAL)/libsocket++ '-Wl,-R$$ORIGIN' -L /usr/local/lib
+LIBSPATH = -L ${LOCAL}/libsockpp -Wl,-R$(LOCAL)/libsockpp '-Wl,-R$$ORIGIN' -L /usr/local/lib
 INCS = -I /usr/local/include -I ${LOCAL}/
 LIBS = -l ssl -l crypto
 
-SRC_LIBSOCKET = socket.cpp utils.cpp
-OBJ_LIBSOCKET = ${SRC_LIBSOCKET:.cpp=.o}
+SRC_LIBSOCK = sock.cpp utils.cpp
+OBJ_LIBSOCK = ${SRC_LIBSOCK:.cpp=.o}
 SRC_TEST0 = client_example.cpp
 OBJ_TEST0 = ${SRC_TEST0:.cpp=.o}
 SRC_TEST1 = server_example.cpp
@@ -28,7 +28,7 @@ DEBUG_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -g ${INCS}
 CFLAGS = ${DEBUG_CFLAGS}
 LDFLAGS += ${LIBSPATH}
 
-all: libsocket++.so \
+all: libsockpp.so \
   client_example \
   server_example \
   sslclient_example \
@@ -42,45 +42,45 @@ all: libsocket++.so \
 	@echo CC $<
 	@${CC} ${CFLAGS} $<
 
-libsocket++.so: ${OBJ_LIBSOCKET}
+libsockpp.so: ${OBJ_LIBSOCK}
 	@echo CC -o $@
-	@${CC} -shared -o $@ ${OBJ_LIBSOCKET} ${LDFLAGS} ${LIBS}
+	@${CC} -shared -o $@ ${OBJ_LIBSOCK} ${LDFLAGS} ${LIBS}
 
 client_example: ${OBJ_TEST0}
 	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TEST0} ${LDFLAGS} -l socket++
+	@${CC} -o $@ ${OBJ_TEST0} ${LDFLAGS} -l sockpp
 
 server_example: ${OBJ_TEST1}
 	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TEST1} ${LDFLAGS} -l socket++
+	@${CC} -o $@ ${OBJ_TEST1} ${LDFLAGS} -l sockpp
 
 sslclient_example: ${OBJ_TEST2}
 	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TEST2} ${LDFLAGS} -l socket++
+	@${CC} -o $@ ${OBJ_TEST2} ${LDFLAGS} -l sockpp
 
 sslserver_example: ${OBJ_TEST3}
 	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TEST3} ${LDFLAGS} -l socket++
+	@${CC} -o $@ ${OBJ_TEST3} ${LDFLAGS} -l sockpp
 
 multiclient_example: ${OBJ_TEST4}
 	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS} -l socket++
+	@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS} -l sockpp
 
 multisslclient_example: ${OBJ_TEST5}
 	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS} -l socket++
+	@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS} -l sockpp
 
 streaming_example: ${OBJ_TEST6}
 	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS} -l socket++
+	@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS} -l sockpp
 
 sslstreaming_example: ${OBJ_TEST7}
 	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TEST7} ${LDFLAGS} -l socket++
+	@${CC} -o $@ ${OBJ_TEST7} ${LDFLAGS} -l sockpp
 
 clean:
 	@echo Cleaning
-	@rm -f ${OBJ_LIBSOCKET} \
+	@rm -f ${OBJ_LIBSOCK} \
     ${OBJ_TEST0} \
     ${OBJ_TEST1} \
     ${OBJ_TEST2} \
@@ -89,4 +89,4 @@ clean:
     ${OBJ_TEST5} \
     ${OBJ_TEST6} \
     ${OBJ_TEST7}
-	@rm -f libsocket++.so *example
+	@rm -f libsockpp.so *example

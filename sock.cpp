@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <openssl/err.h>
 #include <bitset>
-#include "socket.h"
+#include "sock.h"
 
 Sock::Sock(const int sd)
 {
@@ -45,7 +45,6 @@ bool Sock::init_connect(const std::string &hostname, const unsigned port)
     return true;
   }
   
-  //_report = "Unable to resolve hostname";
   return false;
 }
 
@@ -53,7 +52,6 @@ bool Sock::connect(void)
 {
   if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) > -1)
     return true;
-  //_report = "Connect error";
   return false;
 }
 
@@ -61,7 +59,6 @@ bool Sock::read(char &p)
 {
   if (::recv(sd, &p, sizeof p, 0) > -1)
     return true;
-  //_report = "Read error";
   return false;
 }
 
@@ -72,7 +69,6 @@ bool Sock::write(const std::string &data)
     fsync(sd);
     return true;
   }
-  //_report = "Write error";
   return false;
 }
 
@@ -155,7 +151,6 @@ bool Socks::set_hostname(void)
 {
   if (SSL_set_tlsext_host_name(ssl, hostname.c_str()) > 0)
     return true;
-
   return false;
 }
 
@@ -163,7 +158,6 @@ bool Socks::set_fd(void)
 {
   if (SSL_set_fd(ssl, sd) > 0)
     return true;
-
   return false;
 }
 
@@ -213,7 +207,6 @@ bool Socks::read(char &p)
 {
   if (SSL_read(ssl, &p, sizeof p) > 0)
     return true;
-  
   return false;
 }
 
@@ -221,7 +214,6 @@ bool Socks::write(const std::string &data)
 {
   if (SSL_write(ssl, data.c_str(), data.size()) > 0)
     return true;
-
   return false;
 }
 /*
@@ -248,7 +240,6 @@ bool Socks::accept(void)
 {
   if (SSL_accept(ssl) > 0)
     return true;
-
   return false;
 }
 
@@ -328,10 +319,7 @@ bool Recv::req(T &sock, const Cb &cb)
   while (res && !(_header.rfind("\r\n\r\n") < std::string::npos));
   
   if (!std::regex_search(_header, match, ok_regex))
-  {
-    //_report = _header.substr(match.prefix().length(), _header.rfind("\r\n"));
     return false;
-  }
   // Body
   std::size_t l { };
   if (std::regex_search(_header, match, content_length_regex) &&
@@ -430,10 +418,7 @@ bool Client<T>::sendreq(const unsigned req, const std::string &endp, const std::
 {
   if (&REQ[req] > &REQ[REQ.size() - 1]
     || (req == GET && data.size()))
-  {
-    //_report = "Bad request type";
     return false;
-  }
 
   std::string request { 
     REQ[req] + " " + endp + " " + "HTTP/" + std::string(httpver) + "\r\n" +
@@ -536,11 +521,6 @@ HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const
     _report = "Write: " + std::to_string(sslclient.error(err));
     return false;
   };
-}
-
-HttpsClient::~HttpsClient(void)
-{
-
 }
 */
 
@@ -655,7 +635,6 @@ bool Server<T>::poll_listen(unsigned timeout_ms)
 template<>
 std::shared_ptr<Sock> Server<Sock>::recv_client(const std::string &, const std::string &)
 {
-  //return std::make_shared<Sock>(this->sock->accept());
   return std::make_shared<Sock>(this->sock->accept());
 }
 
@@ -708,7 +687,6 @@ std::shared_ptr<Socks> Server<Socks>::recv_client(const std::string &certpem, co
 }
 
 template<typename T>
-//void Server<T>::new_client(std::any arg, const std::function<void(const std::any)> &cb)
 void Server<T>::new_client(std::shared_ptr<T> t, const std::function<void(T &)> &cb)
 {
   auto c { std::async(std::launch::async, [=](void) mutable { cb(*t); }) };
