@@ -1,5 +1,5 @@
 #include <iostream>
-#include "socket.h"
+#include "sock.h"
 
 static const std::string host0 { "www.openssl.org" };
 static const unsigned port0 { 443 };
@@ -24,14 +24,13 @@ int main(int argc, char *argv[])
   }
 
   try {
-    Client<Socks> client(1.1, hostname, port_no);
+    Client<SSock> client(1.1, hostname, port_no);
 
     if (client.connect())
     {
       if (!client.sendreq(GET, "/", { }, { }))
         throw "Unable to sendreq()";
       client.req();
-      //std::cout << client.report() << std::endl;
       std::cout << "The response header:\n===================\n";
       std::cout << client.header() << std::endl;
       std::cout << "The response body:\n===================\n";

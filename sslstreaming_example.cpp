@@ -1,5 +1,5 @@
 #include <iostream>
-#include "socket.h"
+#include "sock.h"
 
 static const std::string host0 { "localhost" };
 static const unsigned port0 { 4433 };
@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
   }
 
   try {
-    Client<Socks> client(1.1, hostname, port_no);
+    Client<SSock> client(1.1, hostname, port_no);
     Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
     client.set_timeout(1750);
     if (client.connect())

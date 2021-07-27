@@ -2,7 +2,7 @@
 #include <thread>
 #include <cmath>
 #include <csignal>
-#include "socket.h"
+#include "sock.h"
 #include "utils.h"
 
 static const std::string host0 { "localhost" };
@@ -32,8 +32,6 @@ int main(const int argc, const char *argv[])
       throw "Server unable to connect";
 
     auto cb { 
-      //[&](const std::any arg) {
-        //auto sock { std::any_cast<std::shared_ptr<Sock>>(arg) };
       [&](Sock &sock) {
         const std::string header { 
           std::string("HTTP/1.1 Stream OK\r\n") + 
@@ -59,7 +57,6 @@ int main(const int argc, const char *argv[])
     {
       if (server.poll_listen(100))
       {
-        //auto sock { std::make_shared<Sock>(server.recv_client()) };
         auto sock { server.recv_client() };
         server.new_client(sock, cb);
       }
@@ -68,8 +65,8 @@ int main(const int argc, const char *argv[])
     }
   }
 
-  catch (const std::string &e) {
-    std::cout << e << std::endl;
+  catch (const char e[]) {
+    std::cout << std::string(e) << std::endl;
   }
 
   return 0;

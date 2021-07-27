@@ -1,5 +1,5 @@
 #include <iostream>
-#include "socket.h"
+#include "sock.h"
 
 static const std::string host0 { "webscantest.com" };
 static const unsigned port0 { 80 };
@@ -31,8 +31,8 @@ int main(int argc, char *argv[])
     std::cout << client1.body() << std::endl;
   }
 
-  catch (const std::string &e) {
-    std::cout << e << std::endl;
+  catch (const char e[]) {
+    std::cout << std::string(e) << std::endl;
   }
 
   return 0;

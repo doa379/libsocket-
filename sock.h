@@ -44,23 +44,22 @@ public:
   bool listen(void);
 };
 
-class InitSocks
+class InitSSock
 {
 public:
-  InitSocks(void);
+  InitSSock(void);
   static void init(void);
 };
 
-class Socks : private InitSocks, public Sock
+class SSock : private InitSSock, public Sock
 {
   SSL_CTX *ctx { nullptr };
   SSL *ssl { nullptr };
-  std::string hostname, certpem, keypem;
 public:
-  Socks(const SSL_METHOD *, const std::string &, const std::string &, const std::string &, const unsigned = 0);
-  ~Socks(void);
-  bool configure_context(void);
-  bool set_hostname(void);
+  SSock(const SSL_METHOD *, const unsigned = 0);
+  ~SSock(void);
+  bool configure_context(const std::string &, const std::string &);
+  bool set_hostname(const std::string &);
   bool set_fd(void);
   bool connect(void) override;
   bool read(char &) override;
@@ -69,6 +68,8 @@ public:
   bool accept(void);
   SSL_CTX *set_ctx(SSL_CTX *);
   SSL_CTX *get_ctx(void) { return ctx; }
+  int error(int);
+  void certinfo(std::string &, std::string &, std::string &);
 };
 /*
 class InitSSL
@@ -136,7 +137,6 @@ public:
   void clear_header(void) { _header.clear(); }
   void clear_body(void) { _body.clear(); }
   void set_timeout(const unsigned timeout_ms) { this->timeout_ms = timeout_ms; }
-  //bool close_client(int);
 };
 
 template<typename T>
@@ -153,7 +153,7 @@ class Client
   const std::string_view agent { "HttpRequest" };
   Recv recv;
 public:
-  Client(const float, const std::string &, const unsigned, const std::string & = CERTPEM, const std::string & = KEYPEM);
+  Client(const float, const std::string &, const unsigned);
   bool connect(void);
   bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
   bool sendreq(const unsigned, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
@@ -189,13 +189,12 @@ protected:
   struct pollfd listensd { };
   std::list<std::future<void>> C;
 public:
-  Server(const std::string &, const unsigned, const std::string & = CERTPEM, const std::string & = KEYPEM);
+  Server(const std::string &, const unsigned);
   bool connect(void);
   bool poll_listen(unsigned);
   std::shared_ptr<T> recv_client(const std::string & = CERTPEM, const std::string & = KEYPEM);
   void new_client(std::shared_ptr<T>, const std::function<void(T &)> &);
   void refresh_clients(void);
-  //bool close_client(int);
 };
 
 /*

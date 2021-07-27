@@ -2,7 +2,7 @@
 #include <thread>
 #include <cmath>
 #include <csignal>
-#include "socket.h"
+#include "sock.h"
 #include "utils.h"
 
 static const std::string host0 { "localhost" };
@@ -27,29 +27,28 @@ int main(int argc, char *argv[])
 
   signal(SIGPIPE, SIG_IGN);
   try {
-    Server<Socks> server(hostname, port_no);
+    Server<SSock> server(hostname, port_no);
     if (!server.connect())
       throw "Server unable to connect";
 
     auto cb { 
-      [&](Socks &socks) {
+      [&](SSock &sock) {
         const std::string document { "Document" }, 
           header { 
             std::string("HTTP/1.1 OK\r\n") +
               std::string("Content-Length: ") + std::to_string(document.size()) + std::string("\r\n") +
                 hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
-        socks.write(header + document);
+        sock.write(header + document);
       }
     };
 
     auto chunked_cb { 
-      [&](Socks &socks) {
+      [&](SSock &sock) {
         const std::string header { 
           std::string("HTTP/1.1 SSL Stream OK\r\n") +
             std::string("Transfer-Encoding: chunked\r\n") +
             hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
-        //if (pair->sslserver->write(header) < 0)
-        if (!socks.write(header))
+        if (!sock.write(header))
           return;
         std::string document;
         while (1)
@@ -57,13 +56,10 @@ int main(int argc, char *argv[])
           auto s { std::to_string(pow(2, rand(8, 32))) };
           std::cout << s << std::endl;
           document = to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
-          //if (pair->sslserver->write(document) < 0)
-          if (!socks.write(document))
+          if (!sock.write(document))
             break;
           std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
         }
-
-        //server.close_client(pair->clientsd);
       }
     };
 
@@ -73,20 +69,16 @@ int main(int argc, char *argv[])
     {
       if (server.poll_listen(100))
       {
-        //auto pair { std::make_shared<SecurePair>(server.recv_client(report)) };
-        auto socks { server.recv_client() };
-        //if (pair->clientsd > -1)
-        server.new_client(socks, chunked_cb);
-        //else
-          //std::cout << report << std::endl;
+        auto sock { server.recv_client() };
+        server.new_client(sock, chunked_cb);
       }
 
       server.refresh_clients();
     }
   }
 
-  catch (const std::string &e) {
-    std::cout << e << std::endl;
+  catch (const char e[]) {
+    std::cout << std::string(e) << std::endl;
   }
 
   return 0;

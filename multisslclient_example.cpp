@@ -1,5 +1,5 @@
 #include <iostream>
-#include "socket.h"
+#include "sock.h"
 
 static const std::string host0 { "www.openssl.org" };
 static const unsigned port0 { 443 };
@@ -8,9 +8,9 @@ static const unsigned port1 { 443 };
 
 int main(const int argc, const char *argv[])
 {
-  auto client0 { std::make_shared<Client<Socks>>(1.1, host0, port0) }, 
-    client1 { std::make_shared<Client<Socks>>(1.1, host1, port1) };
-  MultiClient<Socks> mc;
+  auto client0 { std::make_shared<Client<SSock>>(1.1, host0, port0) }, 
+    client1 { std::make_shared<Client<SSock>>(1.1, host1, port1) };
+  MultiClient<SSock> mc;
   mc.set_client(*client0);
   mc.set_client(*client1);
   if (!mc.connect())

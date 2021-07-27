@@ -96,20 +96,20 @@ bool Sock::listen(void)
   return false;
 }
 
-InitSocks::InitSocks(void)
+InitSSock::InitSSock(void)
 {
-  InitSocks::init();
+  InitSSock::init();
 }
 
-void InitSocks::init(void)
+void InitSSock::init(void)
 {
   OpenSSL_add_ssl_algorithms();
   SSL_load_error_strings();
 }
 
-Socks::Socks(const SSL_METHOD *meth, const std::string &hostname, const std::string &certpem, const std::string &keypem, const unsigned sd) : 
+SSock::SSock(const SSL_METHOD *meth, const unsigned sd) : 
   Sock(sd),
-  ctx(SSL_CTX_new(meth)), ssl(SSL_new(ctx)), hostname(hostname), certpem(certpem), keypem(keypem)
+  ctx(SSL_CTX_new(meth)), ssl(SSL_new(ctx))
 {
   if (!ctx)
     throw "Unable to create context";
@@ -117,84 +117,44 @@ Socks::Socks(const SSL_METHOD *meth, const std::string &hostname, const std::str
     throw "Unable to create ssl";
 }
 
-Socks::~Socks(void)
+SSock::~SSock(void)
 {
   SSL_shutdown(ssl);
   SSL_free(ssl);
   SSL_CTX_free(ctx);
 }
 
-bool Socks::configure_context(void)
+bool SSock::configure_context(const std::string &certpem, const std::string &keypem)
 {
   SSL_CTX_set_ecdh_auto(ctx, 1);
-  ssize_t err;
-  if ((err = SSL_CTX_use_certificate_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM)) < 1)
-  {
-    //report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
+  if (SSL_CTX_use_certificate_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM) < 1)
     return false;
-  }
-  if (keypem.size() && (err = SSL_CTX_use_PrivateKey_file(ctx, keypem.c_str(), SSL_FILETYPE_PEM)) < 1)
-  {
-    //report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
+  if (keypem.size() && SSL_CTX_use_PrivateKey_file(ctx, keypem.c_str(), SSL_FILETYPE_PEM) < 1)
     return false;
-  }
-  else if (!keypem.size() && (err = SSL_CTX_use_PrivateKey_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM)) < 1)
-  {
-    //report = "[SSL] configure_context(): " + std::to_string(SSL_get_error(ssl, err));
+  else if (!keypem.size() && SSL_CTX_use_PrivateKey_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM) < 1)
     return false;
-  }
 
   return true;
 }
 
-bool Socks::set_hostname(void)
+bool SSock::set_hostname(const std::string &hostname)
 {
   if (SSL_set_tlsext_host_name(ssl, hostname.c_str()) > 0)
     return true;
   return false;
 }
 
-bool Socks::set_fd(void)
+bool SSock::set_fd(void)
 {
   if (SSL_set_fd(ssl, sd) > 0)
     return true;
   return false;
 }
 
-/*
-bool Socks::connect(void)
+bool SSock::connect(void)
 {
-  if (SSL_connect(ssl) > 0)
-    return true;
-
-  return false;
-}
-*/
-bool Socks::connect(void)
-{
-    /*
-  connector = [&, this, certpem, keypem](void) -> bool {
-    if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
-    {
-      _report = "Connect error";
-      return false;
-    }
-    
-
-    sslclient.configure_context(_report, certpem, keypem);
-    sslclient.set_tlsext_hostname(this->hostname);
-    sslclient.set_fd(sd);
-    if ((err = sslclient.connect()) > 0)
-      return true;
-    _report = "[SSL] Connect: " + std::to_string(sslclient.error(err));
-    return false;
-  };
-  */
-
   if (Sock::connect())
   {
-    configure_context();
-    set_hostname();
     set_fd();
     if (SSL_connect(ssl) > 0)
       return true;
@@ -203,106 +163,71 @@ bool Socks::connect(void)
   return false;
 }
 
-bool Socks::read(char &p)
+bool SSock::read(char &p)
 {
   if (SSL_read(ssl, &p, sizeof p) > 0)
     return true;
   return false;
 }
 
-bool Socks::write(const std::string &data)
+bool SSock::write(const std::string &data)
 {
   if (SSL_write(ssl, data.c_str(), data.size()) > 0)
     return true;
   return false;
 }
-/*
-int Secure::error(int err)
-{
-  return SSL_get_error(ssl, err);
-}
-*/
-bool Socks::clear(void)
+
+bool SSock::clear(void)
 {
   if (SSL_clear(ssl) > 0)
     return true;
 
   return false;
 }
-/*
-SocksServer::SocksServer(const SSL_METHOD *meth, const std::string &hostname, const std::string &certpem, const std::string &keypem) : 
-  Socks(meth, hostname, certpem, keypem)
-{
 
-}
-*/
-bool Socks::accept(void)
+bool SSock::accept(void)
 {
   if (SSL_accept(ssl) > 0)
     return true;
   return false;
 }
 
-SSL_CTX *Socks::set_ctx(SSL_CTX *ctx)
+SSL_CTX *SSock::set_ctx(SSL_CTX *ctx)
 {
   return SSL_set_SSL_CTX(ssl, ctx);
 }
 
-
-/*
-void Secure::gather_certificate(std::string &report)
+int SSock::error(int err)
 {
-  // Method to be called after connector()
-  _cipherinfo = std::string(SSL_get_cipher(ssl));
+  return SSL_get_error(ssl, err);
+}
+
+void SSock::certinfo(std::string &cipherinfo, std::string &cert, std::string &issue)
+{
+  // Method must be called after connect()
+  cipherinfo = std::string(SSL_get_cipher(ssl));
   X509 *server_cert { SSL_get_peer_certificate(ssl) };
   if (!server_cert)
-    report = "[SSL] Allocation failure server_cert";
+    return;
 
   char *certificate { X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
-  if (!certificate)
-    report = "[SSL] Allocation failure certificate string";
-  else
+  if (certificate)
   {
-    _certificate = std::string(certificate);
+    cert = std::string(certificate);
     OPENSSL_free(certificate);
   }
 
   char *issuer { X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
-  if (!issuer)
-    report = "[SSL] Allocation failure issuer string";
-  else
+  if (issuer)
   {
-    _issuer = std::string(issuer);
+    issue = std::string(issuer);
     OPENSSL_free(issuer);
   }
 
   if (server_cert)
     X509_free(server_cert);
 }
-*/
 
-
-/*
-int SecureClient::read(void *buf, int size)
-{
-  return SSL_read(ssl, buf, size);
-}
-
-SecureServer::SecureServer(void) : Secure(TLS_server_method())
-{
-
-}
-
-SSL_CTX *SecureServer::set_CTX(SSL_CTX *ctx)
-{
-  return SSL_set_SSL_CTX(ssl, ctx);
-}
-
-int SecureServer::accept(void)
-{
-  return SSL_accept(ssl);
-}
-*/
 template<typename T>
 bool Recv::req(T &sock, const Cb &cb)
 {
@@ -377,15 +302,15 @@ void Recv::req_raw(T &sock, const Cb &cb)
 }
 
 template<>
-Client<Sock>::Client(const float httpver, const std::string &hostname, const unsigned port, const std::string &, const std::string &) : 
+Client<Sock>::Client(const float httpver, const std::string &hostname, const unsigned port) : 
   sock(std::make_unique<Sock>()), hostname(hostname), port(port)
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
 }
 
 template<>
-Client<Socks>::Client(const float httpver, const std::string &hostname, const unsigned port, const std::string &certpem, const std::string &keypem) : 
-  sock(std::make_unique<Socks>(TLS_client_method(), hostname, certpem, keypem)), hostname(hostname), port(port)
+Client<SSock>::Client(const float httpver, const std::string &hostname, const unsigned port) : 
+  sock(std::make_unique<SSock>(TLS_client_method())), hostname(hostname), port(port)
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
 }
@@ -455,74 +380,7 @@ bool Client<T>::performreq(const unsigned req, const Cb &cb, const std::string &
 }
 
 template class Client<Sock>;
-template class Client<Socks>;
-
-/*
-HttpClient::HttpClient(const float httpver, const std::string &hostname, const unsigned port) : 
-  Client(httpver, hostname, port)
-{
-  connector = [&](void) -> bool { 
-    if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) > -1)
-      return true;
-    _report = "Connect error";
-    return false;
-  };
-
-  reader = [&](char &p) -> bool {
-    if (::recv(sd, &p, sizeof p, 0) > -1)
-      return true;
-    _report = "Read error";
-    return false;
-  };
-
-  writer = [&](const std::string &request) -> bool { 
-    if (::write(sd, request.c_str(), request.size()) > -1)
-      return true;
-    _report = "Write error";
-    return false;
-  };
-}
-
-HttpClient::~HttpClient(void)
-{
-
-}
-*/
-/*
-HttpsClient::HttpsClient(const float httpver, const std::string &hostname, const unsigned port, const std::string &certpem, const std::string &keypem) :
-  Client(httpver, hostname, port)
-{
-  connector = [&, this, certpem, keypem](void) -> bool {
-    if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
-    {
-      _report = "Connect error";
-      return false;
-    }
-
-    sslclient.configure_context(_report, certpem, keypem);
-    sslclient.set_tlsext_hostname(this->hostname);
-    sslclient.set_fd(sd);
-    if ((err = sslclient.connect()) > 0)
-      return true;
-    _report = "[SSL] Connect: " + std::to_string(sslclient.error(err));
-    return false;
-  };
-
-  reader = [&](char &p) -> bool {
-    if ((err = sslclient.read(&p, sizeof p)) > 0)
-      return true;
-    _report = "Read: " + std::to_string(sslclient.error(err));
-    return false;
-  };
-
-  writer = [&](const std::string &request) -> bool {
-    if ((err = sslclient.write(request)) > 0)
-      return true;
-    _report = "Write: " + std::to_string(sslclient.error(err));
-    return false;
-  };
-}
-*/
+template class Client<SSock>;
 
 template<typename T>
 bool MultiClient<T>::set_client(Client<T> &c)
@@ -575,18 +433,18 @@ void MultiClient<T>::recvreq(unsigned timeout)
 }
 
 template class MultiClient<Sock>;
-template class MultiClient<Socks>;
+template class MultiClient<SSock>;
 
 template<>
-Server<Sock>::Server(const std::string &hostname, const unsigned port, const std::string &, const std::string &) :
+Server<Sock>::Server(const std::string &hostname, const unsigned port) :
   sock(std::make_unique<Sock>()), hostname(hostname), port(port)
 {
 
 }
 
 template<>
-Server<Socks>::Server(const std::string &hostname, const unsigned port, const std::string &certpem, const std::string &keypem) :
-  sock(std::make_unique<Socks>(TLS_server_method(), hostname, certpem, keypem)), hostname(hostname), port(port)
+Server<SSock>::Server(const std::string &hostname, const unsigned port) :
+  sock(std::make_unique<SSock>(TLS_server_method())), hostname(hostname), port(port)
 {
 
 }
@@ -594,32 +452,16 @@ Server<Socks>::Server(const std::string &hostname, const unsigned port, const st
 template<typename T>
 bool Server<T>::connect(void)
 {
-  if (!sock->init_connect(hostname, port))
-    return false;
-  if (!sock->bind())
+  if (sock->init_connect(hostname, port) &&
+    sock->bind() &&
+      sock->listen())
   {
-    sock->deinit();
-    return false;
-  }
-  if (!sock->listen())
-    return false;
-    /*
-  if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) < 0)
-  {
-    _report = "Unable to bind. Check server address if already in use";
-    close(sd);
-    return false;
+    listensd.fd = sock->get();
+    listensd.events = POLLIN;
+    return true;
   }
 
-  if (::listen(sd, 1) < 0)
-  {
-    _report = "Unable to listen";
-    return false;
-  }
-*/
-  listensd.fd = sock->get();
-  listensd.events = POLLIN;
-  return true;
+  return false;
 }
 
 template<typename T>
@@ -639,51 +481,20 @@ std::shared_ptr<Sock> Server<Sock>::recv_client(const std::string &, const std::
 }
 
 template<>
-std::shared_ptr<Socks> Server<Socks>::recv_client(const std::string &certpem, const std::string &keypem)
+std::shared_ptr<SSock> Server<SSock>::recv_client(const std::string &certpem, const std::string &keypem)
 {
-  //auto clientsd { Server::recv_client() };
-  auto client { std::make_shared<Socks>(TLS_client_method(), hostname, certpem, keypem) };
-  client->configure_context();
-  client->set_hostname();
+  auto client { std::make_shared<SSock>(TLS_client_method()) };
+  if (!client->configure_context(certpem, keypem) ||
+    !client->set_hostname(hostname))
+    return nullptr;
   auto sd { sock->Sock::accept() };
-  auto socks { std::make_shared<Socks>(TLS_server_method(), hostname, certpem, keypem, sd) };
+  auto socks { std::make_shared<SSock>(TLS_server_method(), sd) };
   socks->set_fd();
   socks->set_ctx(client->get_ctx());
   if (socks->accept())
     return socks;
 
   return nullptr;
-
-/*
-  try {
-    SecureClient client;
-    if (!client.configure_context(report, certpem, keypem))
-    {
-      report = "Configure client context: " + report;
-      close(clientsd);
-      return { -1 };
-    }
-
-    client.set_tlsext_hostname(hostname);
-    SecurePair pair { clientsd, std::make_unique<SecureServer>() };
-    pair.sslserver->set_fd(clientsd);
-    pair.sslserver->set_CTX(client.ctx());
-    ssize_t err;
-    if ((err = pair.sslserver->accept()) < 1)
-    {
-      report = "[SSL] accept(): " + std::to_string(client.error(err));
-      return { -1 };
-    }
-
-    return pair;
-  }
-
-  catch (const std::string &e) {
-    report = e;
-  }
-
-  return { -1 };
-  */
 }
 
 template<typename T>
@@ -701,29 +512,7 @@ void Server<T>::refresh_clients(void)
 }
 
 template class Server<Sock>;
-template class Server<Socks>;
-/*
-bool Server::close_client(int clientsd)
-{
-  if (close(clientsd) > -1)
-    return true;
-
-  return false;
-}
-
-*/
-/*
-SockServer::SockServer(const std::string &hostname, const unsigned port) :
-  Server(sock, hostname, port)
-{
-
-}
-
-SockServer::~SockServer(void)
-{
-
-}
-*/
+template class Server<SSock>;
 /*
 void HttpServer::recvreq(int clientsd)
 {
@@ -751,27 +540,8 @@ void HttpServer::recvreq(int clientsd)
     while (body.size() < l);
 }
 
-bool HttpServer::write(const int clientsd, const std::string &document)
-{
-  if (::write(clientsd, document.c_str(), document.size()) < 0)
-    return false;
-
-  fsync(clientsd);
-  return true;
-}
 */
 /*
-HttpsServer::HttpsServer(const std::string &hostname, const unsigned port) :
-  Server(DEFAULT_HTTPVER, hostname, port)
-{
-
-}
-
-HttpsServer::~HttpsServer(void)
-{
-
-}
-
 SecurePair HttpsServer::recv_client(std::string &report, const std::string &certpem, const std::string &keypem)
 {
   auto clientsd { Server::recv_client() };
