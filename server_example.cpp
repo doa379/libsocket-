@@ -58,7 +58,8 @@ int main(const int argc, const char *argv[])
       if (server.poll_listen(100))
       {
         auto sock { server.recv_client() };
-        server.new_client(sock, cb);
+        if (sock)
+          server.new_client(sock, cb);
       }
 
       server.refresh_clients();

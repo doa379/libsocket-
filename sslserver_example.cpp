@@ -70,7 +70,8 @@ int main(int argc, char *argv[])
       if (server.poll_listen(100))
       {
         auto sock { server.recv_client() };
-        server.new_client(sock, chunked_cb);
+        if (sock)
+          server.new_client(sock, chunked_cb);
       }
 
       server.refresh_clients();

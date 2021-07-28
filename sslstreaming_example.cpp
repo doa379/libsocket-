@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
       if (!client.sendreq(GET, "/", { }, { }))
         throw "Unable to sendreq()";
 
-      client.req(cb);
+      client.recvreq(cb);
       std::cout << "Stream disconnected\n";
       std::cout << "The response header:\n===================\n";
       std::cout << client.header() << std::endl;

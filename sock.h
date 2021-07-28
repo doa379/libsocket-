@@ -20,7 +20,7 @@ static const char CERTPEM[] { "/tmp/cert.pem" };
 static const char KEYPEM[] { "/tmp/key.pem" };
 static const unsigned MAX_CLIENTS { 256 };
 static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
-enum { GET, POST, PUT, DELETE };
+enum Req { GET, POST, PUT, DELETE };
 using Cb = std::function<void(const std::string &)>;
 static const Cb dummy_cb { [](const std::string &) { } };
 
@@ -36,7 +36,7 @@ public:
   bool init(const int);
   void deinit(void);
   bool init_connect(const std::string &, const unsigned);
-  virtual bool connect(void);
+  virtual bool connect(const std::string & = { });
   virtual bool read(char &);
   virtual bool write(const std::string &);
   int accept(void);
@@ -61,7 +61,7 @@ public:
   bool configure_context(const std::string &, const std::string &);
   bool set_hostname(const std::string &);
   bool set_fd(void);
-  bool connect(void) override;
+  bool connect(const std::string &) override;
   bool read(char &) override;
   bool write(const std::string &) override;
   bool clear(void);
@@ -71,52 +71,7 @@ public:
   int error(int);
   void certinfo(std::string &, std::string &, std::string &);
 };
-/*
-class InitSSL
-{
-public:
-  InitSSL(void);
-  static void init(void);
-};
 
-class Secure : private InitSSL
-{
-protected:
-  SSL_CTX *ctx { nullptr };
-  SSL *ssl { nullptr };
-  std::string _cipherinfo, _certificate, _issuer;
-public:
-  Secure(const SSL_METHOD *);
-  ~Secure(void);
-  int set_fd(const int);
-  int connect(void);
-  int write(const std::string &);
-  int error(int);
-  int clear(void);
-  void gather_certificate(std::string &);
-  std::string &cipherinfo(void) { return _cipherinfo; }
-  std::string &certificate(void) { return _certificate; }
-  std::string &issuer(void) { return _issuer; }
-};
-
-class SecureClient : public Secure
-{
-public:
-  SecureClient(void);
-  bool configure_context(std::string &, const std::string &, const std::string &);
-  int set_tlsext_hostname(const std::string &);
-  int read(void *, int);
-  SSL_CTX *ctx(void) { return Secure::ctx; }
-};
-
-class SecureServer : public Secure
-{
-public:
-  SecureServer(void);
-  SSL_CTX *set_CTX(SSL_CTX *);
-  int accept(void);
-};
-*/
 class Recv
 {
   Time time;
@@ -129,7 +84,7 @@ class Recv
     chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
 public:
   template<typename T>
-  bool req(T &, const Cb &);
+  bool req(T &, const Cb & = dummy_cb);
   template<typename T>
   void req_raw(T &, const Cb &);
   std::string &header(void) { return _header; }
@@ -156,11 +111,11 @@ public:
   Client(const float, const std::string &, const unsigned);
   bool connect(void);
   bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
-  bool sendreq(const unsigned, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
+  bool sendreq(const Req, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
   bool performreq(const Cb & = dummy_cb, const std::vector<std::string> & = { }, const std::string & = { });
-  bool performreq(const unsigned, const Cb & = dummy_cb, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
-  bool req(const Cb &cb = dummy_cb) { return recv.req(*sock, cb); }
-  void req_raw(const Cb &cb = dummy_cb) { recv.req_raw(*sock, cb); }
+  bool performreq(const Req, const Cb & = dummy_cb, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
+  bool recvreq(const Cb &cb = dummy_cb) { return recv.req(*sock, cb); }
+  void recvreq_raw(const Cb &cb) { recv.req_raw<T>(*sock, cb); }
   std::string &header(void) { return recv.header(); }
   std::string &body(void) { return recv.body(); }
   void set_timeout(const unsigned timeout_ms) { recv.set_timeout(timeout_ms); }
@@ -175,7 +130,7 @@ class MultiClient
 public:
   bool set_client(Client<T> &);
   bool connect(void);
-  void recvreq(unsigned);
+  void recvreq(unsigned, const std::vector<Cb> & = { });
   decltype(C) &clients(void) { return C; }
 };
 

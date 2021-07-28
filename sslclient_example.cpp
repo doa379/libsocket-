@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     {
       if (!client.sendreq(GET, "/", { }, { }))
         throw "Unable to sendreq()";
-      client.req();
+      client.recvreq();
       std::cout << "The response header:\n===================\n";
       std::cout << client.header() << std::endl;
       std::cout << "The response body:\n===================\n";

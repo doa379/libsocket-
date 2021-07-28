@@ -23,7 +23,6 @@ bool Sock::init(const int sd)
     this->sd = sd;
   else if ((this->sd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     return false;
-
   return true;
 }
 
@@ -48,7 +47,7 @@ bool Sock::init_connect(const std::string &hostname, const unsigned port)
   return false;
 }
 
-bool Sock::connect(void)
+bool Sock::connect(const std::string &)
 {
   if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) > -1)
     return true;
@@ -84,7 +83,6 @@ bool Sock::bind(void)
 {
   if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) > -1)
     return true;
-
   return false;
 }
 
@@ -92,7 +90,6 @@ bool Sock::listen(void)
 {
   if (::listen(sd, 1) > -1)
     return true;
-
   return false;
 }
 
@@ -133,7 +130,6 @@ bool SSock::configure_context(const std::string &certpem, const std::string &key
     return false;
   else if (!keypem.size() && SSL_CTX_use_PrivateKey_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM) < 1)
     return false;
-
   return true;
 }
 
@@ -151,10 +147,11 @@ bool SSock::set_fd(void)
   return false;
 }
 
-bool SSock::connect(void)
+bool SSock::connect(const std::string &hostname)
 {
   if (Sock::connect())
   {
+    set_hostname(hostname);
     set_fd();
     if (SSL_connect(ssl) > 0)
       return true;
@@ -224,8 +221,7 @@ void SSock::certinfo(std::string &cipherinfo, std::string &cert, std::string &is
     OPENSSL_free(issuer);
   }
 
-  if (server_cert)
-    X509_free(server_cert);
+  X509_free(server_cert);
 }
 
 template<typename T>
@@ -319,8 +315,7 @@ template<typename T>
 bool Client<T>::connect(void)
 {
   if (sock->init_connect(hostname, port))
-    return sock->connect();
-  
+    return sock->connect(hostname);
   return false;
 }
 
@@ -339,7 +334,7 @@ bool Client<T>::sendreq(const std::vector<std::string> &H, const std::string &da
 }
 
 template<typename T>
-bool Client<T>::sendreq(const unsigned req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+bool Client<T>::sendreq(const Req req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
   if (&REQ[req] > &REQ[REQ.size() - 1]
     || (req == GET && data.size()))
@@ -364,18 +359,16 @@ bool Client<T>::sendreq(const unsigned req, const std::string &endp, const std::
 template<typename T>
 bool Client<T>::performreq(const Cb &cb, const std::vector<std::string> &H, const std::string &data)
 {
-  if (sock->connect() && sendreq(H, data))
-    return this->req(cb);
-
+  if (connect() && sendreq(H, data))
+    return recvreq(cb);
   return false;
 }
 
 template<typename T>
-bool Client<T>::performreq(const unsigned req, const Cb &cb, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+bool Client<T>::performreq(const Req req, const Cb &cb, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
-  if (sock->connect() && sendreq(req, endp, H, data))
-    return this->req(cb);
-
+  if (connect() && sendreq(req, endp, H, data))
+    return recvreq(cb);
   return false;
 }
 
@@ -406,7 +399,7 @@ bool MultiClient<T>::connect(void)
 }
 
 template<typename T>
-void MultiClient<T>::recvreq(unsigned timeout)
+void MultiClient<T>::recvreq(unsigned timeout, const std::vector<Cb> &CB)
 {
   struct pollfd PFD[MAX_CLIENTS] { };
   std::bitset<MAX_CLIENTS> M;
@@ -424,7 +417,7 @@ void MultiClient<T>::recvreq(unsigned timeout)
     for (auto i { 0U }; i < C.size(); i++)
       if (PFD[i].revents & POLLIN && !M[i])
       {
-        C[i].get().req();
+        C[i].get().recvreq(CB[i]);
         M |= 1 << i;
       }
 
@@ -470,7 +463,6 @@ bool Server<T>::poll_listen(unsigned timeout_ms)
   poll(&listensd, 1, timeout_ms);
   if (listensd.revents & POLLIN)
     return true;
-
   return false;
 }
 
@@ -493,14 +485,13 @@ std::shared_ptr<SSock> Server<SSock>::recv_client(const std::string &certpem, co
   socks->set_ctx(client->get_ctx());
   if (socks->accept())
     return socks;
-
   return nullptr;
 }
 
 template<typename T>
 void Server<T>::new_client(std::shared_ptr<T> t, const std::function<void(T &)> &cb)
 {
-  auto c { std::async(std::launch::async, [=](void) mutable { cb(*t); }) };
+  auto c { std::async(std::launch::async, [=](void) { cb(*t); }) };
   C.emplace_back(std::move(c));
 }
 
