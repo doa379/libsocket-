@@ -163,13 +163,14 @@ template<typename T>
 class Server
 {
 protected:
-  std::unique_ptr<T> sock;
   std::string hostname;
   unsigned port;
+  std::unique_ptr<T> sock;
   struct pollfd listensd { };
   std::list<std::future<void>> C;
 public:
   Server(const std::string &, const unsigned);
+  void init_sock(void);
   bool connect(void);
   bool poll_listen(unsigned);
   std::shared_ptr<T> recv_client(const std::string & = CERTPEM, const std::string & = KEYPEM);

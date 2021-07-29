@@ -464,18 +464,23 @@ void MultiClient<T>::recvreq(unsigned timeout, const std::vector<Cb> &CB)
 template class MultiClient<Sock>;
 template class MultiClient<SSock>;
 
-template<>
-Server<Sock>::Server(const std::string &hostname, const unsigned port) :
-  sock(std::make_unique<Sock>()), hostname(hostname), port(port)
+template<typename T>
+Server<T>::Server(const std::string &hostname, const unsigned port) :
+  hostname(hostname), port(port)
 {
-
+  init_sock();
 }
 
 template<>
-Server<SSock>::Server(const std::string &hostname, const unsigned port) :
-  sock(std::make_unique<SSock>(TLS_server_method())), hostname(hostname), port(port)
+void Server<Sock>::init_sock(void)
 {
+  sock = std::make_unique<Sock>();
+}
 
+template<>
+void Server<SSock>::init_sock(void)
+{
+  sock = std::make_unique<SSock>(TLS_server_method());
 }
 
 template<typename T>
