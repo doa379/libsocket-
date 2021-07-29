@@ -321,18 +321,23 @@ void Recv::req_raw(T &sock, const Cb &cb)
   }
 }
 
-template<>
-Client<Sock>::Client(const float httpver, const std::string &hostname, const unsigned port) : 
-  sock(std::make_unique<Sock>()), hostname(hostname), port(port)
+template<typename T>
+Client<T>::Client(const float httpver, const std::string &hostname, const unsigned port) : 
+  httpver(httpver), hostname(hostname), port(port)
 {
-  snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
+  init_sock();
 }
 
 template<>
-Client<SSock>::Client(const float httpver, const std::string &hostname, const unsigned port) : 
-  sock(std::make_unique<SSock>(TLS_client_method())), hostname(hostname), port(port)
+void Client<Sock>::init_sock(void)
 {
-  snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
+  sock = std::make_unique<Sock>();
+}
+
+template<>
+void Client<SSock>::init_sock(void)
+{
+  sock = std::make_unique<SSock>(TLS_client_method());
 }
 
 template<typename T>
@@ -364,6 +369,10 @@ bool Client<T>::sendreq(const Req req, const std::string &endp, const std::vecto
     || (req == GET && data.size()))
     return false;
 
+  char httpver[8];
+  {
+    snprintf(httpver, sizeof httpver - 1, "%.1f", this->httpver);
+  }
   std::string request { 
     REQ[req] + " " + endp + " " + "HTTP/" + std::string(httpver) + "\r\n" +
     "Host: " + hostname + "\r\n" +

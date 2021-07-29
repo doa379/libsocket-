@@ -125,14 +125,15 @@ template<typename T>
 class Client
 {
   friend class MultiClient<T>;
-  std::unique_ptr<T> sock;
+  float httpver;
   std::string hostname;
   unsigned port;
-  char httpver[8];
+  std::unique_ptr<T> sock;
   const std::string_view agent { "HttpRequest" };
   Recv recv;
 public:
   Client(const float, const std::string &, const unsigned);
+  void init_sock(void);
   bool connect(void);
   bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
   bool sendreq(const Req, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });

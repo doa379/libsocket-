@@ -11,8 +11,8 @@ int main(int argc, char *argv[])
   try {
     Client<Sock> client0(1.1, host0, port0), client1(1.1, host1, port1);
     MultiClient<Sock> mc;
-    mc.set_client(client0);
-    mc.set_client(client1);
+    mc.reg_client(client0);
+    mc.reg_client(client1);
     if (!mc.connect())
       std::cerr << "There was at least one failure in resolving host(s), proceeding...\n";
     client0.sendreq(GET, "/", { }, { });

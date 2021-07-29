@@ -11,8 +11,8 @@ int main(const int argc, const char *argv[])
   auto client0 { std::make_shared<Client<SSock>>(1.1, host0, port0) }, 
     client1 { std::make_shared<Client<SSock>>(1.1, host1, port1) };
   MultiClient<SSock> mc;
-  mc.set_client(*client0);
-  mc.set_client(*client1);
+  mc.reg_client(*client0);
+  mc.reg_client(*client1);
   if (!mc.connect())
     std::cerr << "There was at least one failure in connecting, proceeding...\n";
   client0->sendreq(GET, "/");
