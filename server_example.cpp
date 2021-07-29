@@ -31,8 +31,14 @@ int main(const int argc, const char *argv[])
     if (!server.connect())
       throw "Server unable to connect";
 
-    auto cb { 
+    Recv recv;
+    auto cb {
       [&](Sock &sock) {
+        recv.req(sock);
+        std::cout << "-Receive from client-\n";
+        std::cout << recv.header() << "\n";
+        std::cout << recv.body() << "\n";
+        std::cout << "-End receive from client-\n";
         const std::string header { 
           std::string("HTTP/1.1 Stream OK\r\n") + 
             std::string("Transfer-Encoding: chunked\r\n") +

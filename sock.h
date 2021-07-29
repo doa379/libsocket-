@@ -1,3 +1,27 @@
+/**********************************************************************************
+MIT License
+
+Copyright (c) 2021 doa379
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+**********************************************************************************/
+
 #pragma once
 
 #include <string>
@@ -66,8 +90,8 @@ public:
   bool write(const std::string &) override;
   bool clear(void);
   bool accept(void);
-  SSL_CTX *set_ctx(SSL_CTX *);
-  SSL_CTX *get_ctx(void) { return ctx; }
+  SSL_CTX *ssl_ctx(SSL_CTX *);
+  SSL_CTX *ssl_ctx(void) { return ctx; }
   int error(int);
   void certinfo(std::string &, std::string &, std::string &);
 };
@@ -128,7 +152,7 @@ class MultiClient
   unsigned timeout;
   std::vector<std::reference_wrapper<Client<T>>> C;
 public:
-  bool set_client(Client<T> &);
+  bool reg_client(Client<T> &);
   bool connect(void);
   void recvreq(unsigned, const std::vector<Cb> & = { });
   decltype(C) &clients(void) { return C; }
@@ -151,19 +175,3 @@ public:
   void new_client(std::shared_ptr<T>, const std::function<void(T &)> &);
   void refresh_clients(void);
 };
-
-/*
-struct SecurePair
-{
-  int clientsd;
-  std::unique_ptr<SecureServer> sslserver;
-};
-
-class HttpsServer : public Server
-{
-public:
-  HttpsServer(const std::string &, const unsigned);
-  ~HttpsServer(void);
-  SecurePair recv_client(std::string &, const std::string & = CERTPEM, const std::string & = KEYPEM);
-};
-*/

@@ -30,7 +30,9 @@ int main(int argc, char *argv[])
     client.set_timeout(1750);
     if (client.connect())
     {
-      if (!client.sendreq(GET, "/", { }, { }))
+      // Data sent as POST request
+      // Header validates request is OK
+      if (!client.sendreq(POST, "/", { "OK" }, "Some data"))
         throw "Unable to sendreq()";
 
       client.recvreq(cb);

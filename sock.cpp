@@ -1,3 +1,27 @@
+/**********************************************************************************
+MIT License
+
+Copyright (c) 2021 doa379
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+**********************************************************************************/
+
 #include <cstring>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -189,7 +213,7 @@ bool SSock::accept(void)
   return false;
 }
 
-SSL_CTX *SSock::set_ctx(SSL_CTX *ctx)
+SSL_CTX *SSock::ssl_ctx(SSL_CTX *ctx)
 {
   return SSL_set_SSL_CTX(ssl, ctx);
 }
@@ -376,7 +400,7 @@ template class Client<Sock>;
 template class Client<SSock>;
 
 template<typename T>
-bool MultiClient<T>::set_client(Client<T> &c)
+bool MultiClient<T>::reg_client(Client<T> &c)
 {
   if (C.size() < MAX_CLIENTS)
   {
@@ -417,7 +441,10 @@ void MultiClient<T>::recvreq(unsigned timeout, const std::vector<Cb> &CB)
     for (auto i { 0U }; i < C.size(); i++)
       if (PFD[i].revents & POLLIN && !M[i])
       {
-        C[i].get().recvreq(CB[i]);
+        if (CB.size())
+          C[i].get().recvreq(CB[i]);
+        else
+          C[i].get().recvreq();
         M |= 1 << i;
       }
 
@@ -469,7 +496,7 @@ bool Server<T>::poll_listen(unsigned timeout_ms)
 template<>
 std::shared_ptr<Sock> Server<Sock>::recv_client(const std::string &, const std::string &)
 {
-  return std::make_shared<Sock>(this->sock->accept());
+  return std::make_shared<Sock>(sock->accept());
 }
 
 template<>
@@ -482,7 +509,7 @@ std::shared_ptr<SSock> Server<SSock>::recv_client(const std::string &certpem, co
   auto sd { sock->Sock::accept() };
   auto socks { std::make_shared<SSock>(TLS_server_method(), sd) };
   socks->set_fd();
-  socks->set_ctx(client->get_ctx());
+  socks->ssl_ctx(client->ssl_ctx());
   if (socks->accept())
     return socks;
   return nullptr;
@@ -504,65 +531,3 @@ void Server<T>::refresh_clients(void)
 
 template class Server<Sock>;
 template class Server<SSock>;
-/*
-void HttpServer::recvreq(int clientsd)
-{
-  header.clear();
-  body.clear();
-  char p;
-  do
-  {
-    if (::recv(clientsd, &p, sizeof p, 0) < 0)
-      break;
-    header += p;
-  }
-  while (!(header.rfind("\r\n\r\n") < std::string::npos));
-
-  std::size_t l { };
-  if (std::regex_search(header, match, content_length_regex) &&
-      (l = std::stoull(header.substr(match.prefix().length() + 16,
-        header.substr(match.prefix().length() + 16).find("\r\n")))))
-    do
-    {
-      if (::recv(clientsd, &p, sizeof p, 0) < 0)
-        break;
-      body += p;
-    }
-    while (body.size() < l);
-}
-
-*/
-/*
-SecurePair HttpsServer::recv_client(std::string &report, const std::string &certpem, const std::string &keypem)
-{
-  auto clientsd { Server::recv_client() };
-  try {
-    SecureClient client;
-    if (!client.configure_context(report, certpem, keypem))
-    {
-      report = "Configure client context: " + report;
-      close(clientsd);
-      return { -1 };
-    }
-
-    client.set_tlsext_hostname(hostname);
-    SecurePair pair { clientsd, std::make_unique<SecureServer>() };
-    pair.sslserver->set_fd(clientsd);
-    pair.sslserver->set_CTX(client.ctx());
-    ssize_t err;
-    if ((err = pair.sslserver->accept()) < 1)
-    {
-      report = "[SSL] accept(): " + std::to_string(client.error(err));
-      return { -1 };
-    }
-
-    return pair;
-  }
-
-  catch (const std::string &e) {
-    report = e;
-  }
-
-  return { -1 };
-}
-*/

@@ -31,8 +31,20 @@ int main(int argc, char *argv[])
     if (!server.connect())
       throw "Server unable to connect";
 
+    Recv recv;
+    auto client_msg { 
+      [&](SSock &sock)  { 
+        recv.req(sock);
+        std::cout << "-Receive from client-\n";
+        std::cout << recv.header() << "\n";
+        std::cout << recv.body() << "\n";
+        std::cout << "-End receive from client-\n";
+      }
+    };
+
     auto cb { 
       [&](SSock &sock) {
+        client_msg(sock);
         const std::string document { "Document" }, 
           header { 
             std::string("HTTP/1.1 OK\r\n") +
@@ -44,6 +56,7 @@ int main(int argc, char *argv[])
 
     auto chunked_cb { 
       [&](SSock &sock) {
+        client_msg(sock);
         const std::string header { 
           std::string("HTTP/1.1 SSL Stream OK\r\n") +
             std::string("Transfer-Encoding: chunked\r\n") +
