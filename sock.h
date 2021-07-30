@@ -149,12 +149,14 @@ public:
 template<typename T>
 class MultiClient
 {
+  std::vector<std::reference_wrapper<Client<T>>> C;
   Time time;
   unsigned timeout;
-  std::vector<std::reference_wrapper<Client<T>>> C;
 public:
+  MultiClient(void) { }
+  MultiClient(const std::vector<std::reference_wrapper<Client<T>>> &);
   bool reg_client(Client<T> &);
-  bool connect(void);
+  unsigned connect(void);
   void recvreq(unsigned, const std::vector<Cb> & = { });
   decltype(C) &clients(void) { return C; }
 };

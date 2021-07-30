@@ -13,10 +13,11 @@ int main(const int argc, const char *argv[])
   MultiClient<SSock> mc;
   mc.reg_client(*client0);
   mc.reg_client(*client1);
-  if (!mc.connect())
-    std::cerr << "There was at least one failure in connecting, proceeding...\n";
+  auto conn { mc.connect() };
+  std::cout << std::to_string(conn) << " connections established\n";
   client0->sendreq(GET, "/");
   client1->sendreq(GET, "/");
+  // With a timeout 30 sec
   mc.recvreq(30);
   std::cout << "All transfer(s) completed\n";
   std::cout << "(Client0):\n===================\n";

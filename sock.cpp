@@ -80,7 +80,7 @@ bool Sock::connect(const std::string &)
 
 bool Sock::read(char &p)
 {
-  if (::recv(sd, &p, sizeof p, 0) > -1)
+  if (::read(sd, &p, sizeof p) > -1)
     return true;
   return false;
 }
@@ -409,6 +409,12 @@ template class Client<Sock>;
 template class Client<SSock>;
 
 template<typename T>
+MultiClient<T>::MultiClient(const std::vector<std::reference_wrapper<Client<T>>> &C) : C(C)
+{
+
+}
+
+template<typename T>
 bool MultiClient<T>::reg_client(Client<T> &c)
 {
   if (C.size() < MAX_CLIENTS)
@@ -421,21 +427,20 @@ bool MultiClient<T>::reg_client(Client<T> &c)
 }
 
 template<typename T>
-bool MultiClient<T>::connect(void)
+unsigned MultiClient<T>::connect(void)
 {
-  bool retval { true };
+  unsigned n { };
   for (auto &c : C)
-    if (!c.get().connect())
-      retval = false;
+    if (c.get().connect())
+      n++;
 
-  return retval;
+  return n;
 }
 
 template<typename T>
 void MultiClient<T>::recvreq(unsigned timeout, const std::vector<Cb> &CB)
 {
   struct pollfd PFD[MAX_CLIENTS] { };
-  std::bitset<MAX_CLIENTS> M;
   for (auto i { 0U }; i < C.size(); i++)
   {
     PFD[i].fd = C[i].get().sock->get();
@@ -444,6 +449,7 @@ void MultiClient<T>::recvreq(unsigned timeout, const std::vector<Cb> &CB)
 
   const auto init { time.now() };
   auto now { init };
+  std::bitset<MAX_CLIENTS> M;
   while (M.count() < C.size() && time.diffpt<std::chrono::seconds>(now, init) < timeout)
   {
     poll(PFD, C.size(), 100);

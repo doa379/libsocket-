@@ -10,13 +10,14 @@ int main(int argc, char *argv[])
 {
   try {
     Client<Sock> client0(1.1, host0, port0), client1(1.1, host1, port1);
-    MultiClient<Sock> mc;
-    mc.reg_client(client0);
-    mc.reg_client(client1);
-    if (!mc.connect())
-      std::cerr << "There was at least one failure in resolving host(s), proceeding...\n";
+    MultiClient<Sock> mc( { client0, client1 });
+    //mc.reg_client(client0);
+    //mc.reg_client(client1);
+    auto conn { mc.connect() };
+    std::cout << std::to_string(conn) << " connections established\n";
     client0.sendreq(GET, "/", { }, { });
     client1.sendreq(GET, "/", { }, { });
+    // With a timeout 30 sec
     mc.recvreq(30);
     std::cout << "All transfer(s) completed\n";
     std::cout << "(Client0):\n===================\n";
