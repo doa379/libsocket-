@@ -31,7 +31,7 @@ int main(const int argc, const char *argv[])
     if (!server.connect())
       throw "Server unable to connect";
 
-    Recv recv;
+    Recv recv(5000);
     auto cb {
       [&](Sock &sock) {
         recv.req(sock);

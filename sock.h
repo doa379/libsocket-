@@ -39,7 +39,7 @@ SOFTWARE.
 #include "time.h"
 
 static const float DEFAULT_HTTPVER { 2.0 };
-static const unsigned DEFAULT_TIMEOUTMS { 30 * 1000 };
+static const unsigned DEFAULT_TIMEOUTMS { 15 * 1000 };
 static const char CERTPEM[] { "/tmp/cert.pem" };
 static const char KEYPEM[] { "/tmp/key.pem" };
 static const unsigned MAX_CLIENTS { 256 };
@@ -98,8 +98,8 @@ public:
 
 class Recv
 {
+  unsigned timeout_ms { };
   Time time;
-  unsigned timeout_ms { DEFAULT_TIMEOUTMS };
   std::string _header, _body;
   std::smatch match;
   const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
@@ -107,67 +107,95 @@ class Recv
     transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
     chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
 public:
-  template<typename T>
-  bool req(T &, const Cb & = dummy_cb);
-  template<typename T>
-  void req_raw(T &, const Cb &);
+  Recv(const unsigned);
+  template<typename S>
+  bool req(S &, const Cb & = dummy_cb);
+  template<typename S>
+  void req_raw(S &, const Cb &);
   std::string &header(void) { return _header; }
   std::string &body(void) { return _body; }
   void clear_header(void) { _header.clear(); }
   void clear_body(void) { _body.clear(); }
-  void set_timeout(const unsigned timeout_ms) { this->timeout_ms = timeout_ms; }
+  void timeout(const unsigned timeout) { timeout_ms = timeout; }
 };
 
-template<typename T>
-class MultiClient;
+template<typename S>
+class MultiSync;
 
-template<typename T>
+template<typename S>
+class MultiAsync;
+
+template<typename S>
 class Client
 {
-  friend class MultiClient<T>;
+  friend class MultiSync<S>;
+  friend class MultiAsync<S>;
   float httpver;
   std::string hostname;
   unsigned port;
-  std::unique_ptr<T> sock;
+  std::unique_ptr<Recv> recv;
+  std::unique_ptr<S> sock;
   const std::string_view agent { "HttpRequest" };
-  Recv recv;
 public:
-  Client(const float, const std::string &, const unsigned);
+  Client(const float, const std::string &, const unsigned, const unsigned = DEFAULT_TIMEOUTMS);
   void init_sock(void);
   bool connect(void);
   bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
   bool sendreq(const Req, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
   bool performreq(const Cb & = dummy_cb, const std::vector<std::string> & = { }, const std::string & = { });
   bool performreq(const Req, const Cb & = dummy_cb, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
-  bool recvreq(const Cb &cb = dummy_cb) { return recv.req(*sock, cb); }
-  void recvreq_raw(const Cb &cb) { recv.req_raw<T>(*sock, cb); }
-  std::string &header(void) { return recv.header(); }
-  std::string &body(void) { return recv.body(); }
-  void set_timeout(const unsigned timeout_ms) { recv.set_timeout(timeout_ms); }
+  bool recvreq(const Cb &cb = dummy_cb) { return recv->req(*sock, cb); }
+  void recvreq_raw(const Cb &cb) { recv->req_raw(*sock, cb); }
+  std::string &header(void) { return recv->header(); }
+  std::string &body(void) { return recv->body(); }
+  void timeout(const unsigned timeout) { recv->timeout(timeout); }
 };
 
-template<typename T>
-class MultiClient
+template<typename S>
+class MultiSync
 {
-  std::vector<std::reference_wrapper<Client<T>>> C;
+  std::vector<std::reference_wrapper<Client<S>>> C;
   Time time;
   unsigned timeout;
 public:
-  MultiClient(void) { }
-  MultiClient(const std::vector<std::reference_wrapper<Client<T>>> &);
-  bool reg_client(Client<T> &);
+  MultiSync(void) { }
+  MultiSync(const std::vector<std::reference_wrapper<Client<S>>> &);
+  bool reg_client(Client<S> &);
   unsigned connect(void);
-  void recvreq(unsigned, const std::vector<Cb> & = { });
+  template<typename T>
+  void recvreq(const unsigned, const std::vector<Cb> & = { });
   decltype(C) &clients(void) { return C; }
 };
 
-template<typename T>
+template<typename S>
+struct ClientHandle
+{
+  Client<S> &c;
+  const Cb &cb;
+  const Req req;
+  const std::string endp, data;
+  const std::vector<std::string> HEADERS;
+};
+
+template<typename S>
+class MultiAsync
+{
+  const std::vector<ClientHandle<S>> &H;
+  Time time;
+  unsigned timeout;
+public:
+  MultiAsync(const std::vector<ClientHandle<S>> &);
+  unsigned connect(void);
+  void performreq(const unsigned, const unsigned);
+};
+
+template<typename S>
 class Server
 {
 protected:
   std::string hostname;
   unsigned port;
-  std::unique_ptr<T> sock;
+  std::unique_ptr<S> sock;
   struct pollfd listensd { };
   std::list<std::future<void>> C;
 public:
@@ -175,7 +203,7 @@ public:
   void init_sock(void);
   bool connect(void);
   bool poll_listen(unsigned);
-  std::shared_ptr<T> recv_client(const std::string & = CERTPEM, const std::string & = KEYPEM);
-  void new_client(std::shared_ptr<T>, const std::function<void(T &)> &);
+  std::shared_ptr<S> recv_client(const std::string & = CERTPEM, const std::string & = KEYPEM);
+  void new_client(std::shared_ptr<S>, const std::function<void(S &)> &);
   void refresh_clients(void);
 };

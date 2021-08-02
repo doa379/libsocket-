@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     if (!server.connect())
       throw "Server unable to connect";
 
-    Recv recv;
+    Recv recv(5000);
     auto client_msg { 
       [&](SSock &sock)  { 
         recv.req(sock);

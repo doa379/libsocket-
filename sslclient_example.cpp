@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
   }
 
   try {
-    Client<SSock> client(1.1, hostname, port_no);
+    Client<SSock> client(1.1, hostname, port_no, 2500);
 
     if (client.connect())
     {

@@ -248,8 +248,13 @@ void SSock::certinfo(std::string &cipherinfo, std::string &cert, std::string &is
   X509_free(server_cert);
 }
 
-template<typename T>
-bool Recv::req(T &sock, const Cb &cb)
+Recv::Recv(const unsigned timeout) : timeout_ms(timeout)
+{
+
+}
+
+template<typename S>
+bool Recv::req(S &sock, const Cb &cb)
 {
   clear_header();
   clear_body();
@@ -307,8 +312,8 @@ bool Recv::req(T &sock, const Cb &cb)
   return true;
 }
 
-template<typename T>
-void Recv::req_raw(T &sock, const Cb &cb)
+template<typename S>
+void Recv::req_raw(S &sock, const Cb &cb)
 {
   char p;
   auto now { time.now() };
@@ -321,9 +326,9 @@ void Recv::req_raw(T &sock, const Cb &cb)
   }
 }
 
-template<typename T>
-Client<T>::Client(const float httpver, const std::string &hostname, const unsigned port) : 
-  httpver(httpver), hostname(hostname), port(port)
+template<typename S>
+Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port, const unsigned timeout) : 
+  httpver(httpver), hostname(hostname), port(port), recv(std::make_unique<Recv>(timeout))
 {
   init_sock();
 }
@@ -340,16 +345,16 @@ void Client<SSock>::init_sock(void)
   sock = std::make_unique<SSock>(TLS_client_method());
 }
 
-template<typename T>
-bool Client<T>::connect(void)
+template<typename S>
+bool Client<S>::connect(void)
 {
   if (sock->init_connect(hostname, port))
     return sock->connect(hostname);
   return false;
 }
 
-template<typename T>
-bool Client<T>::sendreq(const std::vector<std::string> &H, const std::string &data)
+template<typename S>
+bool Client<S>::sendreq(const std::vector<std::string> &H, const std::string &data)
 {
   std::string request;
   for (auto &h : H)
@@ -362,8 +367,8 @@ bool Client<T>::sendreq(const std::vector<std::string> &H, const std::string &da
   return sock->write(request);
 }
 
-template<typename T>
-bool Client<T>::sendreq(const Req req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+template<typename S>
+bool Client<S>::sendreq(const Req req, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
   if (&REQ[req] > &REQ[REQ.size() - 1]
     || (req == GET && data.size()))
@@ -389,16 +394,16 @@ bool Client<T>::sendreq(const Req req, const std::string &endp, const std::vecto
   return sock->write(request);
 }
 
-template<typename T>
-bool Client<T>::performreq(const Cb &cb, const std::vector<std::string> &H, const std::string &data)
+template<typename S>
+bool Client<S>::performreq(const Cb &cb, const std::vector<std::string> &H, const std::string &data)
 {
   if (connect() && sendreq(H, data))
     return recvreq(cb);
   return false;
 }
 
-template<typename T>
-bool Client<T>::performreq(const Req req, const Cb &cb, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
+template<typename S>
+bool Client<S>::performreq(const Req req, const Cb &cb, const std::string &endp, const std::vector<std::string> &H, const std::string &data)
 {
   if (connect() && sendreq(req, endp, H, data))
     return recvreq(cb);
@@ -408,14 +413,14 @@ bool Client<T>::performreq(const Req req, const Cb &cb, const std::string &endp,
 template class Client<Sock>;
 template class Client<SSock>;
 
-template<typename T>
-MultiClient<T>::MultiClient(const std::vector<std::reference_wrapper<Client<T>>> &C) : C(C)
+template<typename S>
+MultiSync<S>::MultiSync(const std::vector<std::reference_wrapper<Client<S>>> &C) : C(C)
 {
 
 }
 
-template<typename T>
-bool MultiClient<T>::reg_client(Client<T> &c)
+template<typename S>
+bool MultiSync<S>::reg_client(Client<S> &c)
 {
   if (C.size() < MAX_CLIENTS)
   {
@@ -426,8 +431,8 @@ bool MultiClient<T>::reg_client(Client<T> &c)
   return false;
 }
 
-template<typename T>
-unsigned MultiClient<T>::connect(void)
+template<typename S>
+unsigned MultiSync<S>::connect(void)
 {
   unsigned n { };
   for (auto &c : C)
@@ -437,8 +442,9 @@ unsigned MultiClient<T>::connect(void)
   return n;
 }
 
+template<typename S>
 template<typename T>
-void MultiClient<T>::recvreq(unsigned timeout, const std::vector<Cb> &CB)
+void MultiSync<S>::recvreq(const unsigned timeout, const std::vector<Cb> &CB)
 {
   struct pollfd PFD[MAX_CLIENTS] { };
   for (auto i { 0U }; i < C.size(); i++)
@@ -450,7 +456,7 @@ void MultiClient<T>::recvreq(unsigned timeout, const std::vector<Cb> &CB)
   const auto init { time.now() };
   auto now { init };
   std::bitset<MAX_CLIENTS> M;
-  while (M.count() < C.size() && time.diffpt<std::chrono::seconds>(now, init) < timeout)
+  while (M.count() < C.size() && time.diffpt<T>(now, init) < timeout)
   {
     poll(PFD, C.size(), 100);
     for (auto i { 0U }; i < C.size(); i++)
@@ -467,11 +473,58 @@ void MultiClient<T>::recvreq(unsigned timeout, const std::vector<Cb> &CB)
   }
 }
 
-template class MultiClient<Sock>;
-template class MultiClient<SSock>;
+template class MultiSync<Sock>;
+template class MultiSync<SSock>;
+template void MultiSync<Sock>::recvreq<std::chrono::seconds>(const unsigned, const std::vector<Cb> &);
+template void MultiSync<SSock>::recvreq<std::chrono::seconds>(const unsigned, const std::vector<Cb> &);
+template void MultiSync<Sock>::recvreq<std::chrono::milliseconds>(const unsigned, const std::vector<Cb> &);
+template void MultiSync<SSock>::recvreq<std::chrono::milliseconds>(const unsigned, const std::vector<Cb> &);
 
-template<typename T>
-Server<T>::Server(const std::string &hostname, const unsigned port) :
+template <typename S>
+MultiAsync<S>::MultiAsync(const std::vector<ClientHandle<S>> &H) : H(H)
+{
+
+}
+
+template<typename S>
+unsigned MultiAsync<S>::connect(void)
+{
+  unsigned n { };
+  for (auto &h : H)
+    if (h.c.connect())
+      n++;
+
+  return n;
+}
+
+template<typename S>
+void MultiAsync<S>::performreq(const unsigned async, const unsigned timeout)
+{
+  std::list<std::future<void>> C;
+  for (auto h { H.begin() }; h < H.end(); h += async)
+  {
+    for (auto j { h }; j < h + async && j < H.end(); j++)
+    {       
+      auto c { std::async(std::launch::async, 
+        [&](void) { // Need to check state of socket
+          if (j->c.sendreq(j->req, j->endp, j->HEADERS, j->data))
+            j->c.recvreq(j->cb);
+          }
+        )
+      };
+      C.emplace_back(std::move(c));
+    }
+
+    C.remove_if([](auto &c) { 
+      return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
+  }
+}
+
+template class MultiAsync<Sock>;
+template class MultiAsync<SSock>;
+
+template<typename S>
+Server<S>::Server(const std::string &hostname, const unsigned port) :
   hostname(hostname), port(port)
 {
   init_sock();
@@ -489,8 +542,8 @@ void Server<SSock>::init_sock(void)
   sock = std::make_unique<SSock>(TLS_server_method());
 }
 
-template<typename T>
-bool Server<T>::connect(void)
+template<typename S>
+bool Server<S>::connect(void)
 {
   if (sock->init_connect(hostname, port) &&
     sock->bind() &&
@@ -504,8 +557,8 @@ bool Server<T>::connect(void)
   return false;
 }
 
-template<typename T>
-bool Server<T>::poll_listen(unsigned timeout_ms)
+template<typename S>
+bool Server<S>::poll_listen(unsigned timeout_ms)
 {
   poll(&listensd, 1, timeout_ms);
   if (listensd.revents & POLLIN)
@@ -535,15 +588,15 @@ std::shared_ptr<SSock> Server<SSock>::recv_client(const std::string &certpem, co
   return nullptr;
 }
 
-template<typename T>
-void Server<T>::new_client(std::shared_ptr<T> t, const std::function<void(T &)> &cb)
+template<typename S>
+void Server<S>::new_client(std::shared_ptr<S> s, const std::function<void(S &)> &cb)
 {
-  auto c { std::async(std::launch::async, [=](void) { cb(*t); }) };
+  auto c { std::async(std::launch::async, [=](void) { cb(*s); }) };
   C.emplace_back(std::move(c));
 }
 
-template<typename T>
-void Server<T>::refresh_clients(void)
+template<typename S>
+void Server<S>::refresh_clients(void)
 {
   C.remove_if([](auto &c) { 
     return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });

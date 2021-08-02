@@ -22,9 +22,8 @@ int main(int argc, char *argv[])
   }
 
   try {
-    Client<Sock> client(1.1, hostname, port_no);
+    Client<Sock> client(1.1, hostname, port_no, 1750);
     Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
-    client.set_timeout(1750);
     if (client.connect())
     {
       // Data sent as POST request
