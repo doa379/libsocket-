@@ -123,13 +123,9 @@ template<typename S>
 class MultiSync;
 
 template<typename S>
-class MultiAsync;
-
-template<typename S>
 class Client
 {
   friend class MultiSync<S>;
-  friend class MultiAsync<S>;
   float httpver;
   std::string hostname;
   unsigned port;
@@ -180,13 +176,13 @@ struct ClientHandle
 template<typename S>
 class MultiAsync
 {
-  const std::vector<ClientHandle<S>> &H;
+  const std::vector<ClientHandle<S>> H;
   Time time;
   unsigned timeout;
 public:
   MultiAsync(const std::vector<ClientHandle<S>> &);
   unsigned connect(void);
-  void performreq(const unsigned, const unsigned);
+  void performreq(const unsigned);
 };
 
 template<typename S>

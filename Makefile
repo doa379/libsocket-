@@ -17,10 +17,14 @@ SRC_TEST4 = multisync_example.cpp
 OBJ_TEST4 = ${SRC_TEST4:.cpp=.o}
 SRC_TEST5 = sslmultisync_example.cpp
 OBJ_TEST5 = ${SRC_TEST5:.cpp=.o}
-SRC_TEST6 = streaming_example.cpp
+SRC_TEST6 = multiasync_example.cpp
 OBJ_TEST6 = ${SRC_TEST6:.cpp=.o}
-SRC_TEST7 = sslstreaming_example.cpp
+SRC_TEST7 = sslmultiasync_example.cpp
 OBJ_TEST7 = ${SRC_TEST7:.cpp=.o}
+SRC_TEST8 = streaming_example.cpp
+OBJ_TEST8 = ${SRC_TEST8:.cpp=.o}
+SRC_TEST9 = sslstreaming_example.cpp
+OBJ_TEST9 = ${SRC_TEST9:.cpp=.o}
 
 CC = c++
 RELEASE_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
@@ -35,6 +39,8 @@ all: libsockpp.so \
   sslserver_example \
   multisync_example \
   sslmultisync_example \
+  multiasync_example \
+  sslmultiasync_example \
   streaming_example \
   sslstreaming_example
 
@@ -70,13 +76,21 @@ sslmultisync_example: ${OBJ_TEST5}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS} -l sockpp
 
-streaming_example: ${OBJ_TEST6}
+multiasync_example: ${OBJ_TEST6}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS} -l sockpp
 
-sslstreaming_example: ${OBJ_TEST7}
+sslmultiasync_example: ${OBJ_TEST7}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST7} ${LDFLAGS} -l sockpp
+
+streaming_example: ${OBJ_TEST8}
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST8} ${LDFLAGS} -l sockpp
+
+sslstreaming_example: ${OBJ_TEST9}
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TEST9} ${LDFLAGS} -l sockpp
 
 clean:
 	@echo Cleaning
@@ -88,5 +102,7 @@ clean:
     ${OBJ_TEST4} \
     ${OBJ_TEST5} \
     ${OBJ_TEST6} \
-    ${OBJ_TEST7}
+    ${OBJ_TEST7} \
+    ${OBJ_TEST8} \
+    ${OBJ_TEST9}
 	@rm -f libsockpp.so *example

@@ -498,15 +498,17 @@ unsigned MultiAsync<S>::connect(void)
 }
 
 template<typename S>
-void MultiAsync<S>::performreq(const unsigned async, const unsigned timeout)
+void MultiAsync<S>::performreq(const unsigned async)
 {
+  const auto nasync { std::min(async, (unsigned) H.size()) };
   std::list<std::future<void>> C;
-  for (auto h { H.begin() }; h < H.end(); h += async)
+  for (auto h { H.begin() }; h < H.end(); h += nasync)
   {
-    for (auto j { h }; j < h + async && j < H.end(); j++)
-    {       
+    for (auto j { h }; j < h + nasync && j < H.end(); j++)
+    { 
       auto c { std::async(std::launch::async, 
-        [&](void) { // Need to check state of socket
+        [j](void) { 
+          // Need to verify state of socket/connection
           if (j->c.sendreq(j->req, j->endp, j->HEADERS, j->data))
             j->c.recvreq(j->cb);
           }
