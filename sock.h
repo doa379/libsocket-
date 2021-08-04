@@ -46,7 +46,7 @@ static const unsigned MAX_CLIENTS { 256 };
 static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
 enum Req { GET, POST, PUT, DELETE };
 using Cb = std::function<void(const std::string &)>;
-static const Cb dummy_cb { [](const std::string &) { } };
+static const Cb ident_cb { [](const std::string &) { } };
 
 class Sock
 {
@@ -54,7 +54,7 @@ protected:
   int sd;
   struct sockaddr_in sa;
 public:
-  Sock(const int = 0);
+  Sock(const int = { });
   ~Sock(void);
   const int get(void) { return sd; }
   bool init(const int);
@@ -80,7 +80,7 @@ class SSock : private InitSSock, public Sock
   SSL_CTX *ctx { nullptr };
   SSL *ssl { nullptr };
 public:
-  SSock(const SSL_METHOD *, const unsigned = 0);
+  SSock(const SSL_METHOD *, const unsigned = { });
   ~SSock(void);
   bool configure_context(const std::string &, const std::string &);
   bool set_hostname(const std::string &);
@@ -109,7 +109,7 @@ class Recv
 public:
   Recv(const unsigned);
   template<typename S>
-  bool req(S &, const Cb & = dummy_cb);
+  bool req(S &, const Cb & = ident_cb);
   template<typename S>
   void req_raw(S &, const Cb &);
   std::string &header(void) { return _header; }
@@ -138,9 +138,9 @@ public:
   bool connect(void);
   bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
   bool sendreq(const Req, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
-  bool performreq(const Cb & = dummy_cb, const std::vector<std::string> & = { }, const std::string & = { });
-  bool performreq(const Req, const Cb & = dummy_cb, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
-  bool recvreq(const Cb &cb = dummy_cb) { return recv->req(*sock, cb); }
+  bool performreq(const Cb & = ident_cb, const std::vector<std::string> & = { }, const std::string & = { });
+  bool performreq(const Req, const Cb & = ident_cb, const std::string & = "/", const std::vector<std::string> & = { }, const std::string & = { });
+  bool recvreq(const Cb &cb = ident_cb) { return recv->req(*sock, cb); }
   void recvreq_raw(const Cb &cb) { recv->req_raw(*sock, cb); }
   std::string &header(void) { return recv->header(); }
   std::string &body(void) { return recv->body(); }
@@ -182,7 +182,8 @@ class MultiAsync
 public:
   MultiAsync(const std::vector<ClientHandle<S>> &);
   unsigned connect(void);
-  void performreq(const unsigned);
+  template<typename T>
+  void performreq(const unsigned, const unsigned);
 };
 
 template<typename S>

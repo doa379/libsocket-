@@ -454,9 +454,8 @@ void MultiSync<S>::recvreq(const unsigned timeout, const std::vector<Cb> &CB)
   }
 
   const auto init { time.now() };
-  auto now { init };
   std::bitset<MAX_CLIENTS> M;
-  while (M.count() < C.size() && time.diffpt<T>(now, init) < timeout)
+  while (M.count() < C.size() && time.diffpt<T>(time.now(), init) < timeout)
   {
     poll(PFD, C.size(), 100);
     for (auto i { 0U }; i < C.size(); i++)
@@ -468,8 +467,6 @@ void MultiSync<S>::recvreq(const unsigned timeout, const std::vector<Cb> &CB)
           C[i].get().recvreq();
         M |= 1 << i;
       }
-
-    now = time.now();
   }
 }
 
@@ -498,7 +495,8 @@ unsigned MultiAsync<S>::connect(void)
 }
 
 template<typename S>
-void MultiAsync<S>::performreq(const unsigned async)
+template<typename T>
+void MultiAsync<S>::performreq(const unsigned timeout, const unsigned async)
 {
   const auto nasync { std::min(async, (unsigned) H.size()) };
   std::list<std::future<void>> C;
@@ -507,10 +505,12 @@ void MultiAsync<S>::performreq(const unsigned async)
     for (auto j { h }; j < h + nasync && j < H.end(); j++)
     { 
       auto c { std::async(std::launch::async, 
-        [j](void) { 
-          // Need to verify state of socket/connection
+        [&, j](void) { 
+          auto init { time.now() };
+          // Implicitly verify state of j->c
           if (j->c.sendreq(j->req, j->endp, j->HEADERS, j->data))
-            j->c.recvreq(j->cb);
+            while (time.diffpt<T>(time.now(), init) < timeout &&
+              !j->c.recvreq(j->cb));
           }
         )
       };
@@ -524,6 +524,10 @@ void MultiAsync<S>::performreq(const unsigned async)
 
 template class MultiAsync<Sock>;
 template class MultiAsync<SSock>;
+template void MultiAsync<Sock>::performreq<std::chrono::seconds>(const unsigned, const unsigned);
+template void MultiAsync<SSock>::performreq<std::chrono::seconds>(const unsigned, const unsigned);
+template void MultiAsync<Sock>::performreq<std::chrono::milliseconds>(const unsigned, const unsigned);
+template void MultiAsync<SSock>::performreq<std::chrono::milliseconds>(const unsigned, const unsigned);
 
 template<typename S>
 Server<S>::Server(const std::string &hostname, const unsigned port) :
