@@ -22,8 +22,8 @@ int main(int argc, char *argv[])
     MultiAsync<Sock> M({ handle0, handle1 });
     auto conn { M.connect() };
     std::cout << std::to_string(conn) << " connections established\n";
-    // 2 async connexions, Timeout 100ms (cap waits)
-    M.performreq<std::chrono::milliseconds>(2, 100);
+    // Timeout 100ms (cap waits), 2 async connexions
+    M.performreq<std::chrono::milliseconds>(100, 2);
     std::cout << "All transfer(s) completed\n";
     std::cout << "(Client0):\n===================\n";
     std::cout << "The response header (client0):\n===================\n";
