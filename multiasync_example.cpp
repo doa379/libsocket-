@@ -9,14 +9,14 @@ static const unsigned port1 { 80 };
 int main(int argc, char *argv[])
 {
   try {
-    Client<Sock> client0(1.1, host0, port0, 2500);
+    Client<Sock> conn0(1.1, host0, port0, 2500);
     ClientHandle<Sock> handle0 { 
-      client0, ident_cb, GET, "/", { }, { }
+      ident_cb, conn0, GET, { }, { }, "/"
     };
 
-    Client<Sock> client1(1.1, host1, port1, 2500);
+    Client<Sock> conn1(1.1, host1, port1, 2500);
     ClientHandle<Sock> handle1 {
-      client1, ident_cb, GET, "/", { }, { }
+      ident_cb, conn1, GET, { }, { }, "/"
     };
 
     MultiAsync<Sock> M({ handle0, handle1 });

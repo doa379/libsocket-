@@ -11,11 +11,11 @@ int main(const int argc, const char *argv[])
   auto client0 { std::make_shared<Client<SSock>>(1.1, host0, port0, 2500) }, 
     client1 { std::make_shared<Client<SSock>>(1.1, host1, port1, 2500) };
   ClientHandle<SSock> handle0 { 
-    *client0, ident_cb, GET, "/", { }, { }
+    ident_cb, *client0, GET, { }, { }, "/"
   };
   
   ClientHandle<SSock> handle1 {
-    *client1, ident_cb, GET, "/", { }, { }
+    ident_cb, *client1, GET, { }, { }, "/"
   };
   
   MultiAsync<SSock> M({ handle0, handle1 });

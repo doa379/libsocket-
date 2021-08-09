@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     Client<Sock> client(1.1, hostname, port_no);
     if (client.connect())
     {
-      if (!client.sendreq(GET, "/", { }, { }))
+      if (!client.sendreq())
         throw "Unable to sendreq()";
 
       client.recvreq(cb);

@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 
     if (client.connect())
     {
-      if (!client.sendreq(GET, "/", { }, { }))
+      if (!client.sendreq())
         throw "Unable to sendreq()";
       client.recvreq();
       std::cout << "The response header:\n===================\n";

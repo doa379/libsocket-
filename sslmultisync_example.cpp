@@ -15,8 +15,8 @@ int main(const int argc, const char *argv[])
   M.reg_client(*client1);
   auto conn { M.connect() };
   std::cout << std::to_string(conn) << " connections established\n";
-  client0->sendreq(GET, "/");
-  client1->sendreq(GET, "/");
+  client0->sendreq(GET, { }, { }, "/");
+  client1->sendreq(GET, { }, { }, "/");
   // With a timeout 30 sec
   M.recvreq<std::chrono::seconds>(30);
   std::cout << "All transfer(s) completed\n";
