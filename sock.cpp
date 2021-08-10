@@ -27,7 +27,7 @@ SOFTWARE.
 #include <netdb.h>
 #include <unistd.h>
 #include <openssl/err.h>
-#include <bitset>
+//#include <bitset>
 #include "sock.h"
 
 Sock::Sock(const int sd)
@@ -132,10 +132,12 @@ SSock::SSock(const SSL_METHOD *meth, const unsigned sd) :
   Sock(sd),
   ctx(SSL_CTX_new(meth)), ssl(SSL_new(ctx))
 {
+  /*
   if (!ctx)
     throw "Unable to create context";
   else if (!ssl)
     throw "Unable to create ssl";
+    */
 }
 
 SSock::~SSock(void)
@@ -247,12 +249,12 @@ void SSock::certinfo(std::string &cipherinfo, std::string &cert, std::string &is
 
   X509_free(server_cert);
 }
-
+/*
 Recv::Recv(const unsigned timeout) : timeout(timeout)
 {
 
 }
-
+*/
 template<typename S>
 bool Recv::req_header(std::string &header, S &sock)
 {
@@ -299,7 +301,7 @@ void Recv::req_body(std::string &body, const std::string &header, S &sock)
 }
 
 template<typename T, typename S>
-void Recv::req_body(const Cb &cb, S &sock)
+void Recv::req_body(const unsigned timeout, const Cb &cb, S &sock)
 {/*
   else if (std::regex_search(_header, match, transfer_encoding_regex) &&
       std::regex_match(_header.substr(match.prefix().length() + 19, 7), chunked_regex))
@@ -334,7 +336,7 @@ void Recv::req_body(const Cb &cb, S &sock)
 }
 
 template<typename T, typename S>
-void Recv::req_raw(const Cb &cb, S &sock)
+void Recv::req_raw(const unsigned timeout, const Cb &cb, S &sock)
 {
   //char p;
   std::string body;
@@ -349,7 +351,7 @@ void Recv::req_raw(const Cb &cb, S &sock)
 }
 
 template<typename S>
-Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port, const unsigned timeout) : 
+Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port/*, const unsigned timeout*/) : 
   hostname(hostname), port(port)/*, recv(std::make_unique<Recv>(timeout))*/
 {
   init_sock();
@@ -432,11 +434,11 @@ bool Client<S>::performreq(const unsigned timeout, ConnHandle &h)
   //if (connect() && sendreq(h.req, h.HEAD, h.data, h.endp))
   if (sendreq(h.req, h.HEAD, h.data, h.endp))
   {
-    Recv recv(timeout);
+    Recv recv;
     if (recv.req_header(h.header, *sock))
     {
       if (recv.is_chunked(h.header))
-        recv.req_body<T>(h.cb, *sock);
+        recv.req_body<T>(timeout, h.cb, *sock);
       else 
         recv.req_body(h.body, h.header, *sock);
       return true;
@@ -577,7 +579,7 @@ Multi<S>::Multi(const std::vector<std::reference_wrapper<Client<S>>> &C) : C(C)
 {
 
 }
-
+/*
 template<typename S>
 bool Multi<S>::reg_client(Client<S> &c)
 {
@@ -589,7 +591,7 @@ bool Multi<S>::reg_client(Client<S> &c)
 
   return false;
 }
-
+*/
 template<typename S>
 unsigned Multi<S>::connect(void)
 {
@@ -603,24 +605,44 @@ unsigned Multi<S>::connect(void)
 
 template<typename S>
 template<typename T>
-void Multi<S>::performreq(const unsigned timeout, const std::vector<ConnHandle> &H)
+void Multi<S>::performreq(const unsigned timeout, std::vector<ConnHandle> &H)
 {
-  // Start C.size() number of threads
-  // Subdivide H by number of threads C.size()
-  // Send requests on each thread
-  // Wait for reply in each thread
-  // Return
-
-  /*
-  unsigned N { H.size() / C.size() };
-  //for (auto i { 0U }; i < N; i++)
+  std::size_t N { H.size() / C.size() }, R { H.size() % C.size() };
+  std::vector<std::vector<std::reference_wrapper<ConnHandle>>> JJ;
   for (auto h { H.begin() }; h < H.end(); h += N)
   {
-    std::vector<std|::reference_wrapper<ConnHandle>> J;
+    std::vector<std::reference_wrapper<ConnHandle>> J;
     for (auto j { h }; j < h + N && j < H.end(); j++)
       J.emplace_back(*j);
+    JJ.emplace_back(std::move(J));
   }
-*/
+
+  if (R)
+  {
+    std::vector<std::reference_wrapper<ConnHandle>> J;
+    for (auto j { H.end() - R }; j < H.end(); j++)
+      J.emplace_back(*j);
+    JJ.emplace_back(std::move(J));
+  }
+
+  std::list<std::future<void>> C;
+  for (auto &J : JJ)
+  {
+    auto i { &J - &JJ[0] };
+    auto c { std::async(std::launch::async, 
+      [&, i](void) {
+        //////////////////////////////////
+        for (auto &j : J)
+          this->C[i].get().template performreq<T>(timeout, j.get());
+        }
+      )
+    };
+    
+    C.emplace_back(std::move(c));
+  }
+  
+  C.remove_if([](auto &c) { 
+    return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
 
 /*
   struct pollfd PFD[MAX_CLIENTS] { };
@@ -650,10 +672,10 @@ void Multi<S>::performreq(const unsigned timeout, const std::vector<ConnHandle> 
 
 template class Multi<Sock>;
 template class Multi<SSock>;
-template void Multi<Sock>::performreq<std::chrono::seconds>(const unsigned, const std::vector<ConnHandle> &);
-template void Multi<SSock>::performreq<std::chrono::seconds>(const unsigned, const std::vector<ConnHandle> &);
-template void Multi<Sock>::performreq<std::chrono::milliseconds>(const unsigned, const std::vector<ConnHandle> &);
-template void Multi<SSock>::performreq<std::chrono::milliseconds>(const unsigned, const std::vector<ConnHandle> &);
+template void Multi<Sock>::performreq<std::chrono::seconds>(const unsigned, std::vector<ConnHandle> &);
+template void Multi<SSock>::performreq<std::chrono::seconds>(const unsigned, std::vector<ConnHandle> &);
+template void Multi<Sock>::performreq<std::chrono::milliseconds>(const unsigned, std::vector<ConnHandle> &);
+template void Multi<SSock>::performreq<std::chrono::milliseconds>(const unsigned, std::vector<ConnHandle> &);
 
 template<typename S>
 Server<S>::Server(const std::string &hostname, const unsigned port) :

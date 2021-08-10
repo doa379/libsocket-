@@ -24,17 +24,18 @@ int main(int argc, char *argv[])
   }
 
   try {
-    Client<SSock> client(1.1, hostname, port_no, 2500);
-
+    Client<SSock> client(1.1, hostname, port_no);
     if (client.connect())
     {
-      if (!client.sendreq())
+      // No init on handle implies defaults: ident_cb GET { } { } "/"
+      ConnHandle h;
+      // Perform request on handle, timeout 250ms
+      if (!client.performreq<std::chrono::milliseconds>(250, h))
         throw "Unable to sendreq()";
-      client.recvreq();
       std::cout << "The response header:\n===================\n";
-      std::cout << client.header() << std::endl;
+      std::cout << h.header << std::endl;
       std::cout << "The response body:\n===================\n";
-      std::cout << client.body() << std::endl;
+      std::cout << h.body << std::endl;
     }
 
     else

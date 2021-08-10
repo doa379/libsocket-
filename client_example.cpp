@@ -29,14 +29,15 @@ int main(int argc, char *argv[])
     Client<Sock> client(1.1, hostname, port_no);
     if (client.connect())
     {
-      if (!client.sendreq())
+      ConnHandle h { cb, GET, { }, { }, "/" };
+      // Perform request on handle, timeout 500ms
+      if (!client.performreq<std::chrono::milliseconds>(500, h))
         throw "Unable to sendreq()";
 
-      client.recvreq(cb);
       std::cout << "The response header:\n===================\n";
-      std::cout << client.header() << std::endl;
+      std::cout << h.header << std::endl;
       std::cout << "The response body:\n===================\n";
-      std::cout << client.body() << std::endl;
+      std::cout << h.body << std::endl;
     }
 
     else

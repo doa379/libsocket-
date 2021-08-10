@@ -42,7 +42,7 @@ static const float DEFAULT_HTTPVER { 2.0 };
 static const unsigned DEFAULT_TIMEOUTMS { 15 * 1000 };
 static const char CERTPEM[] { "/tmp/cert.pem" };
 static const char KEYPEM[] { "/tmp/key.pem" };
-static const unsigned MAX_CLIENTS { 64 };
+//static const unsignedi MAX_CLIENTS { 32 };
 static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
 enum Req { GET, POST, PUT, DELETE };
 using Cb = std::function<void(const std::string &)>;
@@ -98,7 +98,7 @@ public:
 
 class Recv
 {
-  unsigned timeout { };
+  //unsigned timeout { };
   Time time;
   //std::string _header, _body;
   char p;
@@ -109,7 +109,7 @@ class Recv
     transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
     chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
 public:
-  Recv(const unsigned);
+  //Recv(const unsigned);
   template<typename S>
   //bool req(S &, const Cb & = ident_cb);
   bool req_header(std::string &, S &);
@@ -117,9 +117,9 @@ public:
   template<typename S>
   void req_body(std::string &, const std::string &, S &);
   template<typename T, typename S>
-  void req_body(const Cb &, S &);
+  void req_body(const unsigned, const Cb &, S &);
   template<typename T, typename S>
-  void req_raw(const Cb &, S &);
+  void req_raw(const unsigned, const Cb &, S &);
   //std::string &header(void) { return _header; }
   //std::string &body(void) { return _body; }
   //void clear_header(void) { _header.clear(); }
@@ -151,7 +151,7 @@ class Client
   char httpver[8];
   const std::string_view agent { "HttpRequest" };
 public:
-  Client(const float, const std::string &, const unsigned, const unsigned = DEFAULT_TIMEOUTMS);
+  Client(const float, const std::string &, const unsigned/*, const unsigned = DEFAULT_TIMEOUTMS*/);
   void init_sock(void);
   bool connect(void);
   //bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
@@ -202,13 +202,13 @@ class Multi
 {
   std::vector<std::reference_wrapper<Client<S>>> C;
   Time time;
-  unsigned timeout;
+  //unsigned timeout;
 public:
   Multi(const std::vector<std::reference_wrapper<Client<S>>> &);
-  bool reg_client(Client<S> &);
+  //bool reg_client(Client<S> &);
   unsigned connect(void);
   template<typename T>
-  void performreq(const unsigned, const std::vector<ConnHandle> &);
+  void performreq(const unsigned, std::vector<ConnHandle> &);
   //decltype(C) &clients(void) { return C; }
 };
 

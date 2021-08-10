@@ -31,13 +31,15 @@ int main(const int argc, const char *argv[])
     if (!server.connect())
       throw "Server unable to connect";
 
-    Recv recv(5000);
     auto cb {
       [&](Sock &sock) {
-        recv.req(sock);
+        Recv recv;
+        std::string cli_head, cli_body;
+        recv.req_header(cli_head, sock);
+        recv.req_body(cli_body, cli_head, sock);
         std::cout << "-Receive from client-\n";
-        std::cout << recv.header() << "\n";
-        std::cout << recv.body() << "\n";
+        std::cout << cli_head << "\n";
+        std::cout << cli_body << "\n";
         std::cout << "-End receive from client-\n";
         const std::string header { 
           std::string("HTTP/1.1 Stream OK\r\n") + 
