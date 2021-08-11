@@ -27,13 +27,13 @@ int main(int argc, char *argv[])
 
   signal(SIGPIPE, SIG_IGN);
   try {
-    Server<SSock> server(hostname, port_no);
+    sockpp::Server<sockpp::Https> server(hostname, port_no);
     if (!server.connect())
       throw "Server unable to connect";
 
     auto client_msg { 
-      [&](SSock &sock){ 
-        Recv recv;
+      [&](sockpp::Https &sock){ 
+        sockpp::Recv recv;
         std::string cli_head, cli_body;
         recv.req_header(cli_head, sock);
         recv.req_body(cli_body, cli_head, sock);
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     };
 
     auto cb { 
-      [&](SSock &sock) {
+      [&](sockpp::Https &sock) {
         client_msg(sock);
         const std::string document { "Document" }, 
           header { 
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     };
 
     auto chunked_cb { 
-      [&](SSock &sock) {
+      [&](sockpp::Https &sock) {
         client_msg(sock);
         const std::string header { 
           std::string("HTTP/1.1 SSL Stream OK\r\n") +

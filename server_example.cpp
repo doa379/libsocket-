@@ -27,13 +27,13 @@ int main(const int argc, const char *argv[])
 
   signal(SIGPIPE, SIG_IGN);
   try {
-    Server<Sock> server(hostname, port_no);
+    sockpp::Server<sockpp::Http> server(hostname, port_no);
     if (!server.connect())
       throw "Server unable to connect";
 
     auto cb {
-      [&](Sock &sock) {
-        Recv recv;
+      [&](sockpp::Http &sock) {
+        sockpp::Recv recv;
         std::string cli_head, cli_body;
         recv.req_header(cli_head, sock);
         recv.req_body(cli_body, cli_head, sock);

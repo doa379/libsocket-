@@ -24,11 +24,11 @@ int main(int argc, char *argv[])
   }
 
   try {
-    Client<SSock> client(1.1, hostname, port_no);
+    sockpp::Client<sockpp::Https> client(1.1, hostname, port_no);
     if (client.connect())
     {
       // No init on handle implies defaults: ident_cb GET { } { } "/"
-      ConnHandle h;
+      sockpp::XHandle h;
       // Perform request on handle, timeout 250ms
       if (!client.performreq<std::chrono::milliseconds>(250, h))
         throw "Unable to sendreq()";

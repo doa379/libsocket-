@@ -30,18 +30,18 @@ SOFTWARE.
 //#include <bitset>
 #include "sock.h"
 
-Sock::Sock(const int sd)
+sockpp::Http::Http(const int sd)
 {
   init(sd);
   memset(&sa, 0, sizeof sa);
 }
 
-Sock::~Sock(void)
+sockpp::Http::~Http(void)
 {
   deinit();
 }
 
-bool Sock::init(const int sd)
+bool sockpp::Http::init(const int sd)
 {
   if (sd)
     this->sd = sd;
@@ -50,14 +50,14 @@ bool Sock::init(const int sd)
   return true;
 }
 
-void Sock::deinit(void)
+void sockpp::Http::deinit(void)
 {
   struct linger lo { 1, 0 };
   setsockopt(sd, SOL_SOCKET, SO_LINGER, &lo, sizeof lo);
   close(sd);
 }
 
-bool Sock::init_connect(const std::string &hostname, const unsigned port)
+bool sockpp::Http::init_connect(const std::string &hostname, const unsigned port)
 {
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
@@ -71,21 +71,21 @@ bool Sock::init_connect(const std::string &hostname, const unsigned port)
   return false;
 }
 
-bool Sock::connect(const std::string &)
+bool sockpp::Http::connect(const std::string &)
 {
   if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) > -1)
     return true;
   return false;
 }
 
-bool Sock::read(char &p)
+bool sockpp::Http::read(char &p)
 {
   if (::read(sd, &p, sizeof p) > -1)
     return true;
   return false;
 }
 
-bool Sock::write(const std::string &data)
+bool sockpp::Http::write(const std::string &data)
 {
   if (::write(sd, data.c_str(), data.size()) > -1)
   {
@@ -95,7 +95,7 @@ bool Sock::write(const std::string &data)
   return false;
 }
 
-int Sock::accept(void)
+int sockpp::Http::accept(void)
 {
   struct sockaddr_in addr;
   uint len { sizeof addr };
@@ -103,33 +103,33 @@ int Sock::accept(void)
   // Return a sd
 }
   
-bool Sock::bind(void)
+bool sockpp::Http::bind(void)
 {
   if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) > -1)
     return true;
   return false;
 }
 
-bool Sock::listen(void)
+bool sockpp::Http::listen(void)
 {
   if (::listen(sd, 1) > -1)
     return true;
   return false;
 }
 
-InitSSock::InitSSock(void)
+sockpp::InitHttps::InitHttps(void)
 {
-  InitSSock::init();
+  InitHttps::init();
 }
 
-void InitSSock::init(void)
+void sockpp::InitHttps::init(void)
 {
   OpenSSL_add_ssl_algorithms();
   SSL_load_error_strings();
 }
 
-SSock::SSock(const SSL_METHOD *meth, const unsigned sd) : 
-  Sock(sd),
+sockpp::Https::Https(const SSL_METHOD *meth, const unsigned sd) noexcept : 
+  Http(sd),
   ctx(SSL_CTX_new(meth)), ssl(SSL_new(ctx))
 {
   /*
@@ -140,14 +140,14 @@ SSock::SSock(const SSL_METHOD *meth, const unsigned sd) :
     */
 }
 
-SSock::~SSock(void)
+sockpp::Https::~Https(void)
 {
   SSL_shutdown(ssl);
   SSL_free(ssl);
   SSL_CTX_free(ctx);
 }
 
-bool SSock::configure_context(const std::string &certpem, const std::string &keypem)
+bool sockpp::Https::configure_context(const std::string &certpem, const std::string &keypem)
 {
   SSL_CTX_set_ecdh_auto(ctx, 1);
   if (SSL_CTX_use_certificate_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM) < 1)
@@ -159,23 +159,23 @@ bool SSock::configure_context(const std::string &certpem, const std::string &key
   return true;
 }
 
-bool SSock::set_hostname(const std::string &hostname)
+bool sockpp::Https::set_hostname(const std::string &hostname)
 {
   if (SSL_set_tlsext_host_name(ssl, hostname.c_str()) > 0)
     return true;
   return false;
 }
 
-bool SSock::set_fd(void)
+bool sockpp::Https::set_fd(void)
 {
   if (SSL_set_fd(ssl, sd) > 0)
     return true;
   return false;
 }
 
-bool SSock::connect(const std::string &hostname)
+bool sockpp::Https::connect(const std::string &hostname)
 {
-  if (Sock::connect())
+  if (Http::connect())
   {
     set_hostname(hostname);
     set_fd();
@@ -186,21 +186,21 @@ bool SSock::connect(const std::string &hostname)
   return false;
 }
 
-bool SSock::read(char &p)
+bool sockpp::Https::read(char &p)
 {
   if (SSL_read(ssl, &p, sizeof p) > 0)
     return true;
   return false;
 }
 
-bool SSock::write(const std::string &data)
+bool sockpp::Https::write(const std::string &data)
 {
   if (SSL_write(ssl, data.c_str(), data.size()) > 0)
     return true;
   return false;
 }
 
-bool SSock::clear(void)
+bool sockpp::Https::clear(void)
 {
   if (SSL_clear(ssl) > 0)
     return true;
@@ -208,24 +208,24 @@ bool SSock::clear(void)
   return false;
 }
 
-bool SSock::accept(void)
+bool sockpp::Https::accept(void)
 {
   if (SSL_accept(ssl) > 0)
     return true;
   return false;
 }
 
-SSL_CTX *SSock::ssl_ctx(SSL_CTX *ctx)
+SSL_CTX *sockpp::Https::ssl_ctx(SSL_CTX *ctx)
 {
   return SSL_set_SSL_CTX(ssl, ctx);
 }
 
-int SSock::error(int err)
+int sockpp::Https::error(int err)
 {
   return SSL_get_error(ssl, err);
 }
 
-void SSock::certinfo(std::string &cipherinfo, std::string &cert, std::string &issue)
+void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::string &issue)
 {
   // Method must be called after connect()
   cipherinfo = std::string(SSL_get_cipher(ssl));
@@ -256,7 +256,7 @@ Recv::Recv(const unsigned timeout) : timeout(timeout)
 }
 */
 template<typename S>
-bool Recv::req_header(std::string &header, S &sock)
+bool sockpp::Recv::req_header(std::string &header, S &sock)
 {
   //clear_header();
   //clear_body();
@@ -276,7 +276,7 @@ bool Recv::req_header(std::string &header, S &sock)
   return true;
 }
 
-bool Recv::is_chunked(const std::string &header)
+bool sockpp::Recv::is_chunked(const std::string &header)
 {
   if (std::regex_search(header, match, transfer_encoding_regex) &&
     std::regex_match(header.substr(match.prefix().length() + 19, 7), chunked_regex))
@@ -285,7 +285,7 @@ bool Recv::is_chunked(const std::string &header)
 }
 
 template<typename S>
-void Recv::req_body(std::string &body, const std::string &header, S &sock)
+void sockpp::Recv::req_body(std::string &body, const std::string &header, S &sock)
 {
   // Body
   std::size_t l { };
@@ -301,7 +301,7 @@ void Recv::req_body(std::string &body, const std::string &header, S &sock)
 }
 
 template<typename T, typename S>
-void Recv::req_body(const unsigned timeout, const Cb &cb, S &sock)
+void sockpp::Recv::req_body(const unsigned timeout, const Cb &cb, S &sock)
 {/*
   else if (std::regex_search(_header, match, transfer_encoding_regex) &&
       std::regex_match(_header.substr(match.prefix().length() + 19, 7), chunked_regex))
@@ -336,7 +336,7 @@ void Recv::req_body(const unsigned timeout, const Cb &cb, S &sock)
 }
 
 template<typename T, typename S>
-void Recv::req_raw(const unsigned timeout, const Cb &cb, S &sock)
+void sockpp::Recv::req_raw(const unsigned timeout, const Cb &cb, S &sock)
 {
   //char p;
   std::string body;
@@ -351,7 +351,7 @@ void Recv::req_raw(const unsigned timeout, const Cb &cb, S &sock)
 }
 
 template<typename S>
-Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port/*, const unsigned timeout*/) : 
+sockpp::Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port/*, const unsigned timeout*/) : 
   hostname(hostname), port(port)/*, recv(std::make_unique<Recv>(timeout))*/
 {
   init_sock();
@@ -359,19 +359,19 @@ Client<S>::Client(const float httpver, const std::string &hostname, const unsign
 }
 
 template<>
-void Client<Sock>::init_sock(void)
+void sockpp::Client<sockpp::Http>::init_sock(void)
 {
-  sock = std::make_unique<Sock>();
+  sock = std::make_unique<Http>();
 }
 
 template<>
-void Client<SSock>::init_sock(void)
+void sockpp::Client<sockpp::Https>::init_sock(void)
 {
-  sock = std::make_unique<SSock>(TLS_client_method());
+  sock = std::make_unique<Https>(TLS_client_method());
 }
 
 template<typename S>
-bool Client<S>::connect(void)
+bool sockpp::Client<S>::connect(void)
 {
   if (sock->init_connect(hostname, port))
     return sock->connect(hostname);
@@ -393,7 +393,7 @@ bool Client<S>::sendreq(const std::vector<std::string> &H, const std::string &da
 }
 */
 template<typename S>
-bool Client<S>::sendreq(const Req req, const std::vector<std::string> &HEAD, const std::string &data, const std::string &endp)
+bool sockpp::Client<S>::sendreq(const Req req, const std::vector<std::string> &HEAD, const std::string &data, const std::string &endp)
 {
   if (&REQ[req] > &REQ[REQ.size() - 1]
     || (req == GET && data.size()))
@@ -429,7 +429,7 @@ bool Client<S>::performreq(const unsigned timeout_ms, const Cb &cb, const std::v
 
 template<typename S>
 template<typename T>
-bool Client<S>::performreq(const unsigned timeout, ConnHandle &h)
+bool sockpp::Client<S>::performreq(const unsigned timeout, XHandle &h)
 {
   //if (connect() && sendreq(h.req, h.HEAD, h.data, h.endp))
   if (sendreq(h.req, h.HEAD, h.data, h.endp))
@@ -447,12 +447,12 @@ bool Client<S>::performreq(const unsigned timeout, ConnHandle &h)
   return false;
 }
 
-template class Client<Sock>;
-template class Client<SSock>;
-template bool Client<Sock>::performreq<std::chrono::seconds>(const unsigned, ConnHandle &);
-template bool Client<SSock>::performreq<std::chrono::seconds>(const unsigned, ConnHandle &);
-template bool Client<Sock>::performreq<std::chrono::milliseconds>(const unsigned, ConnHandle &);
-template bool Client<SSock>::performreq<std::chrono::milliseconds>(const unsigned, ConnHandle &);
+template class sockpp::Client<sockpp::Http>;
+template class sockpp::Client<sockpp::Https>;
+template bool sockpp::Client<sockpp::Http>::performreq<std::chrono::seconds>(const unsigned, XHandle &);
+template bool sockpp::Client<sockpp::Https>::performreq<std::chrono::seconds>(const unsigned, XHandle &);
+template bool sockpp::Client<sockpp::Http>::performreq<std::chrono::milliseconds>(const unsigned, XHandle &);
+template bool sockpp::Client<sockpp::Https>::performreq<std::chrono::milliseconds>(const unsigned, XHandle &);
 
 /*
 template<typename S>
@@ -512,70 +512,15 @@ void MultiSync<S>::recvreq(const unsigned timeout, const std::vector<Cb> &CB)
   }
 }
 
-template class MultiSync<Sock>;
-template class MultiSync<SSock>;
-template void MultiSync<Sock>::recvreq<std::chrono::seconds>(const unsigned, const std::vector<Cb> &);
-template void MultiSync<SSock>::recvreq<std::chrono::seconds>(const unsigned, const std::vector<Cb> &);
-template void MultiSync<Sock>::recvreq<std::chrono::milliseconds>(const unsigned, const std::vector<Cb> &);
-template void MultiSync<SSock>::recvreq<std::chrono::milliseconds>(const unsigned, const std::vector<Cb> &);
+template class MultiSync<Http>;
+template class MultiSync<Https>;
+template void MultiSync<Http>::recvreq<std::chrono::seconds>(const unsigned, const std::vector<Cb> &);
+template void MultiSync<Https>::recvreq<std::chrono::seconds>(const unsigned, const std::vector<Cb> &);
+template void MultiSync<Http>::recvreq<std::chrono::milliseconds>(const unsigned, const std::vector<Cb> &);
+template void MultiSync<Https>::recvreq<std::chrono::milliseconds>(const unsigned, const std::vector<Cb> &);
 */
-template <typename S>
-MultiAsync<S>::MultiAsync(const std::vector<std::reference_wrapper<Client<S>>> &C) : C(C)
-{
-
-}
-
 template<typename S>
-unsigned MultiAsync<S>::connect(void)
-{
-  unsigned n { };
-  for (auto &c : C)
-    if (c.get().connect())
-      n++;
-
-  return n;
-}
-
-template<typename S>
-template<typename T>
-void MultiAsync<S>::performreq(const unsigned timeout, const std::size_t async, std::vector<ConnHandle> &H)
-{
-  const auto nasync { std::min(async, H.size()) };
-  std::list<std::future<void>> C;
-  for (auto h { H.begin() }; h < H.end(); h += nasync)
-  {
-    for (auto j { h }; j < h + nasync && j < H.end(); j++)
-    { 
-      auto c { std::async(std::launch::async, 
-        [&, j](void) { 
-          auto init { time.now() };
-          auto i { j - H.begin() };
-          Client<S> &c { this->C[i].get() };
-          // Implicitly verify state of client sd
-          if (c.sendreq(j->req, j->HEAD, j->data, j->endp))
-            while (time.diffpt<T>(time.now(), init) < timeout && !c.template performreq<T>(timeout, *j))
-              std::this_thread::sleep_for(std::chrono::milliseconds(1));
-          }
-        )
-      };
-
-      C.emplace_back(std::move(c));
-    }
-
-    C.remove_if([](auto &c) { 
-      return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
-  }
-}
-
-template class MultiAsync<Sock>;
-template class MultiAsync<SSock>;
-template void MultiAsync<Sock>::performreq<std::chrono::seconds>(const unsigned, const std::size_t, std::vector<ConnHandle> &);
-template void MultiAsync<SSock>::performreq<std::chrono::seconds>(const unsigned, const std::size_t, std::vector<ConnHandle> &);
-template void MultiAsync<Sock>::performreq<std::chrono::milliseconds>(const unsigned, const std::size_t, std::vector<ConnHandle> &);
-template void MultiAsync<SSock>::performreq<std::chrono::milliseconds>(const unsigned, const std::size_t, std::vector<ConnHandle> &);
-
-template<typename S>
-Multi<S>::Multi(const std::vector<std::reference_wrapper<Client<S>>> &C) : C(C)
+sockpp::Multi<S>::Multi(const std::vector<std::reference_wrapper<sockpp::Client<S>>> &C) : C(C)
 {
 
 }
@@ -593,7 +538,7 @@ bool Multi<S>::reg_client(Client<S> &c)
 }
 */
 template<typename S>
-unsigned Multi<S>::connect(void)
+unsigned sockpp::Multi<S>::connect(void)
 {
   unsigned n { };
   for (auto &c : C)
@@ -605,13 +550,13 @@ unsigned Multi<S>::connect(void)
 
 template<typename S>
 template<typename T>
-void Multi<S>::performreq(const unsigned timeout, std::vector<ConnHandle> &H)
+void sockpp::Multi<S>::performreq(const unsigned timeout, std::vector<XHandle> &H)
 {
   std::size_t N { H.size() / C.size() }, R { H.size() % C.size() };
-  std::vector<std::vector<std::reference_wrapper<ConnHandle>>> JJ;
+  std::vector<std::vector<std::reference_wrapper<XHandle>>> JJ;
   for (auto h { H.begin() }; h < H.end(); h += N)
   {
-    std::vector<std::reference_wrapper<ConnHandle>> J;
+    std::vector<std::reference_wrapper<XHandle>> J;
     for (auto j { h }; j < h + N && j < H.end(); j++)
       J.emplace_back(*j);
     JJ.emplace_back(std::move(J));
@@ -619,7 +564,7 @@ void Multi<S>::performreq(const unsigned timeout, std::vector<ConnHandle> &H)
 
   if (R)
   {
-    std::vector<std::reference_wrapper<ConnHandle>> J;
+    std::vector<std::reference_wrapper<XHandle>> J;
     for (auto j { H.end() - R }; j < H.end(); j++)
       J.emplace_back(*j);
     JJ.emplace_back(std::move(J));
@@ -670,34 +615,90 @@ void Multi<S>::performreq(const unsigned timeout, std::vector<ConnHandle> &H)
   */
 }
 
-template class Multi<Sock>;
-template class Multi<SSock>;
-template void Multi<Sock>::performreq<std::chrono::seconds>(const unsigned, std::vector<ConnHandle> &);
-template void Multi<SSock>::performreq<std::chrono::seconds>(const unsigned, std::vector<ConnHandle> &);
-template void Multi<Sock>::performreq<std::chrono::milliseconds>(const unsigned, std::vector<ConnHandle> &);
-template void Multi<SSock>::performreq<std::chrono::milliseconds>(const unsigned, std::vector<ConnHandle> &);
+template class sockpp::Multi<sockpp::Http>;
+template class sockpp::Multi<sockpp::Https>;
+template void sockpp::Multi<sockpp::Http>::performreq<std::chrono::seconds>(const unsigned, std::vector<XHandle> &);
+template void sockpp::Multi<sockpp::Https>::performreq<std::chrono::seconds>(const unsigned, std::vector<XHandle> &);
+template void sockpp::Multi<sockpp::Http>::performreq<std::chrono::milliseconds>(const unsigned, std::vector<XHandle> &);
+template void sockpp::Multi<sockpp::Https>::performreq<std::chrono::milliseconds>(const unsigned, std::vector<XHandle> &);
+/*
+template <typename S>
+sockpp::MultiAsync<S>::MultiAsync(const std::vector<std::reference_wrapper<sockpp::Client<S>>> &C) : C(C)
+{
+
+}
 
 template<typename S>
-Server<S>::Server(const std::string &hostname, const unsigned port) :
+unsigned sockpp::MultiAsync<S>::connect(void)
+{
+  unsigned n { };
+  for (auto &c : C)
+    if (c.get().connect())
+      n++;
+
+  return n;
+}
+*/
+template<typename S>
+template<typename T>
+void sockpp::MultiAsync<S>::performreq(const unsigned timeout, const std::size_t async, std::vector<XHandle> &H)
+{
+  const auto nasync { std::min(async, H.size()) };
+  std::list<std::future<void>> C;
+  for (auto h { H.begin() }; h < H.end(); h += nasync)
+  {
+    for (auto j { h }; j < h + nasync && j < H.end(); j++)
+    { 
+      auto c { std::async(std::launch::async, 
+        [&, j](void) { 
+          auto init { Multi<S>::time.now() };
+          auto i { j - H.begin() };
+          Client<S> &c { this->C[i].get() };
+          // Implicitly verify state of client sd
+          if (c.sendreq(j->req, j->HEAD, j->data, j->endp))
+            while (Multi<S>::time.template diffpt<T>(Multi<S>::time.now(), init) < timeout && 
+                !c.template performreq<T>(timeout, *j))
+              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          }
+        )
+      };
+
+      C.emplace_back(std::move(c));
+    }
+
+    C.remove_if([](auto &c) { 
+      return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
+  }
+}
+
+template class sockpp::MultiAsync<sockpp::Http>;
+template class sockpp::MultiAsync<sockpp::Https>;
+template void sockpp::MultiAsync<sockpp::Http>::performreq<std::chrono::seconds>(const unsigned, const std::size_t, std::vector<XHandle> &);
+template void sockpp::MultiAsync<sockpp::Https>::performreq<std::chrono::seconds>(const unsigned, const std::size_t, std::vector<XHandle> &);
+template void sockpp::MultiAsync<sockpp::Http>::performreq<std::chrono::milliseconds>(const unsigned, const std::size_t, std::vector<XHandle> &);
+template void sockpp::MultiAsync<sockpp::Https>::performreq<std::chrono::milliseconds>(const unsigned, const std::size_t, std::vector<XHandle> &);
+
+template<typename S>
+sockpp::Server<S>::Server(const std::string &hostname, const unsigned port) :
   hostname(hostname), port(port)
 {
   init_sock();
 }
 
 template<>
-void Server<Sock>::init_sock(void)
+void sockpp::Server<sockpp::Http>::init_sock(void)
 {
-  sock = std::make_unique<Sock>();
+  sock = std::make_unique<Http>();
 }
 
 template<>
-void Server<SSock>::init_sock(void)
+void sockpp::Server<sockpp::Https>::init_sock(void)
 {
-  sock = std::make_unique<SSock>(TLS_server_method());
+  sock = std::make_unique<Https>(TLS_server_method());
 }
 
 template<typename S>
-bool Server<S>::connect(void)
+bool sockpp::Server<S>::connect(void)
 {
   if (sock->init_connect(hostname, port) &&
     sock->bind() &&
@@ -712,7 +713,7 @@ bool Server<S>::connect(void)
 }
 
 template<typename S>
-bool Server<S>::poll_listen(unsigned timeout_ms)
+bool sockpp::Server<S>::poll_listen(unsigned timeout_ms)
 {
   poll(&listensd, 1, timeout_ms);
   if (listensd.revents & POLLIN)
@@ -721,20 +722,20 @@ bool Server<S>::poll_listen(unsigned timeout_ms)
 }
 
 template<>
-std::shared_ptr<Sock> Server<Sock>::recv_client(const std::string &, const std::string &)
+std::shared_ptr<sockpp::Http> sockpp::Server<sockpp::Http>::recv_client(const std::string &, const std::string &)
 {
-  return std::make_shared<Sock>(sock->accept());
+  return std::make_shared<Http>(sock->accept());
 }
 
 template<>
-std::shared_ptr<SSock> Server<SSock>::recv_client(const std::string &certpem, const std::string &keypem)
+std::shared_ptr<sockpp::Https> sockpp::Server<sockpp::Https>::recv_client(const std::string &certpem, const std::string &keypem)
 {
-  auto client { std::make_shared<SSock>(TLS_client_method()) };
+  auto client { std::make_shared<Https>(TLS_client_method()) };
   if (!client->configure_context(certpem, keypem) ||
     !client->set_hostname(hostname))
     return nullptr;
-  auto sd { sock->Sock::accept() };
-  auto socks { std::make_shared<SSock>(TLS_server_method(), sd) };
+  auto sd { sock->Http::accept() };
+  auto socks { std::make_shared<Https>(TLS_server_method(), sd) };
   socks->set_fd();
   socks->ssl_ctx(client->ssl_ctx());
   if (socks->accept())
@@ -743,18 +744,18 @@ std::shared_ptr<SSock> Server<SSock>::recv_client(const std::string &certpem, co
 }
 
 template<typename S>
-void Server<S>::new_client(std::shared_ptr<S> s, const std::function<void(S &)> &cb)
+void sockpp::Server<S>::new_client(std::shared_ptr<S> s, const std::function<void(S &)> &cb)
 {
   auto c { std::async(std::launch::async, [=](void) { cb(*s); }) };
   C.emplace_back(std::move(c));
 }
 
 template<typename S>
-void Server<S>::refresh_clients(void)
+void sockpp::Server<S>::refresh_clients(void)
 {
   C.remove_if([](auto &c) { 
     return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
 }
 
-template class Server<Sock>;
-template class Server<SSock>;
+template class sockpp::Server<sockpp::Http>;
+template class sockpp::Server<sockpp::Https>;

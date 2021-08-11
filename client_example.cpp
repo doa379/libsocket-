@@ -25,11 +25,11 @@ int main(int argc, char *argv[])
 
   try {
     // Chunked transfer
-     Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
-    Client<Sock> client(1.1, hostname, port_no);
+    sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+    sockpp::Client<sockpp::Http> client(1.1, hostname, port_no);
     if (client.connect())
     {
-      ConnHandle h { cb, GET, { }, { }, "/" };
+      sockpp::XHandle h { cb, GET, { }, { }, "/" };
       // Perform request on handle, timeout 500ms
       if (!client.performreq<std::chrono::milliseconds>(500, h))
         throw "Unable to sendreq()";
