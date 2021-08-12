@@ -25,19 +25,20 @@ int main(int argc, char *argv[])
   }
 
   try {
-    Client<SSock> client(1.1, hostname, port_no, 1750);
-    Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+    sockpp::Client<sockpp::Https> client(1.1, hostname, port_no);
     if (client.connect())
     {
+      sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
       // Data sent as POST request
       // Header validates request is OK
-      if (!client.sendreq(POST, "/", { "OK" }, "Some data"))
+      // Chunked transfer will call cb()
+      sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
+      if (!client.performreq<std::chrono::milliseconds>(1750, h))
         throw "Unable to sendreq()";
 
-      client.recvreq(cb);
       std::cout << "Stream disconnected\n";
       std::cout << "The response header:\n===================\n";
-      std::cout << client.header() << std::endl;
+      std::cout << h.header << std::endl;
     }
 
     else

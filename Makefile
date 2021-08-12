@@ -13,9 +13,9 @@ SRC_TEST2 = sslclient_example.cpp
 OBJ_TEST2 = ${SRC_TEST2:.cpp=.o}
 SRC_TEST3 = sslserver_example.cpp
 OBJ_TEST3 = ${SRC_TEST3:.cpp=.o}
-SRC_TEST4 = multisync_example.cpp
+SRC_TEST4 = multi_example.cpp
 OBJ_TEST4 = ${SRC_TEST4:.cpp=.o}
-SRC_TEST5 = sslmultisync_example.cpp
+SRC_TEST5 = sslmulti_example.cpp
 OBJ_TEST5 = ${SRC_TEST5:.cpp=.o}
 SRC_TEST6 = multiasync_example.cpp
 OBJ_TEST6 = ${SRC_TEST6:.cpp=.o}
@@ -37,8 +37,8 @@ all: libsockpp.so \
   server_example \
   sslclient_example \
   sslserver_example \
-  multisync_example \
-  sslmultisync_example \
+  multi_example \
+  sslmulti_example \
   multiasync_example \
   sslmultiasync_example \
   streaming_example \
@@ -68,11 +68,11 @@ sslserver_example: ${OBJ_TEST3}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST3} ${LDFLAGS} -l sockpp
 
-multisync_example: ${OBJ_TEST4}
+multi_example: ${OBJ_TEST4}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS} -l sockpp
 
-sslmultisync_example: ${OBJ_TEST5}
+sslmulti_example: ${OBJ_TEST5}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS} -l sockpp
 

@@ -39,10 +39,8 @@ SOFTWARE.
 #include "time.h"
 
 static const float DEFAULT_HTTPVER { 2.0 };
-//static const unsigned DEFAULT_TIMEOUTMS { 15 * 1000 };
 static const char CERTPEM[] { "/tmp/cert.pem" };
 static const char KEYPEM[] { "/tmp/key.pem" };
-//static const unsignedi MAX_CLIENTS { 32 };
 static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
 enum Req { GET, POST, PUT, DELETE };
 
@@ -101,20 +99,15 @@ namespace sockpp
 
   class Recv
   {
-    //unsigned timeout { };
     Time time;
-    //std::string _header, _body;
     char p;
-    bool res;
     std::smatch match;
     const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
       content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
       transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
       chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
   public:
-    //Recv(const unsigned);
     template<typename S>
-    //bool req(S &, const Cb & = ident_cb);
     bool req_header(std::string &, S &);
     bool is_chunked(const std::string &);
     template<typename S>
@@ -123,99 +116,49 @@ namespace sockpp
     void req_body(const unsigned, const Cb &, S &);
     template<typename T, typename S>
     void req_raw(const unsigned, const Cb &, S &);
-    //std::string &header(void) { return _header; }
-    //std::string &body(void) { return _body; }
-    //void clear_header(void) { _header.clear(); }
-    //void clear_body(void) { _body.clear(); }
-    //void timeout(const unsigned timeout) { timeout_ms = timeout; }
   };
 
-  //template<typename S>
   struct XHandle
   {
     const Cb &cb { ident_cb };
-    //Client<S> &c;
     const Req req { GET };
     const std::vector<std::string> HEAD;
     const std::string data, endp { "/" };
     std::string header, body;
   };
-  //template<typename S>
-  //class MultiSync;
 
   template<typename S>
   class Client
   {
-    //friend class MultiSync<S>;
     std::string hostname;
     unsigned port;
-  //  std::unique_ptr<Recv> recv;
     std::unique_ptr<S> sock;
     char httpver[8];
     const std::string_view agent { "HttpRequest" };
   public:
-    Client(const float, const std::string &, const unsigned/*, const unsigned = DEFAULT_TIMEOUTMS*/);
+    Client(const float, const std::string &, const unsigned);
     void init_sock(void);
     bool connect(void);
-    //bool sendreq(const std::vector<std::string> & = { }, const std::string & = { });
     bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &);
-    //bool performreq(const Cb & = ident_cb, const std::vector<std::string> & = { }, const std::string & = { });
     template<typename T>
     bool performreq(const unsigned, XHandle &);
-    //bool performreq(const Cb & = ident_cb, const Req = GET, const std::vector<std::string> & = { }, const std::string & = { }, const std::string & = "/");
-    //bool recvreq(const Cb &cb = ident_cb) { return recv->req(*sock, cb); }
-    //void recvreq_raw(const Cb &cb) { recv->req_raw(*sock, cb); }
-    //std::string &header(void) { return recv->header(); }
-    //std::string &body(void) { return recv->body(); }
-    //void timeout(const unsigned timeout) { recv->timeout(timeout); }
   };
 
-  /*
-  template<typename S>
-  class MultiSync
-  {
-    std::vector<std::reference_wrapper<Client<S>>> C;
-    Time time;
-    unsigned timeout;
-  public:
-    //MultiSync(void) { }
-    MultiSync(const std::vector<std::reference_wrapper<Client<S>>> &);
-    bool reg_client(Client<S> &);
-    unsigned connect(void);
-    template<typename T>
-    void recvreq(const unsigned, const std::vector<Cb> & = { });
-    decltype(C) &clients(void) { return C; }
-  };
-  */
   template<typename S>
   class Multi
   {
   protected:
     std::vector<std::reference_wrapper<Client<S>>> C;
     Time time;
-    //unsigned timeout;
   public:
     Multi(const std::vector<std::reference_wrapper<Client<S>>> &);
-    //bool reg_client(Client<S> &);
     unsigned connect(void);
     template<typename T>
-    void performreq(const unsigned, std::vector<XHandle> &);
-    //decltype(C) &clients(void) { return C; }
+    void performreq(const unsigned, const std::vector<std::reference_wrapper<XHandle>> &);
+    template<typename T>
+    void performreq(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
   };
   
-  template<typename S>
-  class MultiAsync : private Multi<S>
-  {
-    //const std::vector<std::reference_wrapper<Client<S>>> C;
-    //Time time;
-    //unsigned timeout;
-  public:
-    //MultiAsync(const std::vector<std::reference_wrapper<Client<S>>> &);
-    //unsigned connect(void);
-    template<typename T>
-    void performreq(const unsigned, const std::size_t, std::vector<XHandle> &);
-  };
-
   template<typename S>
   class Server
   {
