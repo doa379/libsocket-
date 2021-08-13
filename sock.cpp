@@ -127,28 +127,21 @@ void sockpp::InitHttps::init(void)
   SSL_load_error_strings();
 }
 
-sockpp::Https::Https(const SSL_METHOD *meth, const unsigned sd) noexcept : 
+sockpp::Https::Https(const SSL_METHOD *meth, const unsigned sd) : 
   Http(sd),
   ctx(SSL_CTX_new(meth)), ssl(SSL_new(ctx))
 {
-  /*
   if (!ctx)
     throw "Unable to create context";
   else if (!ssl)
     throw "Unable to create ssl";
-    */
 }
 
 sockpp::Https::~Https(void)
 {
-  if (ssl)
-  {
-    SSL_shutdown(ssl);
-    SSL_free(ssl);
-  }
-
-  if (ctx)
-    SSL_CTX_free(ctx);
+  SSL_shutdown(ssl);
+  SSL_free(ssl);
+  SSL_CTX_free(ctx);
 }
 
 bool sockpp::Https::configure_context(const std::string &certpem, const std::string &keypem)
@@ -427,7 +420,7 @@ unsigned sockpp::Multi<S>::connect(void)
 
   return n;
 }
-
+// TODO: This method needs improvement
 template<typename S>
 template<typename T>
 void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std::reference_wrapper<XHandle>> &H)
@@ -441,7 +434,7 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std:
       J.emplace_back(*j);
     JJ.emplace_back(std::move(J));
   }
-
+  // Less optimum case
   if (R)
   {
     std::vector<std::reference_wrapper<XHandle>> J;
@@ -449,7 +442,7 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std:
       J.emplace_back(*j);
     JJ.emplace_back(std::move(J));
   }
-
+  // Run asyncs
   std::list<std::future<void>> C;
   for (auto &J : JJ)
   {
@@ -467,7 +460,6 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std:
   
   C.remove_if([](auto &c) { 
     return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
-
 /*
   struct pollfd PFD[MAX_CLIENTS] { };
   for (auto i { 0U }; i < C.size(); i++)
@@ -491,7 +483,7 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std:
         M |= 1 << i;
       }
   }
-  */
+*/
 }
 
 template<typename S>
@@ -506,12 +498,12 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::size_t asyn
     { 
       auto c { std::async(std::launch::async, 
         [&, j](void) { 
-          auto init { Multi<S>::time.now() };
+          auto init { time.now() };
           auto i { j - H.begin() };
           Client<S> &c { this->C[i].get() };
           // Implicitly verify state of client sd
           if (c.sendreq(j->get().req, j->get().HEAD, j->get().data, j->get().endp))
-            while (Multi<S>::time.template diffpt<T>(Multi<S>::time.now(), init) < timeout && 
+            while (time.diffpt<T>(time.now(), init) < timeout && 
                 !c.template performreq<T>(timeout, *j))
               std::this_thread::sleep_for(std::chrono::milliseconds(1));
           }
@@ -536,7 +528,6 @@ template void sockpp::Multi<sockpp::Http>::performreq<std::chrono::seconds>(cons
 template void sockpp::Multi<sockpp::Https>::performreq<std::chrono::seconds>(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
 template void sockpp::Multi<sockpp::Http>::performreq<std::chrono::milliseconds>(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
 template void sockpp::Multi<sockpp::Https>::performreq<std::chrono::milliseconds>(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
-
 
 template<typename S>
 sockpp::Server<S>::Server(const std::string &hostname, const unsigned port) :

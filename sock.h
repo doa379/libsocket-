@@ -81,7 +81,7 @@ namespace sockpp
     SSL_CTX *ctx { nullptr };
     SSL *ssl { nullptr };
   public:
-    Https(const SSL_METHOD *, const unsigned = { }) noexcept;
+    Https(const SSL_METHOD *, const unsigned = { });
     ~Https(void);
     bool configure_context(const std::string &, const std::string &);
     bool set_hostname(const std::string &);
@@ -147,7 +147,6 @@ namespace sockpp
   template<typename S>
   class Multi
   {
-  protected:
     std::vector<std::reference_wrapper<Client<S>>> C;
     Time time;
   public:

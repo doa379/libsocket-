@@ -13,7 +13,7 @@ int main(const int argc, const char *argv[])
   sockpp::Multi<sockpp::Https> M({ client0, client1 });
   auto conn { M.connect() };
   std::cout << std::to_string(conn) << " connections established\n";
-  sockpp::XHandle h0 { sockpp:: Cb { }, GET, { }, { }, "/" };
+  sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
   sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
   // With a timeout 30 sec
   M.performreq<std::chrono::milliseconds>(1000, { h0, h1 });
