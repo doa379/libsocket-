@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
   }
 
   try {
-    sockpp::Client<sockpp::Https> client(1.1, hostname, port_no);
+    sockpp::Client<sockpp::HttpsCli> client(1.1, hostname, port_no);
     if (client.connect())
     {
       // No init on handle implies defaults: ident_cb GET { } { } "/"

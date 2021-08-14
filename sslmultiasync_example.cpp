@@ -8,11 +8,11 @@ static const unsigned port1 { 443 };
 
 int main(const int argc, const char *argv[])
 {
-  sockpp::Client<sockpp::Https> client0(1.1, host0, port0), 
+  sockpp::Client<sockpp::HttpsCli> client0(1.1, host0, port0), 
     client1(1.1, host1, port1);
   sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/"  };
   sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/"  };
-  sockpp::Multi<sockpp::Https> M({ client0, client1 });
+  sockpp::Multi<sockpp::HttpsCli> M({ client0, client1 });
   auto conn { M.connect() };
   std::cout << std::to_string(conn) << " connections established\n";
   // Timeout 100ms (cap waits), 2 async xfrs

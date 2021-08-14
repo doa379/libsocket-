@@ -75,26 +75,40 @@ namespace sockpp
     InitHttps(void);
     static void init(void);
   };
-
+  
   class Https : private InitHttps, public Http
   {
     SSL_CTX *ctx { nullptr };
     SSL *ssl { nullptr };
   public:
-    Https(const SSL_METHOD *, const unsigned = { });
+    Https(const int, const SSL_METHOD *) noexcept;
     ~Https(void);
     bool configure_context(const std::string &, const std::string &);
     bool set_hostname(const std::string &);
+////////
     bool set_fd(void);
     bool connect(const std::string &) override;
     bool read(char &) override;
     bool write(const std::string &) override;
     bool clear(void);
+////////
     bool accept(void);
     SSL_CTX *ssl_ctx(SSL_CTX *);
     SSL_CTX *ssl_ctx(void) { return ctx; }
     int error(int);
     void certinfo(std::string &, std::string &, std::string &);
+  };
+
+  class HttpsCli : public Https
+  { 
+  public:
+    HttpsCli(const int sd = { }) : Https(sd, TLS_client_method()) { }
+  };
+  
+  class HttpsSvr : public Https
+  {
+  public:
+    HttpsSvr(const int sd = { }) : Https(sd, TLS_server_method()) { }
   };
 
   class Recv
@@ -132,7 +146,7 @@ namespace sockpp
   {
     std::string hostname;
     unsigned port;
-    std::unique_ptr<S> sock;
+    S sock;
     char httpver[8];
     const std::string_view agent { "HttpRequest" };
   public:
@@ -164,7 +178,7 @@ namespace sockpp
   protected:
     std::string hostname;
     unsigned port;
-    std::unique_ptr<S> sock;
+    S sock;
     struct pollfd listensd { };
     std::list<std::future<void>> C;
   public:
