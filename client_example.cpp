@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     sockpp::Client<sockpp::Http> client(1.1, hostname, port_no);
     if (client.connect())
     {
-      sockpp::XHandle h { cb, GET, { }, { }, "/" };
+      sockpp::XHandle h { cb };
       // Perform request on handle, timeout 500ms
       if (!client.performreq<std::chrono::milliseconds>(500, h))
         throw "Unable to sendreq()";

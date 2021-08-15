@@ -102,13 +102,13 @@ namespace sockpp
   class HttpsCli : public Https
   { 
   public:
-    HttpsCli(const int sd = { }) : Https(sd, TLS_client_method()) { }
+    HttpsCli(const int sd = { }) : Https { sd, TLS_client_method() } { }
   };
   
   class HttpsSvr : public Https
   {
   public:
-    HttpsSvr(const int sd = { }) : Https(sd, TLS_server_method()) { }
+    HttpsSvr(const int sd = { }) : Https { sd, TLS_server_method() } { }
   };
 
   class Recv
@@ -137,8 +137,19 @@ namespace sockpp
     const Cb &cb { ident_cb };
     const Req req { GET };
     const std::vector<std::string> HEAD;
-    const std::string data, endp { "/" };
+    const std::string data, endp;
     std::string header, body;
+    XHandle(void) : cb { ident_cb }, req { GET }, endp { "/" } { }
+    XHandle(const Req req, decltype(HEAD) &HEAD, decltype(data) &data, decltype(endp) &endp = "/") : 
+      req { req }, HEAD { HEAD }, data { data }, endp { endp } { }
+    XHandle(const Cb &cb, const Req req, decltype(HEAD) &HEAD, decltype(data) &data, decltype(endp) &endp = "/") : 
+      cb { cb }, req { req }, HEAD { HEAD }, data { data }, endp { endp } { }
+    XHandle(decltype(HEAD) &HEAD, decltype(endp) &endp = "/") : 
+      HEAD { HEAD }, endp { endp } { }
+    XHandle(const Cb &cb, decltype(HEAD) &HEAD, decltype(endp) &endp = "/") : 
+      cb { cb }, HEAD { HEAD }, endp { endp } { }
+    XHandle(const Cb &cb, decltype(endp) &endp = "/") : 
+      cb { cb }, endp { endp } { }
   };
 
   template<typename S>
@@ -151,7 +162,6 @@ namespace sockpp
     const std::string_view agent { "HttpRequest" };
   public:
     Client(const float, const std::string &, const unsigned);
-    void init_sock(void);
     bool connect(void);
     bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &);
     template<typename T>
@@ -183,7 +193,6 @@ namespace sockpp
     std::list<std::future<void>> C;
   public:
     Server(const std::string &, const unsigned);
-    void init_sock(void);
     bool connect(void);
     bool poll_listen(unsigned);
     std::shared_ptr<S> recv_client(const std::string & = CERTPEM, const std::string & = KEYPEM);

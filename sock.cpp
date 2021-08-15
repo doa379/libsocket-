@@ -31,8 +31,8 @@ SOFTWARE.
 
 sockpp::Http::Http(const int sd)
 {
-  init(sd);
-  memset(&sa, 0, sizeof sa);
+  if (init(sd))
+    memset(&sa, 0, sizeof sa);
 }
 
 sockpp::Http::~Http(void)
@@ -51,9 +51,12 @@ bool sockpp::Http::init(const int sd)
 
 void sockpp::Http::deinit(void)
 {
-  struct linger lo { 1, 0 };
-  setsockopt(sd, SOL_SOCKET, SO_LINGER, &lo, sizeof lo);
-  close(sd);
+  if (sd > -1)
+  {
+    struct linger lo { 1, 0 };
+    setsockopt(sd, SOL_SOCKET, SO_LINGER, &lo, sizeof lo);
+    close(sd);
+  }
 }
 
 bool sockpp::Http::init_connect(const std::string &hostname, const unsigned port)
@@ -128,8 +131,8 @@ void sockpp::InitHttps::init(void)
 }
 
 sockpp::Https::Https(const int sd, const SSL_METHOD *meth) noexcept : 
-  Http(sd),
-  ctx(SSL_CTX_new(meth)), ssl(SSL_new(ctx))
+  Http { sd },
+  ctx { SSL_CTX_new(meth) }, ssl { SSL_new(ctx) }
 {
 
 }
@@ -284,9 +287,9 @@ void sockpp::Recv::req_body(std::string &body, const std::string &header, S &soc
       body += p;
 }
 
-template void sockpp::Recv::req_body(std::string &, const std::string &, Http &sock);
-template void sockpp::Recv::req_body(std::string &, const std::string &, HttpsCli &sock);
-template void sockpp::Recv::req_body(std::string &, const std::string &, HttpsSvr &sock);
+template void sockpp::Recv::req_body(std::string &, const std::string &, Http &);
+template void sockpp::Recv::req_body(std::string &, const std::string &, HttpsCli &);
+template void sockpp::Recv::req_body(std::string &, const std::string &, HttpsSvr &);
 
 template<typename T, typename S>
 void sockpp::Recv::req_body(const unsigned timeout, const Cb &cb, S &sock)
@@ -333,7 +336,7 @@ void sockpp::Recv::req_raw(const unsigned timeout, const Cb &cb, S &sock)
 
 template<typename S>
 sockpp::Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port) : 
-  hostname(hostname), port(port)
+  hostname { hostname }, port { port }
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
 }
@@ -402,7 +405,7 @@ template bool sockpp::Client<sockpp::Http>::performreq<std::chrono::milliseconds
 template bool sockpp::Client<sockpp::HttpsCli>::performreq<std::chrono::milliseconds>(const unsigned, XHandle &);
 
 template<typename S>
-sockpp::Multi<S>::Multi(const std::vector<std::reference_wrapper<sockpp::Client<S>>> &C) : C(C)
+sockpp::Multi<S>::Multi(const std::vector<std::reference_wrapper<sockpp::Client<S>>> &C) : C { C }
 {
 
 }
@@ -528,7 +531,7 @@ template void sockpp::Multi<sockpp::HttpsCli>::performreq<std::chrono::milliseco
 
 template<typename S>
 sockpp::Server<S>::Server(const std::string &hostname, const unsigned port) :
-  hostname(hostname), port(port)
+  hostname { hostname }, port { port }
 {
 
 }
