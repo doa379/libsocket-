@@ -134,7 +134,7 @@ namespace sockpp
 
   struct XHandle
   {
-    const Cb &cb { ident_cb };
+    const Cb cb { ident_cb };
     const Req req { GET };
     const std::vector<std::string> HEAD;
     const std::string data, endp;
@@ -155,9 +155,9 @@ namespace sockpp
   template<typename S>
   class Client
   {
+    S sock;
     std::string hostname;
     unsigned port;
-    S sock;
     char httpver[8];
     const std::string_view agent { "HttpRequest" };
   public:
@@ -185,10 +185,9 @@ namespace sockpp
   template<typename S>
   class Server
   {
-  protected:
+    S sock;
     std::string hostname;
     unsigned port;
-    S sock;
     struct pollfd listensd { };
     std::list<std::future<void>> C;
   public:

@@ -37,7 +37,8 @@ sockpp::Http::Http(const int sd)
 
 sockpp::Http::~Http(void)
 {
-  deinit();
+  if (sd > -1)
+    deinit();
 }
 
 bool sockpp::Http::init(const int sd)
@@ -51,12 +52,9 @@ bool sockpp::Http::init(const int sd)
 
 void sockpp::Http::deinit(void)
 {
-  if (sd > -1)
-  {
-    struct linger lo { 1, 0 };
-    setsockopt(sd, SOL_SOCKET, SO_LINGER, &lo, sizeof lo);
-    close(sd);
-  }
+  struct linger lo { 1, 0 };
+  setsockopt(sd, SOL_SOCKET, SO_LINGER, &lo, sizeof lo);
+  close(sd);
 }
 
 bool sockpp::Http::init_connect(const std::string &hostname, const unsigned port)
@@ -260,7 +258,6 @@ bool sockpp::Recv::req_header(std::string &header, S &sock)
   
   if (!std::regex_search(header, match, ok_regex))
     return false;
-
   return true;
 }
 
@@ -420,7 +417,7 @@ unsigned sockpp::Multi<S>::connect(void)
 
   return n;
 }
-// TODO: This method needs improvement
+// TODO: Poll on sd and then callback on response
 template<typename S>
 template<typename T>
 void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std::reference_wrapper<XHandle>> &H)
