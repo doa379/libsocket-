@@ -29,7 +29,7 @@ OBJ_TEST9 = ${SRC_TEST9:.cpp=.o}
 CC = c++
 RELEASE_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
 DEBUG_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -g ${INCS}
-CFLAGS = ${RELEASE_CFLAGS}
+CFLAGS = ${DEBUG_CFLAGS}
 LDFLAGS += ${LIBSPATH}
 
 all: libsockpp.so \

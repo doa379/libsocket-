@@ -27,6 +27,7 @@ SOFTWARE.
 #include <netdb.h>
 #include <unistd.h>
 #include <openssl/err.h>
+#include <cmath>
 #include "sock.h"
 
 sockpp::Http::Http(const int sd)
@@ -417,70 +418,28 @@ unsigned sockpp::Multi<S>::connect(void)
 
   return n;
 }
-// TODO: Poll on sd and then callback on response
+
 template<typename S>
 template<typename T>
 void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std::reference_wrapper<XHandle>> &H)
 {
-  std::size_t N { H.size() / C.size() }, R { H.size() % C.size() };
-  std::vector<std::vector<std::reference_wrapper<XHandle>>> JJ;
-  for (auto h { H.begin() }; h < H.end(); h += N)
+  auto N { (unsigned) ceil((float) H.size() / C.size()) };
+  std::list<std::future<void>> F;
+  for (auto &c : C)
   {
-    std::vector<std::reference_wrapper<XHandle>> J;
-    for (auto j { h }; j < h + N && j < H.end(); j++)
-      J.emplace_back(*j);
-    JJ.emplace_back(std::move(J));
-  }
-  // Less optimum case
-  if (R)
-  {
-    std::vector<std::reference_wrapper<XHandle>> J;
-    for (auto j { H.end() - R }; j < H.end(); j++)
-      J.emplace_back(*j);
-    JJ.emplace_back(std::move(J));
-  }
-  // Run asyncs
-  std::list<std::future<void>> C;
-  for (auto &J : JJ)
-  {
-    auto i { (&J - &JJ[0]) % this->C.size() };
-    auto c { std::async(std::launch::async, 
+    auto i { &c - &C[0] };
+    auto f { std::async(std::launch::async, 
       [&, i](void) {
-        for (auto &j : J)
-          this->C[i].get().template performreq<T>(timeout, j.get());
-        }
-      )
+        for (auto h { H.begin() + i * N }; h <  H.begin() + (i + 1) * N && h < H.end(); h++)
+          c.get().template performreq<T>(timeout, *h);
+      })
     };
-    
-    C.emplace_back(std::move(c));
-  }
   
-  C.remove_if([](auto &c) { 
-    return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
-/*
-  struct pollfd PFD[MAX_CLIENTS] { };
-  for (auto i { 0U }; i < C.size(); i++)
-  {
-    PFD[i].fd = C[i].get().sock->get();
-    PFD[i].events = POLLIN;
+    F.emplace_back(std::move(f));
   }
 
-  const auto init { time.now() };
-  std::bitset<MAX_CLIENTS> M;
-  while (M.count() < C.size() && time.diffpt<T>(time.now(), init) < timeout)
-  {
-    poll(PFD, C.size(), 100);
-    for (auto i { 0U }; i < C.size(); i++)
-      if (PFD[i].revents & POLLIN && !M[i])
-      {
-        if (CB.size())
-          C[i].get().recvreq(CB[i]);
-        else
-          C[i].get().recvreq();
-        M |= 1 << i;
-      }
-  }
-*/
+  F.remove_if([](auto &f) { 
+    return f.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
 }
 
 template<typename S>

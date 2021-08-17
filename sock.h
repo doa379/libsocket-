@@ -67,6 +67,7 @@ namespace sockpp
     int accept(void);
     bool bind(void);
     bool listen(void);
+    int desc(void) { return sd; }
   };
 
   class InitHttps
@@ -166,6 +167,8 @@ namespace sockpp
     bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &);
     template<typename T>
     bool performreq(const unsigned, XHandle &);
+    void close(void) { sock.deinit(); }
+    int sd(void) { return sock.desc(); }
   };
 
   template<typename S>
