@@ -158,7 +158,6 @@ namespace sockpp
   {
     S sock;
     std::string hostname;
-    unsigned port;
     char httpver[8];
     const std::string_view agent { "HttpRequest" };
   public:
@@ -190,9 +189,8 @@ namespace sockpp
   {
     S sock;
     std::string hostname;
-    unsigned port;
     struct pollfd listensd { };
-    std::list<std::future<void>> C;
+    std::list<std::future<void>> F;
   public:
     Server(const std::string &, const unsigned);
     bool connect(void);

@@ -334,17 +334,16 @@ void sockpp::Recv::req_raw(const unsigned timeout, const Cb &cb, S &sock)
 
 template<typename S>
 sockpp::Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port) : 
-  hostname { hostname }, port { port }
+  hostname { hostname }
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
+  sock.init_connect(hostname, port);
 }
 
 template<typename S>
 bool sockpp::Client<S>::connect(void)
 {
-  if (sock.init_connect(hostname, port))
-    return sock.connect(hostname);
-  return false;
+  return sock.connect(hostname);
 }
 
 template<typename S>
@@ -447,16 +446,16 @@ template<typename T>
 void sockpp::Multi<S>::performreq(const unsigned timeout, const std::size_t async, const std::vector<std::reference_wrapper<XHandle>> &H)
 {
   const auto nasync { std::min(async, H.size()) };
-  std::list<std::future<void>> C;
+  std::list<std::future<void>> F;
   for (auto h { H.begin() }; h < H.end(); h += nasync)
   {
     for (auto j { h }; j < h + nasync && j < H.end(); j++)
     { 
-      auto c { std::async(std::launch::async, 
+      auto f { std::async(std::launch::async, 
         [&, j](void) { 
           auto init { time.now() };
           auto i { j - H.begin() };
-          Client<S> &c { this->C[i].get() };
+          Client<S> &c { C[i].get() };
           // Implicitly verify state of client sd
           if (c.sendreq(j->get().req, j->get().HEAD, j->get().data, j->get().endp))
             while (time.diffpt<T>(time.now(), init) < timeout && 
@@ -466,11 +465,11 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::size_t asyn
         )
       };
 
-      C.emplace_back(std::move(c));
+      F.emplace_back(std::move(f));
     }
 
-    C.remove_if([](auto &c) { 
-      return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
+    F.remove_if([](auto &f) { 
+      return f.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
   }
 }
 
@@ -487,16 +486,15 @@ template void sockpp::Multi<sockpp::HttpsCli>::performreq<std::chrono::milliseco
 
 template<typename S>
 sockpp::Server<S>::Server(const std::string &hostname, const unsigned port) :
-  hostname { hostname }, port { port }
+  hostname { hostname }
 {
-
+  sock.init_connect(hostname, port);
 }
 
 template<typename S>
 bool sockpp::Server<S>::connect(void)
 {
-  if (sock.init_connect(hostname, port) &&
-    sock.bind() &&
+  if (sock.bind() &&
       sock.listen())
   {
     listensd.fd = sock.get();
@@ -541,15 +539,15 @@ std::shared_ptr<sockpp::HttpsSvr> sockpp::Server<sockpp::HttpsSvr>::recv_client(
 template<typename S>
 void sockpp::Server<S>::new_client(std::shared_ptr<S> s, const std::function<void(S &)> &cb)
 {
-  auto c { std::async(std::launch::async, [=](void) { cb(*s); }) };
-  C.emplace_back(std::move(c));
+  auto f { std::async(std::launch::async, [=](void) { cb(*s); }) };
+  F.emplace_back(std::move(f));
 }
 
 template<typename S>
 void sockpp::Server<S>::refresh_clients(void)
 {
-  C.remove_if([](auto &c) { 
-    return c.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
+  F.remove_if([](auto &f) { 
+    return f.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
 }
 
 template class sockpp::Server<sockpp::Http>;
