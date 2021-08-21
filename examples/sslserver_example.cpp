@@ -2,19 +2,19 @@
 #include <thread>
 #include <cmath>
 #include <csignal>
-#include "sock.h"
-#include "utils.h"
+#include <libsockpp/sock.h>
+#include <libsockpp/utils.h>
 
 static const std::string host0 { "localhost" };
-static const unsigned port0 { 8080 };
+static const unsigned port0 { 4433 };
 
-int main(const int argc, const char *argv[])
+int main(int argc, char *argv[])
 {
   std::string hostname;
   unsigned port_no;
   if (argc != 3)
   {
-    std::cerr << "Usage: ./server_example <hostname> <port>\n";
+    std::cerr << "Usage: ./sslserver_example <hostname> <port>\n";
     hostname = host0;
     port_no = port0;
   }
@@ -27,12 +27,12 @@ int main(const int argc, const char *argv[])
 
   signal(SIGPIPE, SIG_IGN);
   try {
-    sockpp::Server<sockpp::Http> server(hostname, port_no);
+    sockpp::Server<sockpp::HttpsSvr> server(hostname, port_no);
     if (!server.connect())
       throw "Server unable to connect";
 
-    auto cb {
-      [&](sockpp::Http &sock) {
+    auto client_msg { 
+      [&](sockpp::HttpsSvr &sock) {
         sockpp::Recv recv;
         std::string cli_head, cli_body;
         recv.req_header(cli_head, sock);
@@ -41,8 +41,26 @@ int main(const int argc, const char *argv[])
         std::cout << cli_head << "\n";
         std::cout << cli_body << "\n";
         std::cout << "-End receive from client-\n";
+      }
+    };
+
+    auto cb { 
+      [&](sockpp::HttpsSvr &sock) {
+        client_msg(sock);
+        const std::string document { "Document" }, 
+          header { 
+            std::string("HTTP/1.1 OK\r\n") +
+              std::string("Content-Length: ") + std::to_string(document.size()) + std::string("\r\n") +
+                hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
+        sock.write(header + document);
+      }
+    };
+
+    auto chunked_cb { 
+      [&](sockpp::HttpsSvr &sock) {
+        client_msg(sock);
         const std::string header { 
-          std::string("HTTP/1.1 Stream OK\r\n") + 
+          std::string("HTTP/1.1 SSL Stream OK\r\n") +
             std::string("Transfer-Encoding: chunked\r\n") +
             hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
         if (!sock.write(header))
@@ -57,17 +75,18 @@ int main(const int argc, const char *argv[])
             break;
           std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
         }
-      } 
+      }
     };
 
-    std::cout << "Running server...\n";
+    std::cout << "Running SSL server...\n";
+    std::string report;
     while (1)
     {
       if (server.poll_listen(100))
       {
         auto sock { server.recv_client() };
         if (sock)
-          server.new_client(sock, cb);
+          server.new_client(sock, chunked_cb);
       }
 
       server.refresh_clients();

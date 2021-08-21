@@ -1,10 +1,10 @@
 #include <iostream>
-#include "sock.h"
+#include <libsockpp/sock.h>
 
-static const std::string host0 { "webscantest.com" };
-static const unsigned port0 { 80 };
-static const std::string host1 { "localhost" };
-static const unsigned port1 { 80 };
+static const std::string host0 { "www.openssl.org" };
+static const unsigned port0 { 443 };
+static const std::string host1 { "..." };
+static const unsigned port1 { 443 };
 
 int main(int argc, char *argv[])
 {
@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
   unsigned port_no;
   if (argc != 3)
   {
-    std::cerr << "Usage: ./client_example <hostname> <port>\n";
+    std::cerr << "Usage: ./sslclient_example <hostname> <port>\n";
     hostname = host0;
     port_no = port0;
   }
@@ -24,16 +24,14 @@ int main(int argc, char *argv[])
   }
 
   try {
-    // Chunked transfer
-    sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
-    sockpp::Client<sockpp::Http> client(1.1, hostname, port_no);
+    sockpp::Client<sockpp::HttpsCli> client(1.1, hostname, port_no);
     if (client.connect())
     {
-      sockpp::XHandle h { cb };
-      // Perform request on handle, timeout 500ms
-      if (!client.performreq<std::chrono::milliseconds>(500, h))
+      // No init on handle implies defaults: ident_cb GET { } { } "/"
+      sockpp::XHandle h;
+      // Perform request on handle, timeout 250ms
+      if (!client.performreq<std::chrono::milliseconds>(250, h))
         throw "Unable to sendreq()";
-
       std::cout << "The response header:\n===================\n";
       std::cout << h.header << std::endl;
       std::cout << "The response body:\n===================\n";
@@ -47,5 +45,6 @@ int main(int argc, char *argv[])
   catch (const char e[]) {
     std::cout << std::string(e) << std::endl;
   }
+
   return 0;
 }

@@ -161,7 +161,7 @@ namespace sockpp
     char httpver[8];
     const std::string_view agent { "HttpRequest" };
   public:
-    Client(const float, const std::string &, const unsigned);
+    Client(const float, const std::string &, const unsigned) noexcept;
     bool connect(void);
     bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &);
     template<typename T>
@@ -192,7 +192,7 @@ namespace sockpp
     struct pollfd listensd { };
     std::list<std::future<void>> F;
   public:
-    Server(const std::string &, const unsigned);
+    Server(const std::string &, const unsigned) noexcept;
     bool connect(void);
     bool poll_listen(unsigned);
     std::shared_ptr<S> recv_client(const std::string & = CERTPEM, const std::string & = KEYPEM);

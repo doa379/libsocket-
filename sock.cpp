@@ -333,7 +333,7 @@ void sockpp::Recv::req_raw(const unsigned timeout, const Cb &cb, S &sock)
 }
 
 template<typename S>
-sockpp::Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port) : 
+sockpp::Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port) noexcept : 
   hostname { hostname }
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
@@ -485,7 +485,7 @@ template void sockpp::Multi<sockpp::Http>::performreq<std::chrono::milliseconds>
 template void sockpp::Multi<sockpp::HttpsCli>::performreq<std::chrono::milliseconds>(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
 
 template<typename S>
-sockpp::Server<S>::Server(const std::string &hostname, const unsigned port) :
+sockpp::Server<S>::Server(const std::string &hostname, const unsigned port) noexcept :
   hostname { hostname }
 {
   sock.init_connect(hostname, port);

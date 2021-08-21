@@ -1,5 +1,5 @@
 #include <iostream>
-#include "sock.h"
+#include <libsockpp/sock.h>
 
 static const std::string host0 { "webscantest.com" };
 static const unsigned port0 { 80 };
@@ -9,11 +9,11 @@ static const unsigned port1 { 80 };
 int main(int argc, char *argv[])
 {
   try {
-    sockpp::Client<sockpp::Http> conn0(1.1, host0, port0);
+    sockpp::Client<sockpp::Http> conn0 { 1.1, host0, port0 };
     sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
-    sockpp::Client<sockpp::Http> conn1(1.1, host1, port1);
+    sockpp::Client<sockpp::Http> conn1 { 1.1, host1, port1 };
     sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
-    sockpp::Multi<sockpp::Http> M({ conn0, conn1 });
+    sockpp::Multi<sockpp::Http> M { { conn0, conn1 } };
     auto conn { M.connect() };
     std::cout << std::to_string(conn) << " connections established\n";
     // Timeout 100ms (cap waits), 2 async xfrs
