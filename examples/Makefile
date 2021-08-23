@@ -7,21 +7,21 @@ SRC_TEST0 = client_example.cpp
 OBJ_TEST0 = ${SRC_TEST0:.cpp=.o}
 SRC_TEST1 = server_example.cpp
 OBJ_TEST1 = ${SRC_TEST1:.cpp=.o}
-SRC_TEST2 = sslclient_example.cpp
+SRC_TEST2 = streaming_example.cpp
 OBJ_TEST2 = ${SRC_TEST2:.cpp=.o}
-SRC_TEST3 = sslserver_example.cpp
+SRC_TEST3 = multi_example.cpp
 OBJ_TEST3 = ${SRC_TEST3:.cpp=.o}
-SRC_TEST4 = multi_example.cpp
+SRC_TEST4 = multiasync_example.cpp
 OBJ_TEST4 = ${SRC_TEST4:.cpp=.o}
-SRC_TEST5 = sslmulti_example.cpp
+SRC_TEST5 = sslclient_example.cpp
 OBJ_TEST5 = ${SRC_TEST5:.cpp=.o}
-SRC_TEST6 = multiasync_example.cpp
+SRC_TEST6 = sslserver_example.cpp
 OBJ_TEST6 = ${SRC_TEST6:.cpp=.o}
-SRC_TEST7 = sslmultiasync_example.cpp
+SRC_TEST7 = sslstreaming_example.cpp
 OBJ_TEST7 = ${SRC_TEST7:.cpp=.o}
-SRC_TEST8 = streaming_example.cpp
+SRC_TEST8 = sslmulti_example.cpp
 OBJ_TEST8 = ${SRC_TEST8:.cpp=.o}
-SRC_TEST9 = sslstreaming_example.cpp
+SRC_TEST9 = sslmultiasync_example.cpp
 OBJ_TEST9 = ${SRC_TEST9:.cpp=.o}
 
 CC = c++
@@ -32,14 +32,14 @@ LDFLAGS += ${LIBSPATH} ${LIBS}
 
 all: client_example \
   server_example \
+  streaming_example \
+  multi_example \
+  multiasync_example \
   sslclient_example \
   sslserver_example \
-  multi_example \
+  sslstreaming_example \
   sslmulti_example \
-  multiasync_example \
-  sslmultiasync_example \
-  streaming_example \
-  sslstreaming_example
+  sslmultiasync_example
 
 .cpp.o:
 	@echo CC $<
@@ -53,35 +53,35 @@ server_example: ${OBJ_TEST1}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST1} ${LDFLAGS}
 
-sslclient_example: ${OBJ_TEST2}
+streaming_example: ${OBJ_TEST2}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST2} ${LDFLAGS}
 
-sslserver_example: ${OBJ_TEST3}
+multi_example: ${OBJ_TEST3}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST3} ${LDFLAGS}
 
-multi_example: ${OBJ_TEST4}
+multiasync_example: ${OBJ_TEST4}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS}
 
-sslmulti_example: ${OBJ_TEST5}
+sslclient_example: ${OBJ_TEST5}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS}
 
-multiasync_example: ${OBJ_TEST6}
+sslserver_example: ${OBJ_TEST6}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS}
 
-sslmultiasync_example: ${OBJ_TEST7}
+sslstreaming_example: ${OBJ_TEST7}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST7} ${LDFLAGS}
 
-streaming_example: ${OBJ_TEST8}
+sslmulti_example: ${OBJ_TEST8}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST8} ${LDFLAGS}
 
-sslstreaming_example: ${OBJ_TEST9}
+sslmultiasync_example: ${OBJ_TEST9}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST9} ${LDFLAGS}
 

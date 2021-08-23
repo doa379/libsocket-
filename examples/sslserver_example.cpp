@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
           header { 
             std::string("HTTP/1.1 OK\r\n") +
               std::string("Content-Length: ") + std::to_string(document.size()) + std::string("\r\n") +
-                hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
+                "\r\n" };
         sock.write(header + document);
       }
     };
@@ -60,35 +60,28 @@ int main(int argc, char *argv[])
       [&](sockpp::HttpsSvr &sock) {
         client_msg(sock);
         const std::string header { 
-          std::string("HTTP/1.1 SSL Stream OK\r\n") +
-            std::string("Transfer-Encoding: chunked\r\n") +
-            hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
+          std::string("HTTP/1.1 OK\r\n") +
+            std::string("Transfer-Encoding: chunked\r\n") + "\r\n" };
         if (!sock.write(header))
           return;
         std::string document;
         while (1)
         {
-          auto s { std::to_string(pow(2, rand(8, 32))) };
+          auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
           std::cout << s << std::endl;
-          document = to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
+          document = sockpp::to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
           if (!sock.write(document))
             break;
-          std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
+          std::this_thread::sleep_for(std::chrono::milliseconds(sockpp::rand(500, 2000)));
         }
       }
     };
 
     std::cout << "Running SSL server...\n";
-    std::string report;
     while (1)
     {
       if (server.poll_listen(100))
-      {
-        auto sock { server.recv_client() };
-        if (sock)
-          server.new_client(sock, chunked_cb);
-      }
-
+        server.recv_client(chunked_cb);
       server.refresh_clients();
     }
   }

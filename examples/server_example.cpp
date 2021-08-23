@@ -50,12 +50,12 @@ int main(const int argc, const char *argv[])
         std::string document;
         while (1)
         {
-          auto s { std::to_string(pow(2, rand(8, 32))) };
+          auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
           std::cout << s << std::endl;
-          document = to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
+          document = sockpp::to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
           if (!sock.write(document))
             break;
-          std::this_thread::sleep_for(std::chrono::milliseconds(rand(500, 2000)));
+          std::this_thread::sleep_for(std::chrono::milliseconds(sockpp::rand(500, 2000)));
         }
       } 
     };
@@ -64,12 +64,7 @@ int main(const int argc, const char *argv[])
     while (1)
     {
       if (server.poll_listen(100))
-      {
-        auto sock { server.recv_client() };
-        if (sock)
-          server.new_client(sock, cb);
-      }
-
+        server.recv_client(cb);
       server.refresh_clients();
     }
   }

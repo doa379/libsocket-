@@ -34,7 +34,6 @@ SOFTWARE.
 #include <regex>
 #include <list>
 #include <future>
-#include <memory>
 #include <poll.h>
 #include "time.h"
 
@@ -195,8 +194,7 @@ namespace sockpp
     Server(const std::string &, const unsigned) noexcept;
     bool connect(void);
     bool poll_listen(unsigned);
-    std::shared_ptr<S> recv_client(const std::string & = CERTPEM, const std::string & = KEYPEM);
-    void new_client(std::shared_ptr<S>, const std::function<void(S &)> &);
+    void recv_client(const std::function<void(S &)> &, const std::string & = CERTPEM, const std::string & = KEYPEM);
     void refresh_clients(void);
   };
 }

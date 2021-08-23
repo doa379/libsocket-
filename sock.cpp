@@ -515,31 +515,34 @@ bool sockpp::Server<S>::poll_listen(unsigned timeout_ms)
 }
 
 template<>
-std::shared_ptr<sockpp::Http> sockpp::Server<sockpp::Http>::recv_client(const std::string &, const std::string &)
+void sockpp::Server<sockpp::Http>::recv_client(const std::function<void(Http &)> &cb, const std::string &, const std::string &)
 {
-  return std::make_shared<Http>(sock.accept());
+  auto f { std::async(std::launch::async, 
+    [&](void) {
+      Http http { sock.accept() };
+      cb(http);
+    }) 
+  };
+  F.emplace_back(std::move(f));
 }
 
 template<>
-std::shared_ptr<sockpp::HttpsSvr> sockpp::Server<sockpp::HttpsSvr>::recv_client(const std::string &certpem, const std::string &keypem)
+void sockpp::Server<sockpp::HttpsSvr>::recv_client(const std::function<void(HttpsSvr &)> &cb, const std::string &certpem, const std::string &keypem)
 {
-  auto client { std::make_shared<HttpsCli>() };
-  if (!client->configure_context(certpem, keypem) ||
-    !client->set_hostname(hostname))
-    return nullptr;
-  auto sd { sock.Http::accept() };
-  auto socks { std::make_shared<HttpsSvr>(sd) };
-  socks->set_fd();
-  socks->ssl_ctx(client->ssl_ctx());
-  if (socks->accept())
-    return socks;
-  return nullptr;
-}
-
-template<typename S>
-void sockpp::Server<S>::new_client(std::shared_ptr<S> s, const std::function<void(S &)> &cb)
-{
-  auto f { std::async(std::launch::async, [=](void) { cb(*s); }) };
+  auto f { std::async(std::launch::async, 
+    [&, certpem, keypem](void) { 
+      HttpsCli client;
+      if (!client.configure_context(certpem, keypem) ||
+        !client.set_hostname(hostname))
+        return;
+      auto sd { sock.Http::accept() };
+      HttpsSvr https { sd };
+      https.set_fd();
+      https.ssl_ctx(client.ssl_ctx());
+      if (https.accept())
+        cb(https);
+    })
+  };
   F.emplace_back(std::move(f));
 }
 

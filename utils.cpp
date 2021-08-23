@@ -1,7 +1,8 @@
 #include <random>
 #include <sstream>
+#include "utils.h"
 
-int rand(std::size_t a, std::size_t b)
+int sockpp::rand(std::size_t a, std::size_t b)
 {
   std::random_device dev;
   std::mt19937 rng(dev());
@@ -9,7 +10,7 @@ int rand(std::size_t a, std::size_t b)
   return dist(rng);
 }
 
-std::string to_base16(std::size_t arg)
+std::string sockpp::to_base16(std::size_t arg)
 {
   std::stringstream stream;
   stream << std::hex << arg;
