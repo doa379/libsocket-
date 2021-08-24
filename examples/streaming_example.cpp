@@ -22,24 +22,25 @@ int main(int argc, char *argv[])
   }
 
   try {
+    sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+    sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
     sockpp::Client<sockpp::Http> client(1.1, hostname, port_no);
-    if (client.connect())
+    // Make a persistant connection here
+    //if (!client.connect())
+      //throw "Unable to connect()";
+    while (1)
     {
-      sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+      if (!client.connect())
+        throw "Unable to connect()";
       // Data sent as POST request
       // Header validates request is OK
-      // Chunked transfer will call cb()
-      sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
-      if (!client.performreq<std::chrono::milliseconds>(1750, h))
+      // Chunked xfr will operate on cb() in handle
+      if (!client.performreq(h))
         throw "Unable to sendreq()";
-
       std::cout << "Stream disconnected\n";
       std::cout << "The response header:\n===================\n";
       std::cout << h.header << std::endl;
     }
-
-    else
-      throw "Unable to connect";
   }
 
   catch (const char e[]) {

@@ -4,6 +4,7 @@
 #include <csignal>
 #include <libsockpp/sock.h>
 #include <libsockpp/utils.h>
+#include <libsockpp/time.h>
 
 static const std::string host0 { "localhost" };
 static const unsigned port0 { 8080 };
@@ -33,30 +34,34 @@ int main(const int argc, const char *argv[])
 
     auto cb {
       [&](sockpp::Http &sock) {
-        sockpp::Recv recv;
+        sockpp::Recv<sockpp::Http> recv { sock };
         std::string cli_head, cli_body;
-        recv.req_header(cli_head, sock);
-        recv.req_body(cli_body, cli_head, sock);
+        recv.req_header(cli_head);
+        recv.req_body(cli_body, cli_head);
         std::cout << "-Receive from client-\n";
         std::cout << cli_head << "\n";
         std::cout << cli_body << "\n";
         std::cout << "-End receive from client-\n";
         const std::string header { 
-          std::string("HTTP/1.1 Stream OK\r\n") + 
-            std::string("Transfer-Encoding: chunked\r\n") +
-            hostname + ":" + std::to_string(port_no) + "\r\n\r\n" };
+          std::string("HTTP/1.1 OK\r\n") + 
+            std::string("Transfer-Encoding: chunked\r\n") + "\r\n" };
         if (!sock.write(header))
           return;
         std::string document;
-        while (1)
+        sockpp::Time time;
+        auto now { time.now() };
+        while (time.diffpt<std::chrono::milliseconds>(time.now(), now) < 1500)
         {
           auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
           std::cout << s << std::endl;
           document = sockpp::to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
           if (!sock.write(document))
             break;
+          now = time.now();
           std::this_thread::sleep_for(std::chrono::milliseconds(sockpp::rand(500, 2000)));
         }
+    
+        std::cout << "Server timeout\n";
       } 
     };
 

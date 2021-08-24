@@ -35,7 +35,6 @@ SOFTWARE.
 #include <list>
 #include <future>
 #include <poll.h>
-#include "time.h"
 
 static const float DEFAULT_HTTPVER { 2.0 };
 static const char CERTPEM[] { "/tmp/cert.pem" };
@@ -111,9 +110,10 @@ namespace sockpp
     HttpsSvr(const int sd = { }) : Https { sd, TLS_server_method() } { }
   };
 
+  template<typename S>
   class Recv
   {
-    Time time;
+    S &sock;
     char p;
     std::smatch match;
     const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
@@ -121,15 +121,12 @@ namespace sockpp
       transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
       chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
   public:
-    template<typename S>
-    bool req_header(std::string &, S &);
+    Recv(S &sock) : sock { sock } { }
     bool is_chunked(const std::string &);
-    template<typename S>
-    void req_body(std::string &, const std::string &, S &);
-    template<typename T, typename S>
-    void req_body(const unsigned, const Cb &, S &);
-    template<typename T, typename S>
-    void req_raw(const unsigned, const Cb &, S &);
+    bool req_header(std::string &);
+    void req_body(std::string &, const std::string &);
+    void req_body(const Cb &);
+    void req_raw(const Cb &);
   };
 
   struct XHandle
@@ -157,14 +154,14 @@ namespace sockpp
   {
     S sock;
     std::string hostname;
+    unsigned port;
     char httpver[8];
     const std::string_view agent { "HttpRequest" };
   public:
     Client(const float, const std::string &, const unsigned) noexcept;
     bool connect(void);
     bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &);
-    template<typename T>
-    bool performreq(const unsigned, XHandle &);
+    bool performreq(XHandle &);
     void close(void) { sock.deinit(); }
     int sd(void) { return sock.desc(); }
   };
@@ -173,14 +170,11 @@ namespace sockpp
   class Multi
   {
     std::vector<std::reference_wrapper<Client<S>>> C;
-    Time time;
   public:
     Multi(const std::vector<std::reference_wrapper<Client<S>>> &);
     unsigned connect(void);
-    template<typename T>
-    void performreq(const unsigned, const std::vector<std::reference_wrapper<XHandle>> &);
-    template<typename T>
-    void performreq(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
+    void performreq(const std::vector<std::reference_wrapper<XHandle>> &);
+    void performreq(const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
   };
   
   template<typename S>
@@ -188,6 +182,7 @@ namespace sockpp
   {
     S sock;
     std::string hostname;
+    unsigned port;
     struct pollfd listensd { };
     std::list<std::future<void>> F;
   public:

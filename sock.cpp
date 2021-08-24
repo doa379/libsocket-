@@ -68,7 +68,6 @@ bool sockpp::Http::init_connect(const std::string &hostname, const unsigned port
     sa.sin_addr.s_addr = *(long *) host->h_addr;
     return true;
   }
-  
   return false;
 }
 
@@ -252,7 +251,16 @@ void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::st
 }
 
 template<typename S>
-bool sockpp::Recv::req_header(std::string &header, S &sock)
+bool sockpp::Recv<S>::is_chunked(const std::string &header)
+{
+  if (std::regex_search(header, match, transfer_encoding_regex) &&
+    std::regex_match(header.substr(match.prefix().length() + 19, 7), chunked_regex))
+    return true;
+  return false;
+}
+
+template<typename S>
+bool sockpp::Recv<S>::req_header(std::string &header)
 {
   while (!(header.rfind("\r\n\r\n") < std::string::npos) && sock.read(p))
     header += p;
@@ -262,20 +270,8 @@ bool sockpp::Recv::req_header(std::string &header, S &sock)
   return true;
 }
 
-template bool sockpp::Recv::req_header(std::string &, Http &);
-template bool sockpp::Recv::req_header(std::string &, HttpsCli &);
-template bool sockpp::Recv::req_header(std::string &, HttpsSvr &);
-
-bool sockpp::Recv::is_chunked(const std::string &header)
-{
-  if (std::regex_search(header, match, transfer_encoding_regex) &&
-    std::regex_match(header.substr(match.prefix().length() + 19, 7), chunked_regex))
-    return true;
-  return false;
-}
-
 template<typename S>
-void sockpp::Recv::req_body(std::string &body, const std::string &header, S &sock)
+void sockpp::Recv<S>::req_body(std::string &body, const std::string &header)
 {
   std::size_t l { };
   if (std::regex_search(header, match, content_length_regex) &&
@@ -285,20 +281,14 @@ void sockpp::Recv::req_body(std::string &body, const std::string &header, S &soc
       body += p;
 }
 
-template void sockpp::Recv::req_body(std::string &, const std::string &, Http &);
-template void sockpp::Recv::req_body(std::string &, const std::string &, HttpsCli &);
-template void sockpp::Recv::req_body(std::string &, const std::string &, HttpsSvr &);
-
-template<typename T, typename S>
-void sockpp::Recv::req_body(const unsigned timeout, const Cb &cb, S &sock)
+template<typename S>
+void sockpp::Recv<S>::req_body(const Cb &cb)
 {
   std::string body;
   std::size_t l { };
-  auto now { time.now() };
-  while (sock.read(p) && time.diffpt<T>(time.now(), now) < timeout)
+  while (sock.read(p))
   {
     body += p;
-    now = time.now();
     if (body == "\r\n");
     else if (!l && body.rfind("\r\n") < std::string::npos)
     {
@@ -318,32 +308,34 @@ void sockpp::Recv::req_body(const unsigned timeout, const Cb &cb, S &sock)
   }
 }
 
-template<typename T, typename S>
-void sockpp::Recv::req_raw(const unsigned timeout, const Cb &cb, S &sock)
+template<typename S>
+void sockpp::Recv<S>::req_raw(const Cb &cb)
 {
   std::string body;
-  auto now { time.now() };
-  while (sock.read(p) && time.diffpt<T>(time.now(), now) < timeout)
+  while (sock.read(p))
   {
     body += p;
     cb(body);
-    now = time.now();
     body.clear();
   }
 }
 
+template class sockpp::Recv<sockpp::Http>;
+template class sockpp::Recv<sockpp::HttpsCli>;
+
 template<typename S>
 sockpp::Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port) noexcept : 
-  hostname { hostname }
+  hostname { hostname }, port { port }
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
-  sock.init_connect(hostname, port);
 }
 
 template<typename S>
 bool sockpp::Client<S>::connect(void)
 {
-  return sock.connect(hostname);
+  if (sock.init_connect(hostname, port))
+    return sock.connect(hostname);
+  return false;
 }
 
 template<typename S>
@@ -370,22 +362,21 @@ bool sockpp::Client<S>::sendreq(const Req req, const std::vector<std::string> &H
 }
 
 template<typename S>
-template<typename T>
-bool sockpp::Client<S>::performreq(const unsigned timeout, XHandle &h)
+bool sockpp::Client<S>::performreq(XHandle &h)
 {
   if (sendreq(h.req, h.HEAD, h.data, h.endp))
   {
-    Recv recv;
+    Recv<S> recv { sock };
     std::string swap;
-    if (recv.req_header(swap, sock))
+    if (recv.req_header(swap))
     {
       h.header = swap;
       if (recv.is_chunked(h.header))
-        recv.req_body<T>(timeout, h.cb, sock);
+        recv.req_body(h.cb);
       else
       {
         swap.clear();
-        recv.req_body(swap, h.header, sock);
+        recv.req_body(swap, h.header);
         h.body = swap;
       }
       return true;
@@ -396,10 +387,6 @@ bool sockpp::Client<S>::performreq(const unsigned timeout, XHandle &h)
 
 template class sockpp::Client<sockpp::Http>;
 template class sockpp::Client<sockpp::HttpsCli>;
-template bool sockpp::Client<sockpp::Http>::performreq<std::chrono::seconds>(const unsigned, XHandle &);
-template bool sockpp::Client<sockpp::HttpsCli>::performreq<std::chrono::seconds>(const unsigned, XHandle &);
-template bool sockpp::Client<sockpp::Http>::performreq<std::chrono::milliseconds>(const unsigned, XHandle &);
-template bool sockpp::Client<sockpp::HttpsCli>::performreq<std::chrono::milliseconds>(const unsigned, XHandle &);
 
 template<typename S>
 sockpp::Multi<S>::Multi(const std::vector<std::reference_wrapper<sockpp::Client<S>>> &C) : C { C }
@@ -419,8 +406,7 @@ unsigned sockpp::Multi<S>::connect(void)
 }
 
 template<typename S>
-template<typename T>
-void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std::reference_wrapper<XHandle>> &H)
+void sockpp::Multi<S>::performreq(const std::vector<std::reference_wrapper<XHandle>> &H)
 {
   auto N { (unsigned) ceil((float) H.size() / C.size()) };
   std::list<std::future<void>> F;
@@ -430,7 +416,7 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std:
     auto f { std::async(std::launch::async, 
       [&, i](void) {
         for (auto h { H.begin() + i * N }; h <  H.begin() + (i + 1) * N && h < H.end(); h++)
-          c.get().template performreq<T>(timeout, *h);
+          c.get().performreq(*h);
       })
     };
   
@@ -442,8 +428,7 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::vector<std:
 }
 
 template<typename S>
-template<typename T>
-void sockpp::Multi<S>::performreq(const unsigned timeout, const std::size_t async, const std::vector<std::reference_wrapper<XHandle>> &H)
+void sockpp::Multi<S>::performreq(const std::size_t async, const std::vector<std::reference_wrapper<XHandle>> &H)
 {
   const auto nasync { std::min(async, H.size()) };
   std::list<std::future<void>> F;
@@ -453,13 +438,11 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::size_t asyn
     { 
       auto f { std::async(std::launch::async, 
         [&, j](void) { 
-          auto init { time.now() };
           auto i { j - H.begin() };
           Client<S> &c { C[i].get() };
           // Implicitly verify state of client sd
           if (c.sendreq(j->get().req, j->get().HEAD, j->get().data, j->get().endp))
-            while (time.diffpt<T>(time.now(), init) < timeout && 
-                !c.template performreq<T>(timeout, *j))
+            while (!c.performreq(*j))
               std::this_thread::sleep_for(std::chrono::milliseconds(1));
           }
         )
@@ -475,26 +458,19 @@ void sockpp::Multi<S>::performreq(const unsigned timeout, const std::size_t asyn
 
 template class sockpp::Multi<sockpp::Http>;
 template class sockpp::Multi<sockpp::HttpsCli>;
-template void sockpp::Multi<sockpp::Http>::performreq<std::chrono::seconds>(const unsigned, const std::vector<std::reference_wrapper<XHandle>> &);
-template void sockpp::Multi<sockpp::HttpsCli>::performreq<std::chrono::seconds>(const unsigned, const std::vector<std::reference_wrapper<XHandle>> &);
-template void sockpp::Multi<sockpp::Http>::performreq<std::chrono::milliseconds>(const unsigned, const std::vector<std::reference_wrapper<XHandle>> &);
-template void sockpp::Multi<sockpp::HttpsCli>::performreq<std::chrono::milliseconds>(const unsigned, const std::vector<std::reference_wrapper<XHandle>> &);
-template void sockpp::Multi<sockpp::Http>::performreq<std::chrono::seconds>(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
-template void sockpp::Multi<sockpp::HttpsCli>::performreq<std::chrono::seconds>(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
-template void sockpp::Multi<sockpp::Http>::performreq<std::chrono::milliseconds>(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
-template void sockpp::Multi<sockpp::HttpsCli>::performreq<std::chrono::milliseconds>(const unsigned, const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
 
 template<typename S>
 sockpp::Server<S>::Server(const std::string &hostname, const unsigned port) noexcept :
-  hostname { hostname }
+  hostname { hostname }, port { port }
 {
-  sock.init_connect(hostname, port);
+
 }
 
 template<typename S>
 bool sockpp::Server<S>::connect(void)
 {
-  if (sock.bind() &&
+  if (sock.init_connect(hostname, port) &&
+    sock.bind() &&
       sock.listen())
   {
     listensd.fd = sock.get();
