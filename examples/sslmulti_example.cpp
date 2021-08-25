@@ -15,8 +15,7 @@ int main(const int argc, const char *argv[])
   std::cout << std::to_string(conn) << " connections established\n";
   sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
   sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
-  // With a timeout 30 sec
-  M.performreq<std::chrono::milliseconds>(1000, { h0, h1 });
+  M.performreq({ h0, h1 });
   std::cout << "All transfer(s) completed\n";
   std::cout << "(Handle0):\n===================\n";
   std::cout << "The response header:\n===================\n";

@@ -41,6 +41,7 @@ static const char CERTPEM[] { "/tmp/cert.pem" };
 static const char KEYPEM[] { "/tmp/key.pem" };
 static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
 enum Req { GET, POST, PUT, DELETE };
+static const unsigned char LISTEN_QLEN { 16 };
 
 namespace sockpp
 {
@@ -153,7 +154,7 @@ namespace sockpp
   class Client
   {
     S sock;
-    std::string hostname;
+    std::string host;
     unsigned port;
     char httpver[8];
     const std::string_view agent { "HttpRequest" };
@@ -181,7 +182,7 @@ namespace sockpp
   class Server
   {
     S sock;
-    std::string hostname;
+    std::string host;
     unsigned port;
     struct pollfd listensd { };
     std::list<std::future<void>> F;

@@ -31,9 +31,9 @@ int main(int argc, char *argv[])
       sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
       // Data sent as POST request
       // Header validates request is OK
-      // Chunked transfer will call cb()
+      // Chunked transfer calls cb()
       sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
-      if (!client.performreq<std::chrono::milliseconds>(1750, h))
+      if (!client.performreq(h))
         throw "Unable to sendreq()";
 
       std::cout << "Stream disconnected\n";

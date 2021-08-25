@@ -9,20 +9,22 @@ SRC_TEST1 = server_example.cpp
 OBJ_TEST1 = ${SRC_TEST1:.cpp=.o}
 SRC_TEST2 = streaming_example.cpp
 OBJ_TEST2 = ${SRC_TEST2:.cpp=.o}
-SRC_TEST3 = multi_example.cpp
+SRC_TEST3 = requests_example.cpp
 OBJ_TEST3 = ${SRC_TEST3:.cpp=.o}
-SRC_TEST4 = multiasync_example.cpp
+SRC_TEST4 = multi_example.cpp
 OBJ_TEST4 = ${SRC_TEST4:.cpp=.o}
-SRC_TEST5 = sslclient_example.cpp
+SRC_TEST5 = multiasync_example.cpp
 OBJ_TEST5 = ${SRC_TEST5:.cpp=.o}
-SRC_TEST6 = sslserver_example.cpp
+SRC_TEST6 = sslclient_example.cpp
 OBJ_TEST6 = ${SRC_TEST6:.cpp=.o}
-SRC_TEST7 = sslstreaming_example.cpp
+SRC_TEST7 = sslserver_example.cpp
 OBJ_TEST7 = ${SRC_TEST7:.cpp=.o}
-SRC_TEST8 = sslmulti_example.cpp
+SRC_TEST8 = sslstreaming_example.cpp
 OBJ_TEST8 = ${SRC_TEST8:.cpp=.o}
-SRC_TEST9 = sslmultiasync_example.cpp
+SRC_TEST9 = sslmulti_example.cpp
 OBJ_TEST9 = ${SRC_TEST9:.cpp=.o}
+SRC_TESTA = sslmultiasync_example.cpp
+OBJ_TESTA = ${SRC_TESTA:.cpp=.o}
 
 CC = c++
 RELEASE_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
@@ -33,6 +35,7 @@ LDFLAGS += ${LIBSPATH} ${LIBS}
 all: client_example \
   server_example \
   streaming_example \
+  requests_example \
   multi_example \
   multiasync_example \
   sslclient_example \
@@ -57,33 +60,37 @@ streaming_example: ${OBJ_TEST2}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST2} ${LDFLAGS}
 
-multi_example: ${OBJ_TEST3}
+requests_example: ${OBJ_TEST3}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST3} ${LDFLAGS}
 
-multiasync_example: ${OBJ_TEST4}
+multi_example: ${OBJ_TEST4}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS}
 
-sslclient_example: ${OBJ_TEST5}
+multiasync_example: ${OBJ_TEST5}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS}
 
-sslserver_example: ${OBJ_TEST6}
+sslclient_example: ${OBJ_TEST6}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS}
 
-sslstreaming_example: ${OBJ_TEST7}
+sslserver_example: ${OBJ_TEST7}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST7} ${LDFLAGS}
 
-sslmulti_example: ${OBJ_TEST8}
+sslstreaming_example: ${OBJ_TEST8}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST8} ${LDFLAGS}
 
-sslmultiasync_example: ${OBJ_TEST9}
+sslmulti_example: ${OBJ_TEST9}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST9} ${LDFLAGS}
+
+sslmultiasync_example: ${OBJ_TESTA}
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TESTA} ${LDFLAGS}
 
 clean:
 	@echo Cleaning
@@ -96,5 +103,6 @@ clean:
     ${OBJ_TEST6} \
     ${OBJ_TEST7} \
     ${OBJ_TEST8} \
-    ${OBJ_TEST9}
+    ${OBJ_TEST9} \
+    ${OBJ_TESTA}
 	@rm -f *example

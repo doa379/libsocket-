@@ -33,10 +33,10 @@ int main(int argc, char *argv[])
 
     auto client_msg { 
       [&](sockpp::HttpsSvr &sock) {
-        sockpp::Recv recv;
+        sockpp::Recv<sockpp::HttpsSvr> recv { sock };
         std::string cli_head, cli_body;
-        recv.req_header(cli_head, sock);
-        recv.req_body(cli_body, cli_head, sock);
+        recv.req_header(cli_head);
+        recv.req_body(cli_body, cli_head);
         std::cout << "-Receive from client-\n";
         std::cout << cli_head << "\n";
         std::cout << cli_body << "\n";

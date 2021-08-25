@@ -19,8 +19,7 @@ int main(int argc, char *argv[])
     sockpp::XHandle h2 { sockpp::Cb { }, GET, { }, { }, "/" };
     sockpp::XHandle h3 { sockpp::Cb { }, GET, { }, { }, "/" };
     std::vector<std::reference_wrapper<sockpp::XHandle>> H { { h0, h1, h2, h3 } };
-    // With a timeout 30 sec
-    M.performreq<std::chrono::milliseconds>(1000, H);
+    M.performreq(H);
     std::cout << "All transfer(s) completed\n";
     for (auto i { 0U }; i < H.size(); i++)
     {

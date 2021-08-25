@@ -29,8 +29,8 @@ int main(int argc, char *argv[])
     {
       // No init on handle implies defaults: ident_cb GET { } { } "/"
       sockpp::XHandle h;
-      // Perform request on handle, timeout 250ms
-      if (!client.performreq<std::chrono::milliseconds>(250, h))
+      // Perform request on handle
+      if (!client.performreq(h))
         throw "Unable to sendreq()";
       std::cout << "The response header:\n===================\n";
       std::cout << h.header << std::endl;

@@ -58,14 +58,19 @@ void sockpp::Http::deinit(void)
   close(sd);
 }
 
-bool sockpp::Http::init_connect(const std::string &hostname, const unsigned port)
+bool sockpp::Http::init_connect(const std::string &host, const unsigned port)
 {
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
-  struct hostent *host { gethostbyname(hostname.c_str()) };
-  if (host)
+  struct hostent *h { gethostbyname(host.c_str()) };
+  if (h)
   {
-    sa.sin_addr.s_addr = *(long *) host->h_addr;
+    sa.sin_addr.s_addr = *(long *) h->h_addr;
+    return true;
+  }
+  else
+  {
+    sa.sin_addr.s_addr = htonl(INADDR_ANY);
     return true;
   }
   return false;
@@ -97,9 +102,7 @@ bool sockpp::Http::write(const std::string &data)
 
 int sockpp::Http::accept(void)
 {
-  struct sockaddr_in addr;
-  uint len { sizeof addr };
-  return ::accept(sd, (struct sockaddr *) &addr, &len);
+  return ::accept(sd, nullptr, nullptr);
   // Return a sd
 }
   
@@ -112,7 +115,7 @@ bool sockpp::Http::bind(void)
 
 bool sockpp::Http::listen(void)
 {
-  if (::listen(sd, 1) > -1)
+  if (::listen(sd, LISTEN_QLEN) > -1)
     return true;
   return false;
 }
@@ -159,9 +162,9 @@ bool sockpp::Https::configure_context(const std::string &certpem, const std::str
   return true;
 }
 
-bool sockpp::Https::set_hostname(const std::string &hostname)
+bool sockpp::Https::set_hostname(const std::string &host)
 {
-  if (SSL_set_tlsext_host_name(ssl, hostname.c_str()) > 0)
+  if (SSL_set_tlsext_host_name(ssl, host.c_str()) > 0)
     return true;
   return false;
 }
@@ -173,11 +176,11 @@ bool sockpp::Https::set_fd(void)
   return false;
 }
 
-bool sockpp::Https::connect(const std::string &hostname)
+bool sockpp::Https::connect(const std::string &host)
 {
   if (Http::connect())
   {
-    set_hostname(hostname);
+    set_hostname(host);
     set_fd();
     if (SSL_connect(ssl) > 0)
       return true;
@@ -322,10 +325,11 @@ void sockpp::Recv<S>::req_raw(const Cb &cb)
 
 template class sockpp::Recv<sockpp::Http>;
 template class sockpp::Recv<sockpp::HttpsCli>;
+template class sockpp::Recv<sockpp::HttpsSvr>;
 
 template<typename S>
-sockpp::Client<S>::Client(const float httpver, const std::string &hostname, const unsigned port) noexcept : 
-  hostname { hostname }, port { port }
+sockpp::Client<S>::Client(const float httpver, const std::string &host, const unsigned port) noexcept : 
+  host { host }, port { port }
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
 }
@@ -333,8 +337,8 @@ sockpp::Client<S>::Client(const float httpver, const std::string &hostname, cons
 template<typename S>
 bool sockpp::Client<S>::connect(void)
 {
-  if (sock.init_connect(hostname, port))
-    return sock.connect(hostname);
+  if (sock.init_connect(host, port))
+    return sock.connect(host);
   return false;
 }
 
@@ -347,7 +351,7 @@ bool sockpp::Client<S>::sendreq(const Req req, const std::vector<std::string> &H
 
   std::string request { 
     REQ[req] + " " + endp + " " + "HTTP/" + std::string(httpver) + "\r\n" +
-    "Host: " + hostname + "\r\n" +
+    "Host: " + host + "\r\n" +
     "User-Agent: " + std::string(agent) + "\r\n" +
     "Accept: */*" + "\r\n" };
 
@@ -460,8 +464,8 @@ template class sockpp::Multi<sockpp::Http>;
 template class sockpp::Multi<sockpp::HttpsCli>;
 
 template<typename S>
-sockpp::Server<S>::Server(const std::string &hostname, const unsigned port) noexcept :
-  hostname { hostname }, port { port }
+sockpp::Server<S>::Server(const std::string &host, const unsigned port) noexcept :
+  host { host }, port { port }
 {
 
 }
@@ -469,9 +473,9 @@ sockpp::Server<S>::Server(const std::string &hostname, const unsigned port) noex
 template<typename S>
 bool sockpp::Server<S>::connect(void)
 {
-  if (sock.init_connect(hostname, port) &&
-    sock.bind() &&
-      sock.listen())
+  if (sock.init_connect(host, port) &&
+        sock.bind() &&
+          sock.listen())
   {
     listensd.fd = sock.get();
     listensd.events = POLLIN;
@@ -495,8 +499,8 @@ void sockpp::Server<sockpp::Http>::recv_client(const std::function<void(Http &)>
 {
   auto f { std::async(std::launch::async, 
     [&](void) {
-      Http http { sock.accept() };
-      cb(http);
+      Http sock { this->sock.accept() };
+      cb(sock);
     }) 
   };
   F.emplace_back(std::move(f));
@@ -509,14 +513,14 @@ void sockpp::Server<sockpp::HttpsSvr>::recv_client(const std::function<void(Http
     [&, certpem, keypem](void) { 
       HttpsCli client;
       if (!client.configure_context(certpem, keypem) ||
-        !client.set_hostname(hostname))
+        !client.set_hostname(host))
         return;
       auto sd { sock.Http::accept() };
-      HttpsSvr https { sd };
-      https.set_fd();
-      https.ssl_ctx(client.ssl_ctx());
-      if (https.accept())
-        cb(https);
+      HttpsSvr sock { sd };
+      sock.set_fd();
+      sock.ssl_ctx(client.ssl_ctx());
+      if (sock.accept())
+        cb(sock);
     })
   };
   F.emplace_back(std::move(f));

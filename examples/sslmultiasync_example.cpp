@@ -15,8 +15,8 @@ int main(const int argc, const char *argv[])
   sockpp::Multi<sockpp::HttpsCli> M { { client0, client1 } };
   auto conn { M.connect() };
   std::cout << std::to_string(conn) << " connections established\n";
-  // Timeout 100ms (cap waits), 2 async xfrs
-  M.performreq<std::chrono::milliseconds>(100, 2, { h0, h1 });
+  // Perform using 2 async xfrs
+  M.performreq(2, { h0, h1 });
   std::cout << "All async transfer(s) completed\n";
   std::cout << "(Client0):\n===================\n";
   std::cout << "The response header:\n===================\n";

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <libsockpp/sock.h>
 
-static const std::string host0 { "localhost" };
+static const std::string host0 { "127.0.0.1" };
 static const unsigned port0 { 8080 };
 
 int main(int argc, char *argv[])
@@ -22,19 +22,14 @@ int main(int argc, char *argv[])
   }
 
   try {
-    sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+    sockpp::Cb cb { [](const std::string &buffer) { std::cout << "Received " << buffer; } };
     sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
     sockpp::Client<sockpp::Http> client(1.1, hostname, port_no);
-    // Make a persistant connection here
-    //if (!client.connect())
-      //throw "Unable to connect()";
+    // Persistant local connexion
+    if (!client.connect())
+      throw "Unable to connect()";
     while (1)
     {
-      if (!client.connect())
-        throw "Unable to connect()";
-      // Data sent as POST request
-      // Header validates request is OK
-      // Chunked xfr will operate on cb() in handle
       if (!client.performreq(h))
         throw "Unable to sendreq()";
       std::cout << "Stream disconnected\n";

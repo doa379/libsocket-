@@ -47,16 +47,15 @@ int main(const int argc, const char *argv[])
             std::string("Transfer-Encoding: chunked\r\n") + "\r\n" };
         if (!sock.write(header))
           return;
-        std::string document;
         sockpp::Time time;
         auto now { time.now() };
         while (time.diffpt<std::chrono::milliseconds>(time.now(), now) < 1500)
         {
           auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
-          std::cout << s << std::endl;
-          document = sockpp::to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
+          std::string document { sockpp::to_base16(s.size() + 2) + "\r\n" + s + "\r\n" };
           if (!sock.write(document))
             break;
+          std::cout << "Sent to client " << s << std::endl;
           now = time.now();
           std::this_thread::sleep_for(std::chrono::milliseconds(sockpp::rand(500, 2000)));
         }
@@ -69,7 +68,10 @@ int main(const int argc, const char *argv[])
     while (1)
     {
       if (server.poll_listen(100))
+      {
+        std::cout << "Receive new client\n";
         server.recv_client(cb);
+      }
       server.refresh_clients();
     }
   }
