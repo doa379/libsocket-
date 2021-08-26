@@ -25,6 +25,8 @@ SRC_TEST9 = sslmulti_example.cpp
 OBJ_TEST9 = ${SRC_TEST9:.cpp=.o}
 SRC_TESTA = sslmultiasync_example.cpp
 OBJ_TESTA = ${SRC_TESTA:.cpp=.o}
+SRC_TESTB = reuseclient_example.cpp
+OBJ_TESTB = ${SRC_TESTB:.cpp=.o}
 
 CC = c++
 RELEASE_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
@@ -42,7 +44,8 @@ all: client_example \
   sslserver_example \
   sslstreaming_example \
   sslmulti_example \
-  sslmultiasync_example
+  sslmultiasync_example \
+  reuseclient_example
 
 .cpp.o:
 	@echo CC $<
@@ -92,6 +95,10 @@ sslmultiasync_example: ${OBJ_TESTA}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TESTA} ${LDFLAGS}
 
+reuseclient_example: ${OBJ_TESTB}
+	@echo CC -o $@
+	@${CC} -o $@ ${OBJ_TESTB} ${LDFLAGS}
+
 clean:
 	@echo Cleaning
 	@rm -f ${OBJ_TEST0} \
@@ -104,5 +111,6 @@ clean:
     ${OBJ_TEST7} \
     ${OBJ_TEST8} \
     ${OBJ_TEST9} \
-    ${OBJ_TESTA}
+    ${OBJ_TESTA} \
+    ${OBJ_TESTB}
 	@rm -f *example

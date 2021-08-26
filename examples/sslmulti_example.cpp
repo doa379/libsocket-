@@ -8,9 +8,9 @@ static const unsigned port1 { 443 };
 
 int main(const int argc, const char *argv[])
 {
-  sockpp::Client<sockpp::HttpsCli> client0 { 1.1, host0, port0 },
+  sockpp::Client<sockpp::Https> client0 { 1.1, host0, port0 },
     client1 { 1.1, host0, port0 };
-  sockpp::Multi<sockpp::HttpsCli> M { { client0, client1 } };
+  sockpp::Multi<sockpp::Https> M { { client0, client1 } };
   auto conn { M.connect() };
   std::cout << std::to_string(conn) << " connections established\n";
   sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };

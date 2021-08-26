@@ -51,15 +51,16 @@ namespace sockpp
   class Http
   {
   protected:
-    int sd;
-    struct sockaddr_in sa;
+    int sd { -1 };
+    struct sockaddr_in sa { };
   public:
-    Http(const int = { });
-    ~Http(void);
+    Http(void) = default;
+    Http(const int sd) : sd { sd } { };
+    ~Http(void) { deinit_sd(); }
     const int get(void) { return sd; }
-    bool init(const int);
-    void deinit(void);
-    bool init_connect(const std::string &, const unsigned);
+    bool init_sd(void);
+    void deinit_sd(void);
+    void set_sa(const std::string &, const unsigned);
     virtual bool connect(const std::string & = { });
     virtual bool read(char &);
     virtual bool write(const std::string &);
@@ -81,7 +82,8 @@ namespace sockpp
     SSL_CTX *ctx { nullptr };
     SSL *ssl { nullptr };
   public:
-    Https(const int, const SSL_METHOD *) noexcept;
+    Https(const SSL_METHOD * = TLS_client_method()) noexcept;
+    Https(const int, const SSL_METHOD * = TLS_server_method()) noexcept;
     ~Https(void);
     bool configure_context(const std::string &, const std::string &);
     bool set_hostname(const std::string &);
@@ -98,29 +100,17 @@ namespace sockpp
     int error(int);
     void certinfo(std::string &, std::string &, std::string &);
   };
-
-  class HttpsCli : public Https
-  { 
-  public:
-    HttpsCli(const int sd = { }) : Https { sd, TLS_client_method() } { }
-  };
   
-  class HttpsSvr : public Https
-  {
-  public:
-    HttpsSvr(const int sd = { }) : Https { sd, TLS_server_method() } { }
-  };
-
   template<typename S>
   class Recv
   {
     S &sock;
-    char p;
-    std::smatch match;
     const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
       content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
       transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
       chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
+    char p;
+    std::smatch match;
   public:
     Recv(S &sock) : sock { sock } { }
     bool is_chunked(const std::string &);
@@ -135,9 +125,9 @@ namespace sockpp
     const Cb cb { ident_cb };
     const Req req { GET };
     const std::vector<std::string> HEAD;
-    const std::string data, endp;
+    const std::string data, endp { "/" };
     std::string header, body;
-    XHandle(void) : cb { ident_cb }, req { GET }, endp { "/" } { }
+    XHandle(void) = default;
     XHandle(const Req req, decltype(HEAD) &HEAD, decltype(data) &data, decltype(endp) &endp = "/") : 
       req { req }, HEAD { HEAD }, data { data }, endp { endp } { }
     XHandle(const Cb &cb, const Req req, decltype(HEAD) &HEAD, decltype(data) &data, decltype(endp) &endp = "/") : 
@@ -163,7 +153,7 @@ namespace sockpp
     bool connect(void);
     bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &);
     bool performreq(XHandle &);
-    void close(void) { sock.deinit(); }
+    void close(void) { sock.deinit_sd(); }
     int sd(void) { return sock.desc(); }
   };
 

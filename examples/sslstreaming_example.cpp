@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
   }
 
   try {
-    sockpp::Client<sockpp::HttpsCli> client(1.1, hostname, port_no);
+    sockpp::Client<sockpp::Https> client(1.1, hostname, port_no);
     if (client.connect())
     {
       sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
