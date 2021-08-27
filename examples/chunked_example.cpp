@@ -40,23 +40,33 @@ int main(const int argc, const char *argv[])
           std::cout << cli_head << "\n";
           std::cout << cli_body << "\n";
           std::cout << "-End receive from client-\n";
-          auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
-          const std::string document { s + "\r\n" };
           const std::string header { 
-            std::string("HTTP/1.1 OK\r\n") +
-              "Content-Length: " + std::to_string(document.size()) + "\r\n\r\n"
-          };
-
-          if (!sock.write(header + document))
+            std::string("HTTP/1.1 OK\r\n") + 
+              std::string("Transfer-Encoding: chunked\r\n") + "\r\n" };
+          if (!sock.write(header))
             return;
-          std::cout << "Sent to client " << s << std::endl;
-          std::cout << "Server response end\n";
+          sockpp::Time time;
+          auto now { time.now() };
+          while (time.diffpt<std::chrono::milliseconds>(time.now(), now) < 1500)
+          {
+            auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
+            std::string document { sockpp::to_base16(s.size() + 2) + "\r\n" + s + "\r\n" };
+            if (!sock.write(document))
+              break;
+            std::cout << "Sent to client " << s << std::endl;
+            now = time.now();
+            std::this_thread::sleep_for(std::chrono::milliseconds(sockpp::rand(500, 2000)));
+          }
+
+          std::cout << "Server timeout\n";
+          sock.write("0\r\n");
+          // Recall from chunked transfer
         }
-    }
+    } 
   };
   
   try {
-    sockpp::Server<sockpp::Http> server { hostname, port_no };
+    sockpp::Server<sockpp::Http> server(hostname, port_no);
     std::cout << "Running server...\n";
     while (1)
     {

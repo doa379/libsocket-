@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 **********************************************************************************/
 
-#include <cstring>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -44,7 +43,7 @@ void sockpp::Http::deinit_sd(void)
   close(sd);
 }
 
-void sockpp::Http::set_sa(const std::string &host, const unsigned port)
+void sockpp::Http::init_sa(const std::string &host, const unsigned port)
 {
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
@@ -53,6 +52,12 @@ void sockpp::Http::set_sa(const std::string &host, const unsigned port)
     sa.sin_addr.s_addr = *(long *) h->h_addr;
   else
     sa.sin_addr.s_addr = htonl(INADDR_ANY);
+}
+
+void sockpp::Http::init_psd(void)
+{
+  psd.fd = sd;
+  psd.events = POLLIN;
 }
 
 bool sockpp::Http::connect(const std::string &)
@@ -76,6 +81,14 @@ bool sockpp::Http::write(const std::string &data)
     fsync(sd);
     return true;
   }
+  return false;
+}
+
+bool sockpp::Http::poll(const int timeout_ms)
+{
+  ::poll(&psd, 1, timeout_ms);
+  if (psd.revents & POLLIN)
+    return true;
   return false;
 }
 
@@ -318,7 +331,7 @@ sockpp::Client<S>::Client(const float httpver, const std::string &host, const un
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
   if (sock.init_sd())
   {
-    sock.set_sa(host, port);
+    sock.init_sa(host, port);
     if (!sock.connect(host))
       throw "Failed to connect";
   }
@@ -443,28 +456,14 @@ sockpp::Server<S>::Server(const std::string &host, const unsigned port) :
 {
   if (sock.init_sd())
   {
-    sock.set_sa(host, port);
-    if (sock.bind() && sock.listen())
-    {
-      listensd.fd = sock.get();
-      listensd.events = POLLIN;
-    }
-
-    else
+    sock.init_sa(host, port);
+    sock.init_psd();
+    if (!sock.bind() || !sock.listen())
       throw "Failed to bind";
   }
 
   else
     throw "Failed to init sd";
-}
-
-template<typename S>
-bool sockpp::Server<S>::poll_listen(unsigned timeout_ms)
-{
-  poll(&listensd, 1, timeout_ms);
-  if (listensd.revents & POLLIN)
-    return true;
-  return false;
 }
 
 template<>
@@ -473,6 +472,7 @@ void sockpp::Server<sockpp::Http>::recv_client(const std::function<void(Http &)>
   auto f { std::async(std::launch::async, 
     [&](void) {
       Http sock { this->sock.accept() };
+      sock.init_psd();
       cb(sock);
     }) 
   };
@@ -490,11 +490,12 @@ void sockpp::Server<sockpp::Https>::recv_client(const std::function<void(Https &
         !client.set_hostname(host))
         return;
       auto sd { sock.Http::accept() };
-      Https srv { sd };
-      srv.set_fd();
-      srv.ssl_ctx(client.ssl_ctx());
-      if (srv.accept())
-        cb(srv);
+      Https sock { sd };
+      sock.init_psd();
+      sock.set_fd();
+      sock.ssl_ctx(client.ssl_ctx());
+      if (sock.accept())
+        cb(sock);
     })
   };
 

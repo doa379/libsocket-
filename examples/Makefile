@@ -5,7 +5,7 @@ LIBS = -l sockpp
 
 SRC_TEST0 = client_example.cpp
 OBJ_TEST0 = ${SRC_TEST0:.cpp=.o}
-SRC_TEST1 = server_example.cpp
+SRC_TEST1 = chunked_example.cpp
 OBJ_TEST1 = ${SRC_TEST1:.cpp=.o}
 SRC_TEST2 = streaming_example.cpp
 OBJ_TEST2 = ${SRC_TEST2:.cpp=.o}
@@ -35,7 +35,7 @@ CFLAGS = ${RELEASE_CFLAGS}
 LDFLAGS += ${LIBSPATH} ${LIBS}
 
 all: client_example \
-  server_example \
+  chunked_example \
   streaming_example \
   requests_example \
   multi_example \
@@ -55,7 +55,7 @@ client_example: ${OBJ_TEST0}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST0} ${LDFLAGS}
 
-server_example: ${OBJ_TEST1}
+chunked_example: ${OBJ_TEST1}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST1} ${LDFLAGS}
 

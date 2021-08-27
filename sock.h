@@ -53,21 +53,22 @@ namespace sockpp
   protected:
     int sd { -1 };
     struct sockaddr_in sa { };
+    struct pollfd psd { };
   public:
     Http(void) = default;
     Http(const int sd) : sd { sd } { };
     ~Http(void) { deinit_sd(); }
-    const int get(void) { return sd; }
     bool init_sd(void);
     void deinit_sd(void);
-    void set_sa(const std::string &, const unsigned);
+    void init_sa(const std::string &, const unsigned);
+    void init_psd(void);
     virtual bool connect(const std::string & = { });
     virtual bool read(char &);
     virtual bool write(const std::string &);
+    bool poll(const int);
     int accept(void);
     bool bind(void);
     bool listen(void);
-    int desc(void) { return sd; }
   };
 
   class InitHttps
@@ -109,8 +110,8 @@ namespace sockpp
       content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
       transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
       chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
-    char p;
-    std::smatch match;
+    char p { };
+    std::smatch match { };
   public:
     Recv(S &sock) : sock { sock } { }
     bool is_chunked(const std::string &);
@@ -171,11 +172,10 @@ namespace sockpp
   {
     S sock;
     std::string host;
-    struct pollfd listensd { };
     std::list<std::future<void>> F;
   public:
     Server(const std::string &, const unsigned);
-    bool poll_listen(unsigned);
+    bool poll_listen(const int timeout_ms) { return sock.poll(timeout_ms); }
     void recv_client(const std::function<void(S &)> &, const std::string & = CERTPEM, const std::string & = KEYPEM);
     void refresh_clients(void);
   };
