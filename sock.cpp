@@ -39,8 +39,6 @@ bool sockpp::Http::init_sd(void)
 
 void sockpp::Http::deinit_sd(void)
 {
-  if (sd < 0)
-    return;
   struct linger lo { 1, 0 };
   setsockopt(sd, SOL_SOCKET, SO_LINGER, &lo, sizeof lo);
   close(sd);
@@ -48,7 +46,6 @@ void sockpp::Http::deinit_sd(void)
 
 void sockpp::Http::set_sa(const std::string &host, const unsigned port)
 {
-  memset(&sa, 0, sizeof sa);
   sa.sin_family = AF_INET;
   sa.sin_port = htons(port);
   struct hostent *h { gethostbyname(host.c_str()) };
@@ -166,8 +163,7 @@ bool sockpp::Https::set_fd(void)
 
 bool sockpp::Https::connect(const std::string &host)
 {
-  deinit_sd();
-  if (Http::init_sd() && Http::connect())
+  if (Http::connect())
   {
     set_hostname(host);
     set_fd();
@@ -316,19 +312,19 @@ template class sockpp::Recv<sockpp::Http>;
 template class sockpp::Recv<sockpp::Https>;
 
 template<typename S>
-sockpp::Client<S>::Client(const float httpver, const std::string &host, const unsigned port) noexcept : 
-  host { host }, port { port }
+sockpp::Client<S>::Client(const float httpver, const std::string &host, const unsigned port) : 
+  host { host }
 {
   snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
-}
-
-template<typename S>
-bool sockpp::Client<S>::connect(void)
-{
-  sock.deinit_sd();
   if (sock.init_sd())
+  {
     sock.set_sa(host, port);
-  return sock.connect(host);
+    if (!sock.connect(host))
+      throw "Failed to connect";
+  }
+
+  else
+    throw "Failed to init sd";
 }
 
 template<typename S>
@@ -388,17 +384,6 @@ sockpp::Multi<S>::Multi(const std::vector<std::reference_wrapper<sockpp::Client<
 }
 
 template<typename S>
-unsigned sockpp::Multi<S>::connect(void)
-{
-  unsigned n { };
-  for (auto &c : C)
-    if (c.get().connect())
-      n++;
-
-  return n;
-}
-
-template<typename S>
 void sockpp::Multi<S>::performreq(const std::vector<std::reference_wrapper<XHandle>> &H)
 {
   auto N { (unsigned) ceil((float) H.size() / C.size()) };
@@ -453,16 +438,9 @@ template class sockpp::Multi<sockpp::Http>;
 template class sockpp::Multi<sockpp::Https>;
 
 template<typename S>
-sockpp::Server<S>::Server(const std::string &host, const unsigned port) noexcept :
-  host { host }, port { port }
+sockpp::Server<S>::Server(const std::string &host, const unsigned port) :
+  host { host }
 {
-
-}
-
-template<typename S>
-bool sockpp::Server<S>::connect(void)
-{
-  sock.deinit_sd();
   if (sock.init_sd())
   {
     sock.set_sa(host, port);
@@ -470,11 +448,14 @@ bool sockpp::Server<S>::connect(void)
     {
       listensd.fd = sock.get();
       listensd.events = POLLIN;
-      return true;
     }
+
+    else
+      throw "Failed to bind";
   }
 
-  return false;
+  else
+    throw "Failed to init sd";
 }
 
 template<typename S>
@@ -495,6 +476,7 @@ void sockpp::Server<sockpp::Http>::recv_client(const std::function<void(Http &)>
       cb(sock);
     }) 
   };
+
   F.emplace_back(std::move(f));
 }
 
@@ -515,6 +497,7 @@ void sockpp::Server<sockpp::Https>::recv_client(const std::function<void(Https &
         cb(srv);
     })
   };
+
   F.emplace_back(std::move(f));
 }
 

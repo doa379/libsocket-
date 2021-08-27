@@ -128,6 +128,8 @@ namespace sockpp
     const std::string data, endp { "/" };
     std::string header, body;
     XHandle(void) = default;
+    XHandle(decltype(endp) &endp) : 
+      endp { endp } { }
     XHandle(const Req req, decltype(HEAD) &HEAD, decltype(data) &data, decltype(endp) &endp = "/") : 
       req { req }, HEAD { HEAD }, data { data }, endp { endp } { }
     XHandle(const Cb &cb, const Req req, decltype(HEAD) &HEAD, decltype(data) &data, decltype(endp) &endp = "/") : 
@@ -145,16 +147,13 @@ namespace sockpp
   {
     S sock;
     std::string host;
-    unsigned port;
     char httpver[8];
     const std::string_view agent { "HttpRequest" };
   public:
-    Client(const float, const std::string &, const unsigned) noexcept;
-    bool connect(void);
+    Client(const float, const std::string &, const unsigned);
     bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &);
     bool performreq(XHandle &);
     void close(void) { sock.deinit_sd(); }
-    int sd(void) { return sock.desc(); }
   };
 
   template<typename S>
@@ -163,7 +162,6 @@ namespace sockpp
     std::vector<std::reference_wrapper<Client<S>>> C;
   public:
     Multi(const std::vector<std::reference_wrapper<Client<S>>> &);
-    unsigned connect(void);
     void performreq(const std::vector<std::reference_wrapper<XHandle>> &);
     void performreq(const std::size_t, const std::vector<std::reference_wrapper<XHandle>> &);
   };
@@ -173,12 +171,10 @@ namespace sockpp
   {
     S sock;
     std::string host;
-    unsigned port;
     struct pollfd listensd { };
     std::list<std::future<void>> F;
   public:
-    Server(const std::string &, const unsigned) noexcept;
-    bool connect(void);
+    Server(const std::string &, const unsigned);
     bool poll_listen(unsigned);
     void recv_client(const std::function<void(S &)> &, const std::string & = CERTPEM, const std::string & = KEYPEM);
     void refresh_clients(void);

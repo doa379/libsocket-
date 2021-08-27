@@ -1,10 +1,8 @@
 #include <iostream>
 #include <libsockpp/sock.h>
 
-static const std::string host0 { "www.openssl.org" };
-static const unsigned port0 { 443 };
-static const std::string host1 { "..." };
-static const unsigned port1 { 443 };
+static const std::string host { "www.openssl.org" };
+static const unsigned port { 443 };
 
 int main(int argc, char *argv[])
 {
@@ -13,8 +11,8 @@ int main(int argc, char *argv[])
   if (argc != 3)
   {
     std::cerr << "Usage: ./sslclient_example <hostname> <port>\n";
-    hostname = host0;
-    port_no = port0;
+    hostname = host;
+    port_no = port;
   }
 
   else
@@ -23,23 +21,16 @@ int main(int argc, char *argv[])
     port_no = std::atoi(argv[2]);
   }
 
+  sockpp::XHandle h;
   try {
     sockpp::Client<sockpp::Https> client(1.1, hostname, port_no);
-    if (client.connect())
-    {
-      // No init on handle implies defaults: ident_cb GET { } { } "/"
-      sockpp::XHandle h;
-      // Perform request on handle
-      if (!client.performreq(h))
-        throw "Unable to sendreq()";
-      std::cout << "The response header:\n===================\n";
-      std::cout << h.header << std::endl;
-      std::cout << "The response body:\n===================\n";
-      std::cout << h.body << std::endl;
-    }
-
-    else
-      throw "Client connection failed";
+    // Perform request on handle
+    if (!client.performreq(h))
+      throw "Unable to sendreq()";
+    std::cout << "The response header:\n===================\n";
+    std::cout << h.header << std::endl;
+    std::cout << "The response body:\n===================\n";
+    std::cout << h.body << std::endl;
   }
 
   catch (const char e[]) {

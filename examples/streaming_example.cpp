@@ -1,8 +1,8 @@
 #include <iostream>
 #include <libsockpp/sock.h>
 
-static const std::string host0 { "127.0.0.1" };
-static const unsigned port0 { 8080 };
+static const std::string host { "127.0.0.1" };
+static const unsigned port { 8080 };
 
 int main(int argc, char *argv[])
 {
@@ -11,8 +11,8 @@ int main(int argc, char *argv[])
   if (argc != 3)
   {
     std::cerr << "Usage: ./streaming_example <hostname> <port>\n";
-    hostname = host0;
-    port_no = port0;
+    hostname = host;
+    port_no = port;
   }
 
   else
@@ -21,13 +21,10 @@ int main(int argc, char *argv[])
     port_no = std::atoi(argv[2]);
   }
 
+  sockpp::Cb cb { [](const std::string &buffer) { std::cout << "Received " << buffer; } };
+  sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
   try {
-    sockpp::Cb cb { [](const std::string &buffer) { std::cout << "Received " << buffer; } };
-    sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
     sockpp::Client<sockpp::Http> client(1.1, hostname, port_no);
-    // Persistant local connexion
-    if (!client.connect())
-      throw "Unable to connect()";
     while (1)
     {
       if (!client.performreq(h))

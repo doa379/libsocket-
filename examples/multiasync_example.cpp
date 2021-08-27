@@ -8,14 +8,12 @@ static const unsigned port1 { 80 };
 
 int main(int argc, char *argv[])
 {
+  sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
+  sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
   try {
     sockpp::Client<sockpp::Http> conn0 { 1.1, host0, port0 };
-    sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
     sockpp::Client<sockpp::Http> conn1 { 1.1, host1, port1 };
-    sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
     sockpp::Multi<sockpp::Http> M { { conn0, conn1 } };
-    auto conn { M.connect() };
-    std::cout << std::to_string(conn) << " connections established\n";
     // Perform using 2 async xfrs
     M.performreq(2, { h0, h1 });
     std::cout << "All async transfer(s) completed\n";

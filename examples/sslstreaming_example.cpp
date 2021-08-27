@@ -23,26 +23,21 @@ int main(int argc, char *argv[])
     hostname = std::string(argv[1]);
     port_no = std::atoi(argv[2]);
   }
+  
+  sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+  // Data sent as POST request
+  // Header validates request is OK
+  // Chunked transfer calls cb()
+  sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
 
   try {
     sockpp::Client<sockpp::Https> client(1.1, hostname, port_no);
-    if (client.connect())
-    {
-      sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
-      // Data sent as POST request
-      // Header validates request is OK
-      // Chunked transfer calls cb()
-      sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
-      if (!client.performreq(h))
-        throw "Unable to sendreq()";
+    if (!client.performreq(h))
+      throw "Unable to sendreq()";
 
-      std::cout << "Stream disconnected\n";
-      std::cout << "The response header:\n===================\n";
-      std::cout << h.header << std::endl;
-    }
-
-    else
-      throw "Unable to connect";
+    std::cout << "Stream disconnected\n";
+    std::cout << "The response header:\n===================\n";
+    std::cout << h.header << std::endl;
   }
 
   catch (const char e[]) {

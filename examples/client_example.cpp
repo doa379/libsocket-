@@ -2,9 +2,8 @@
 #include <libsockpp/sock.h>
 
 static const std::string host0 { "webscantest.com" };
-static const unsigned port0 { 80 };
 static const std::string host1 { "localhost" };
-static const unsigned port1 { 80 };
+static const unsigned port { 80 };
 
 int main(int argc, char *argv[])
 {
@@ -14,7 +13,7 @@ int main(int argc, char *argv[])
   {
     std::cerr << "Usage: ./client_example <hostname> <port>\n";
     hostname = host0;
-    port_no = port0;
+    port_no = port;
   }
 
   else
@@ -23,29 +22,24 @@ int main(int argc, char *argv[])
     port_no = std::atoi(argv[2]);
   }
 
+  // Chunked transfer
+  sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+  sockpp::XHandle h { cb };
   try {
-    // Chunked transfer
-    sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
     sockpp::Client<sockpp::Http> client(1.1, hostname, port_no);
-    if (client.connect())
-    {
-      sockpp::XHandle h { cb };
-      // Perform request on handle
-      if (!client.performreq(h))
-        throw "Unable to sendreq()";
+    // Perform request on handle
+    if (!client.performreq(h))
+      throw "Unable to sendreq()";
 
-      std::cout << "The response header:\n===================\n";
-      std::cout << h.header << std::endl;
-      std::cout << "The response body:\n===================\n";
-      std::cout << h.body << std::endl;
-    }
-
-    else
-      throw "Client connection failed";
+    std::cout << "The response header:\n===================\n";
+    std::cout << h.header << std::endl;
+    std::cout << "The response body:\n===================\n";
+    std::cout << h.body << std::endl;
   }
 
   catch (const char e[]) {
     std::cout << std::string(e) << std::endl;
   }
+
   return 0;
 }

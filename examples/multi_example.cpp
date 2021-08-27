@@ -7,17 +7,15 @@ static const unsigned port { 80 };
 
 int main(int argc, char *argv[])
 {
+  sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
+  sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
+  sockpp::XHandle h2 { sockpp::Cb { }, GET, { }, { }, "/" };
+  sockpp::XHandle h3 { sockpp::Cb { }, GET, { }, { }, "/" };
   try {
     sockpp::Client<sockpp::Http> client0 { 1.1, host0, port }, 
       client1 { 1.1, host0, port },
       client2 { 1.1, host0, port };
     sockpp::Multi<sockpp::Http> M { { client0, client1 } };
-    auto conn { M.connect() };
-    std::cout << std::to_string(conn) << " connections established\n";
-    sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
-    sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
-    sockpp::XHandle h2 { sockpp::Cb { }, GET, { }, { }, "/" };
-    sockpp::XHandle h3 { sockpp::Cb { }, GET, { }, { }, "/" };
     std::vector<std::reference_wrapper<sockpp::XHandle>> H { { h0, h1, h2, h3 } };
     M.performreq(H);
     std::cout << "All transfer(s) completed\n";
