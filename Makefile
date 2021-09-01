@@ -12,7 +12,7 @@ DEBUG_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -g ${INCS}
 CFLAGS = ${RELEASE_CFLAGS}
 LDFLAGS += ${LIBSPATH}
 
-all: libsockpp.so \
+all: libsockpp.so
 
 .cpp.o:
 	@echo CC $<

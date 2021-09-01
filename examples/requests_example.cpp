@@ -30,7 +30,7 @@ int main(const int argc, const char *argv[])
   auto cb {
     [&](sockpp::Http &sock) {
       while (1)
-        if (sock.poll(-1))
+        if (sock.poll(250))
         {
           sockpp::Recv<sockpp::Http> recv { sock };
           std::string cli_head, cli_body;

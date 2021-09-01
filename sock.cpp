@@ -69,14 +69,14 @@ bool sockpp::Http::connect(const std::string &)
 
 bool sockpp::Http::read(char &p)
 {
-  if (::read(sd, &p, sizeof p) > -1)
+  if (::read(sd, &p, sizeof p) > 0)
     return true;
   return false;
 }
 
 bool sockpp::Http::write(const std::string &data)
 {
-  if (::write(sd, data.c_str(), data.size()) > -1)
+  if (::write(sd, data.c_str(), data.size()) > 0)
   {
     fsync(sd);
     return true;
@@ -86,8 +86,22 @@ bool sockpp::Http::write(const std::string &data)
 
 bool sockpp::Http::poll(const int timeout_ms)
 {
-  ::poll(&psd, 1, timeout_ms);
+  if (::poll(&psd, 1, timeout_ms) > 0 &&
+    revents_pollin())
+    return true;
+  return false;
+}
+
+bool sockpp::Http::revents_pollin(void)
+{
   if (psd.revents & POLLIN)
+    return true;
+  return false;
+}
+
+bool sockpp::Http::revents_pollerr(void)
+{
+  if (psd.revents & (POLLERR | POLLHUP | POLLNVAL))
     return true;
   return false;
 }

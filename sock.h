@@ -53,8 +53,8 @@ namespace sockpp
   protected:
     int sd { -1 };
     struct sockaddr_in sa { };
-    struct pollfd psd { };
   public:
+    struct pollfd psd { };
     Http(void) = default;
     Http(const int sd) : sd { sd } { };
     ~Http(void) { deinit_sd(); }
@@ -66,6 +66,8 @@ namespace sockpp
     virtual bool read(char &);
     virtual bool write(const std::string &);
     bool poll(const int);
+    bool revents_pollin(void);
+    bool revents_pollerr(void);
     int accept(void);
     bool bind(void);
     bool listen(void);
@@ -148,7 +150,7 @@ namespace sockpp
   {
     S sock;
     std::string host;
-    char httpver[8];
+    char httpver[8] { };
     const std::string_view agent { "HttpRequest" };
   public:
     Client(const float, const std::string &, const unsigned);
