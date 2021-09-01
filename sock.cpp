@@ -31,9 +31,7 @@ SOFTWARE.
 
 bool sockpp::Http::init_sd(void)
 {
-  if ((sd = socket(AF_INET, SOCK_STREAM, 0)) > -1)
-    return true;
-  return false;
+  return (sd = socket(AF_INET, SOCK_STREAM, 0)) > -1;
 }
 
 void sockpp::Http::deinit_sd(void)
@@ -62,48 +60,32 @@ void sockpp::Http::init_psd(void)
 
 bool sockpp::Http::connect(const std::string &)
 {
-  if (::connect(sd, (struct sockaddr *) &sa, sizeof sa) > -1)
-    return true;
-  return false;
+  return ::connect(sd, (struct sockaddr *) &sa, sizeof sa) > -1;
 }
 
 bool sockpp::Http::read(char &p)
 {
-  if (::read(sd, &p, sizeof p) > 0)
-    return true;
-  return false;
+  return ::read(sd, &p, sizeof p) > 0;
 }
 
 bool sockpp::Http::write(const std::string &data)
 {
-  if (::write(sd, data.c_str(), data.size()) > 0)
-  {
-    fsync(sd);
-    return true;
-  }
-  return false;
+  return ::write(sd, data.c_str(), data.size()) > 0;
 }
 
 bool sockpp::Http::poll(const int timeout_ms)
 {
-  if (::poll(&psd, 1, timeout_ms) > 0 &&
-    revents_pollin())
-    return true;
-  return false;
+  return ::poll(&psd, 1, timeout_ms) > 0 && revents_pollin();
 }
 
 bool sockpp::Http::revents_pollin(void)
 {
-  if (psd.revents & POLLIN)
-    return true;
-  return false;
+  return psd.revents & POLLIN;
 }
 
 bool sockpp::Http::revents_pollerr(void)
 {
-  if (psd.revents & (POLLERR | POLLHUP | POLLNVAL))
-    return true;
-  return false;
+  return psd.revents & (POLLERR | POLLHUP | POLLNVAL);
 }
 
 int sockpp::Http::accept(void)
@@ -114,16 +96,12 @@ int sockpp::Http::accept(void)
   
 bool sockpp::Http::bind(void)
 {
-  if (::bind(sd, (struct sockaddr *) &sa, sizeof sa) > -1)
-    return true;
-  return false;
+  return ::bind(sd, (struct sockaddr *) &sa, sizeof sa) > -1;
 }
 
 bool sockpp::Http::listen(void)
 {
-  if (::listen(sd, LISTEN_QLEN) > -1)
-    return true;
-  return false;
+  return ::listen(sd, LISTEN_QLEN) > -1;
 }
 
 sockpp::InitHttps::InitHttps(void)
@@ -176,16 +154,12 @@ bool sockpp::Https::configure_context(const std::string &certpem, const std::str
 
 bool sockpp::Https::set_hostname(const std::string &host)
 {
-  if (SSL_set_tlsext_host_name(ssl, host.c_str()) > 0)
-    return true;
-  return false;
+  return SSL_set_tlsext_host_name(ssl, host.c_str()) > 0;
 }
 
 bool sockpp::Https::set_fd(void)
 {
-  if (SSL_set_fd(ssl, sd) > 0)
-    return true;
-  return false;
+  return SSL_set_fd(ssl, sd) > 0;
 }
 
 bool sockpp::Https::connect(const std::string &host)
@@ -194,8 +168,7 @@ bool sockpp::Https::connect(const std::string &host)
   {
     set_hostname(host);
     set_fd();
-    if (SSL_connect(ssl) > 0)
-      return true;
+    return SSL_connect(ssl) > 0;
   }
 
   return false;
@@ -203,31 +176,22 @@ bool sockpp::Https::connect(const std::string &host)
 
 bool sockpp::Https::read(char &p)
 {
-  if (SSL_read(ssl, &p, sizeof p) > 0)
-    return true;
-  return false;
+  return SSL_read(ssl, &p, sizeof p) > 0;
 }
 
 bool sockpp::Https::write(const std::string &data)
 {
-  if (SSL_write(ssl, data.c_str(), data.size()) > 0)
-    return true;
-  return false;
+  return SSL_write(ssl, data.c_str(), data.size()) > 0;
 }
 
 bool sockpp::Https::clear(void)
 {
-  if (SSL_clear(ssl) > 0)
-    return true;
-
-  return false;
+  return SSL_clear(ssl) > 0;
 }
 
 bool sockpp::Https::accept(void)
 {
-  if (SSL_accept(ssl) > 0)
-    return true;
-  return false;
+  return SSL_accept(ssl) > 0;
 }
 
 SSL_CTX *sockpp::Https::ssl_ctx(SSL_CTX *ctx)
@@ -268,10 +232,8 @@ void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::st
 template<typename S>
 bool sockpp::Recv<S>::is_chunked(const std::string &header)
 {
-  if (std::regex_search(header, match, transfer_encoding_regex) &&
-    std::regex_match(header.substr(match.prefix().length() + 19, 7), chunked_regex))
-    return true;
-  return false;
+  return std::regex_search(header, match, transfer_encoding_regex) &&
+    std::regex_match(header.substr(match.prefix().length() + 19, 7), chunked_regex);
 }
 
 template<typename S>
@@ -280,9 +242,7 @@ bool sockpp::Recv<S>::req_header(std::string &header)
   while (!(header.rfind("\r\n\r\n") < std::string::npos) && sock.read(p))
     header += p;
   
-  if (!std::regex_search(header, match, ok_regex))
-    return false;
-  return true;
+  return std::regex_search(header, match, ok_regex);
 }
 
 template<typename S>
