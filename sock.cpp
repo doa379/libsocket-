@@ -36,8 +36,6 @@ bool sockpp::Http::init_sd(void)
 
 void sockpp::Http::deinit_sd(void)
 {
-  struct linger lo { 1, 0 };
-  setsockopt(sd, SOL_SOCKET, SO_LINGER, &lo, sizeof lo);
   close(sd);
 }
 
@@ -58,6 +56,22 @@ void sockpp::Http::init_psd(void)
   psd.events = POLLIN;
 }
 
+bool sockpp::Http::poll(const int timeout_ms)
+{
+  return ::poll(&psd, 1, timeout_ms) > 0 && revents_pollin();
+  // Poll retval > 0 success, < 0 fail, == 0 timeout
+}
+
+bool sockpp::Http::revents_pollin(void)
+{
+  return psd.revents & POLLIN;
+}
+
+bool sockpp::Http::revents_pollerr(void)
+{
+  return psd.revents & (POLLERR | POLLHUP | POLLNVAL);
+}
+
 bool sockpp::Http::connect(const std::string &)
 {
   return ::connect(sd, (struct sockaddr *) &sa, sizeof sa) > -1;
@@ -71,21 +85,6 @@ bool sockpp::Http::read(char &p)
 bool sockpp::Http::write(const std::string &data)
 {
   return ::write(sd, data.c_str(), data.size()) > 0;
-}
-
-bool sockpp::Http::poll(const int timeout_ms)
-{
-  return ::poll(&psd, 1, timeout_ms) > 0 && revents_pollin();
-}
-
-bool sockpp::Http::revents_pollin(void)
-{
-  return psd.revents & POLLIN;
-}
-
-bool sockpp::Http::revents_pollerr(void)
-{
-  return psd.revents & (POLLERR | POLLHUP | POLLNVAL);
 }
 
 int sockpp::Http::accept(void)
@@ -241,7 +240,6 @@ bool sockpp::Recv<S>::req_header(std::string &header)
 {
   while (!(header.rfind("\r\n\r\n") < std::string::npos) && sock.read(p))
     header += p;
-  
   return std::regex_search(header, match, ok_regex);
 }
 

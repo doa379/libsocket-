@@ -62,12 +62,12 @@ namespace sockpp
     void deinit_sd(void);
     void init_sa(const std::string &, const unsigned);
     void init_psd(void);
-    virtual bool connect(const std::string & = { });
-    virtual bool read(char &);
-    virtual bool write(const std::string &);
     bool poll(const int);
     bool revents_pollin(void);
     bool revents_pollerr(void);
+    virtual bool connect(const std::string & = { });
+    virtual bool read(char &);
+    virtual bool write(const std::string &);
     int accept(void);
     bool bind(void);
     bool listen(void);
