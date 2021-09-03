@@ -13,16 +13,14 @@ int main(const int argc, const char *argv[])
   sockpp::XHandle h { cb, GET, { { "OK" } }, { } };
   try {
     sockpp::Client<ConnType> client { 1.1, host, port };
-    for (auto i { 0 }; i < 2; i++)
+    for (auto i { 0 }; i < 10; i++)
     {
       // Perform request on handle
       if (!client.performreq(h))
         throw "Unable to performreq()";
       // Reuse client connexion
-      std::cout << "The response header:\n===================\n";
-      std::cout << h.header << std::endl;
-      std::cout << "The response body:\n===================\n";
-      std::cout << h.body << std::endl;
+      std::cout << "Received from server " << h.body;
+      std::this_thread::sleep_for(std::chrono::seconds(1));
     }
   }
   

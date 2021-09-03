@@ -1,3 +1,9 @@
+// Example demonstrates a persistant server that likewise fields 
+// requests from a client. The library polls for new connections
+// then this example picks up polling requests. The server stays
+// open and running for the lifetime of the server program.
+
+
 #include <iostream>
 #include <thread>
 #include <cmath>
@@ -34,12 +40,12 @@ int main(const int argc, const char *argv[])
         {
           sockpp::Recv<sockpp::Http> recv { sock };
           std::string cli_head, cli_body;
-          recv.req_header(cli_head);
-          recv.req_body(cli_body, cli_head);
-          std::cout << "-Receive from client-\n";
-          std::cout << cli_head << "\n";
-          std::cout << cli_body << "\n";
-          std::cout << "-End receive from client-\n";
+          // Recv determines if client is still at socket
+          if (recv.req_header(cli_head))
+            recv.req_body(cli_body, cli_head);
+          else
+            break;
+          std::cout << "Received from client\n";
           auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
           const std::string document { s + "\r\n" };
           const std::string header { 
@@ -52,6 +58,8 @@ int main(const int argc, const char *argv[])
           std::cout << "Sent to client " << s << std::endl;
           std::cout << "Server response end\n";
         }
+      
+      std::cout << "Server client exited\n";
     }
   };
   
