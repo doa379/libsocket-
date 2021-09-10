@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
   sockpp::Cb cb { [](const std::string &buffer) { std::cout << "Received " << buffer; } };
   sockpp::XHandle h { cb, POST, { { "OK" } }, "Some Data", "/" };
   try {
-    sockpp::Client<sockpp::Http> client(1.1, hostname, port_no);
+    sockpp::Client<sockpp::Http> client { 1.1, hostname, port_no };
     while (1)
     {
       if (!client.performreq(h))

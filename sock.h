@@ -53,8 +53,8 @@ namespace sockpp
   protected:
     int sd { -1 };
     struct sockaddr_in sa { };
-  public:
     struct pollfd psd { };
+  public:
     Http(void) = default;
     Http(const int sd) : sd { sd } { };
     ~Http(void) { deinit_sd(); }
@@ -112,8 +112,6 @@ namespace sockpp
       content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
       transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
       chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
-    char p { };
-    std::smatch match { };
   public:
     Recv(S &sock) : sock { sock } { }
     bool is_chunked(const std::string &);
@@ -149,9 +147,9 @@ namespace sockpp
   class Client
   {
     S sock;
-    std::string host;
-    char httpver[8] { };
+    const std::string host;
     const std::string_view agent { "HttpRequest" };
+    char httpver[8] { };
   public:
     Client(const float, const std::string &, const unsigned);
     bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &);
@@ -162,7 +160,7 @@ namespace sockpp
   template<typename S>
   class Multi
   {
-    std::vector<std::reference_wrapper<Client<S>>> C;
+    const std::vector<std::reference_wrapper<Client<S>>> C;
   public:
     Multi(const std::vector<std::reference_wrapper<Client<S>>> &);
     void performreq(const std::vector<std::reference_wrapper<XHandle>> &);
@@ -173,7 +171,7 @@ namespace sockpp
   class Server
   {
     S sock;
-    std::string host;
+    const std::string host;
     std::list<std::future<void>> F;
   public:
     Server(const std::string &, const unsigned);

@@ -231,6 +231,7 @@ void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::st
 template<typename S>
 bool sockpp::Recv<S>::is_chunked(const std::string &header)
 {
+  std::smatch match { };
   return std::regex_search(header, match, transfer_encoding_regex) &&
     std::regex_match(header.substr(match.prefix().length() + 19, 7), chunked_regex);
 }
@@ -238,8 +239,10 @@ bool sockpp::Recv<S>::is_chunked(const std::string &header)
 template<typename S>
 bool sockpp::Recv<S>::req_header(std::string &header)
 {
+  char p { };
   while (!(header.rfind("\r\n\r\n") < std::string::npos) && sock.read(p))
     header += p;
+  std::smatch match { };
   return std::regex_search(header, match, ok_regex);
 }
 
@@ -247,11 +250,15 @@ template<typename S>
 void sockpp::Recv<S>::req_body(std::string &body, const std::string &header)
 {
   std::size_t l { };
+  std::smatch match { };
   if (std::regex_search(header, match, content_length_regex) &&
       (l = std::stoull(header.substr(match.prefix().length() + 16,
         header.substr(match.prefix().length() + 16).find("\r\n")))))
-    while (body.size() < l && sock.read(p))
-      body += p;
+    {
+      char p { };
+      while (body.size() < l && sock.read(p))
+        body += p;
+    }
 }
 
 template<typename S>
@@ -259,6 +266,7 @@ void sockpp::Recv<S>::req_body(const Cb &cb)
 {
   std::string body;
   std::size_t l { };
+  char p { };
   while (sock.read(p))
   {
     body += p;
@@ -285,6 +293,7 @@ template<typename S>
 void sockpp::Recv<S>::req_raw(const Cb &cb)
 {
   std::string body;
+  char p { };
   while (sock.read(p))
   {
     body += p;
