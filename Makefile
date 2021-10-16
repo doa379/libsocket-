@@ -7,9 +7,9 @@ SRC_LIBSOCK = sock.cpp utils.cpp
 OBJ_LIBSOCK = ${SRC_LIBSOCK:.cpp=.o}
 
 CC = c++
-RELEASE_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
-DEBUG_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -g ${INCS}
-CFLAGS = ${RELEASE_CFLAGS}
+REL_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
+DEB_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -g ${INCS}
+CFLAGS = ${DEB_CFLAGS}
 LDFLAGS += ${LIBSPATH}
 
 all: libsockpp.so

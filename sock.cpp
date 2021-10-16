@@ -24,85 +24,132 @@ SOFTWARE.
 
 #include <sys/socket.h>
 #include <netdb.h>
-#include <unistd.h>
 #include <openssl/err.h>
 #include <cmath>
-#include "sock.h"
+#include <libsockpp/sock.h>
 
-bool sockpp::Http::init_sd(void)
+static const float DEFAULT_HTTPVER { 2.0 };
+static const char CERTPEM[] { "/tmp/cert.pem" };
+static const char KEYPEM[] { "/tmp/key.pem" };
+static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
+static const unsigned char LISTEN_QLEN { 16 };
+static const unsigned INTERNAL_TIMEOUTMS { 5000 };
+::SSL_CTX *sockpp::InitHttps::client, *sockpp::InitHttps::server;
+
+bool sockpp::Http::init_client(const char HOST[], const char PORT[])
 {
-  return (sd = socket(AF_INET, SOCK_STREAM, 0)) > -1;
+  struct addrinfo hints { };
+  ::memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = { };
+  hints.ai_protocol = { };
+  struct addrinfo *result;
+  if (::getaddrinfo(HOST, PORT, &hints, &result))
+    return false;
+
+  for (struct addrinfo *rp { result }; rp; rp = rp->ai_next)
+  {
+    if ((sockfd = ::socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol)) > -1 &&
+          ::connect(sockfd, rp->ai_addr, rp->ai_addrlen) > -1)
+    {
+      ::freeaddrinfo(result);
+      return true;
+    }
+    
+    deinit();
+  }
+
+  ::freeaddrinfo(result);
+  return false;
 }
 
-void sockpp::Http::deinit_sd(void)
+bool sockpp::Http::init_server(const char PORT[])
 {
-  close(sd);
+  struct addrinfo hints { };
+  ::memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+  hints.ai_protocol = { };
+  hints.ai_canonname = { };
+  hints.ai_addr = { };
+  hints.ai_next = { };
+  struct addrinfo *result;
+  if (::getaddrinfo(nullptr, PORT, &hints, &result))
+    return false;
+
+  for (struct addrinfo *rp { result }; rp; rp = rp->ai_next)
+  {
+    if ((sockfd = ::socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol)) > -1 &&
+          ::bind(sockfd, rp->ai_addr, rp->ai_addrlen) > -1 &&
+            ::listen(sockfd, LISTEN_QLEN) > -1)
+    {
+      ::freeaddrinfo(result);
+      return true;
+    }
+
+    deinit();
+  }
+
+  ::freeaddrinfo(result);
+  return false;
 }
 
-void sockpp::Http::init_sa(const std::string &host, const unsigned port)
+void sockpp::Http::init_poll(void)
 {
-  sa.sin_family = AF_INET;
-  sa.sin_port = htons(port);
-  struct hostent *h { gethostbyname(host.c_str()) };
-  if (h)
-    sa.sin_addr.s_addr = *(long *) h->h_addr;
-  else
-    sa.sin_addr.s_addr = htonl(INADDR_ANY);
-}
-
-void sockpp::Http::init_psd(void)
-{
-  psd.fd = sd;
-  psd.events = POLLIN;
+  pollfd.fd = sockfd;
+  pollfd.events = POLLIN;
 }
 
 bool sockpp::Http::poll(const int timeout_ms)
 {
-  return ::poll(&psd, 1, timeout_ms) > 0 && revents_pollin();
+  return ::poll(&pollfd, 1, timeout_ms) > 0 && pollin();
   // Poll retval > 0 success, < 0 fail, == 0 timeout
 }
 
-bool sockpp::Http::revents_pollin(void)
+bool sockpp::Http::pollin(void)
 {
-  return psd.revents & POLLIN;
+  return pollfd.revents & POLLIN;
 }
 
-bool sockpp::Http::revents_pollerr(void)
+bool sockpp::Http::pollerr(void)
 {
-  return psd.revents & (POLLERR | POLLHUP | POLLNVAL);
+  return pollfd.revents & (POLLERR | POLLHUP | POLLNVAL);
 }
 
-bool sockpp::Http::connect(const std::string &)
+bool sockpp::Http::connect(const char [])
 {
-  return ::connect(sd, (struct sockaddr *) &sa, sizeof sa) > -1;
+  //return ::connect(sockfd, (struct sockaddr *) &sa, sizeof sa) > -1;
+  return true;
 }
 
 bool sockpp::Http::read(char &p)
 {
-  return ::read(sd, &p, sizeof p) > 0;
+  return ::read(sockfd, &p, sizeof p) > 0;
 }
 
 bool sockpp::Http::write(const std::string &data)
 {
-  return ::write(sd, data.c_str(), data.size()) > 0;
+  return ::write(sockfd, data.c_str(), data.size()) > 0;
 }
 
 int sockpp::Http::accept(void)
 {
-  return ::accept(sd, nullptr, nullptr);
-  // Return a sd
+  return ::accept(sockfd, nullptr, nullptr);
+  // Return a sockfd
 }
-  
+/*  
 bool sockpp::Http::bind(void)
 {
-  return ::bind(sd, (struct sockaddr *) &sa, sizeof sa) > -1;
+  return ::bind(sockfd, (struct sockaddr *) &sa, sizeof sa) > -1;
 }
 
 bool sockpp::Http::listen(void)
 {
-  return ::listen(sd, LISTEN_QLEN) > -1;
+  return ::listen(sockfd, LISTEN_QLEN) > -1;
 }
-
+*/
 sockpp::InitHttps::InitHttps(void)
 {
   InitHttps::init();
@@ -110,19 +157,33 @@ sockpp::InitHttps::InitHttps(void)
 
 void sockpp::InitHttps::init(void)
 {
-  OpenSSL_add_ssl_algorithms();
-  SSL_load_error_strings();
+  ::OpenSSL_add_ssl_algorithms();
+  ::SSL_load_error_strings();
+  client = ::SSL_CTX_new(::TLS_client_method()); 
+  server = ::SSL_CTX_new(::TLS_server_method());
 }
-
-sockpp::Https::Https(const SSL_METHOD *meth) noexcept : 
-  ctx { SSL_CTX_new(meth) }, ssl { SSL_new(ctx) }
+/*
+sockpp::Https::Https(const ::SSL_METHOD *meth) noexcept : 
+  ctx { ::SSL_CTX_new(meth) }, ssl { ::SSL_new(ctx) }
 {
 
 }
 
-sockpp::Https::Https(const int sd, const SSL_METHOD *meth) noexcept : 
-  Http { sd },
-  ctx { SSL_CTX_new(meth) }, ssl { SSL_new(ctx) }
+sockpp::Https::Https(const int sockfd, const ::SSL_METHOD *meth) noexcept : 
+  Http { sockfd },
+  ctx { ::SSL_CTX_new(meth) }, ssl { ::SSL_new(ctx) }
+{
+
+}
+*/
+sockpp::Https::Https(void) noexcept : 
+  ssl { ::SSL_new(client) }
+{
+
+}
+
+sockpp::Https::Https(const int sockfd) noexcept : 
+  Http { sockfd }, ssl { ::SSL_new(client) }
 {
 
 }
@@ -131,101 +192,106 @@ sockpp::Https::~Https(void)
 {
   if (ssl)
   {
-    SSL_shutdown(ssl);
-    SSL_free(ssl);
+    ::SSL_shutdown(ssl);
+    ::SSL_free(ssl);
   }
 
+/*
   if (ctx)
-    SSL_CTX_free(ctx);
+    ::SSL_CTX_free(ctx);
+    */
 }
 
 bool sockpp::Https::configure_context(const std::string &certpem, const std::string &keypem)
 {
+  /*
   SSL_CTX_set_ecdh_auto(ctx, 1);
-  if (SSL_CTX_use_certificate_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM) < 1)
+  if (::SSL_CTX_use_certificate_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM) < 1)
     return false;
-  if (keypem.size() && SSL_CTX_use_PrivateKey_file(ctx, keypem.c_str(), SSL_FILETYPE_PEM) < 1)
+  if (keypem.size() && ::SSL_CTX_use_PrivateKey_file(ctx, keypem.c_str(), SSL_FILETYPE_PEM) < 1)
     return false;
-  else if (!keypem.size() && SSL_CTX_use_PrivateKey_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM) < 1)
+  else if (!keypem.size() && ::SSL_CTX_use_PrivateKey_file(ctx, certpem.c_str(), SSL_FILETYPE_PEM) < 1)
     return false;
+    */
   return true;
 }
 
-bool sockpp::Https::set_hostname(const std::string &host)
+bool sockpp::Https::set_hostname(const char host[])
 {
-  return SSL_set_tlsext_host_name(ssl, host.c_str()) > 0;
+  return ::SSL_set_tlsext_host_name(ssl, host) > 0;
 }
 
 bool sockpp::Https::set_fd(void)
 {
-  return SSL_set_fd(ssl, sd) > 0;
+  return ::SSL_set_fd(ssl, sockfd) > 0;
 }
 
-bool sockpp::Https::connect(const std::string &host)
+bool sockpp::Https::connect(const char host[])
 {
-  if (Http::connect())
-  {
-    set_hostname(host);
-    set_fd();
-    return SSL_connect(ssl) > 0;
-  }
+  return /*Http::connect() &&
+    set_hostname(host) && */set_fd() &&
+      ::SSL_connect(ssl) > 0;
+}
 
-  return false;
+bool sockpp::Https::poll(const int timeout_ms)
+{
+  return sockpp::Http::poll(timeout_ms);
 }
 
 bool sockpp::Https::read(char &p)
 {
-  return SSL_read(ssl, &p, sizeof p) > 0;
+  return ::SSL_read(ssl, &p, sizeof p) > 0 && 1;
+    //::SSL_has_pending(ssl);
 }
 
 bool sockpp::Https::write(const std::string &data)
 {
-  return SSL_write(ssl, data.c_str(), data.size()) > 0;
+  return ::SSL_write(ssl, data.c_str(), data.size()) > 0;
 }
 
 bool sockpp::Https::clear(void)
 {
-  return SSL_clear(ssl) > 0;
+  return ::SSL_clear(ssl) > 0;
 }
 
 bool sockpp::Https::accept(void)
 {
-  return SSL_accept(ssl) > 0;
+  return ::SSL_accept(ssl) > 0;
 }
-
-SSL_CTX *sockpp::Https::ssl_ctx(SSL_CTX *ctx)
+/*
+::SSL_CTX *sockpp::Https::ssl_ctx(::SSL_CTX *ctx)
 {
-  return SSL_set_SSL_CTX(ssl, ctx);
+  return ::SSL_set_SSL_CTX(ssl, ctx);
 }
-
+*/
 int sockpp::Https::error(int err)
 {
-  return SSL_get_error(ssl, err);
+  return ::SSL_get_error(ssl, err);
 }
 
 void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::string &issue)
 {
   // Method must be called after connect()
-  cipherinfo = std::string(SSL_get_cipher(ssl));
-  X509 *server_cert { SSL_get_peer_certificate(ssl) };
+  cipherinfo = std::string(::SSL_get_cipher(ssl));
+  ::X509 *server_cert { ::SSL_get_peer_certificate(ssl) };
   if (!server_cert)
     return;
 
-  char *certificate { X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
+  char *certificate { ::X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
   if (certificate)
   {
     cert = std::string(certificate);
-    OPENSSL_free(certificate);
+    ::OPENSSL_free(certificate);
   }
 
-  char *issuer { X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
+  char *issuer { ::X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
   if (issuer)
   {
     issue = std::string(issuer);
-    OPENSSL_free(issuer);
+    ::OPENSSL_free(issuer);
   }
 
-  X509_free(server_cert);
+  ::X509_free(server_cert);
 }
 
 template<typename S>
@@ -235,7 +301,8 @@ bool sockpp::Recv<S>::is_chunked(const std::string &header)
   return std::regex_search(header, match, transfer_encoding_regex) &&
     std::regex_match(header.substr(match.prefix().length() + 19, 7), chunked_regex);
 }
-
+//////////////////////////////////////////////
+/*
 template<typename S>
 bool sockpp::Recv<S>::req_header(std::string &header)
 {
@@ -301,24 +368,91 @@ void sockpp::Recv<S>::req_raw(const Cb &cb)
     body.clear();
   }
 }
+*/
+//////////////////////////////////////////////////////
+
+template<typename S>
+bool sockpp::Recv<S>::req_header(std::string &header)
+{
+  char p { };
+  while (!(header.rfind("\r\n\r\n") < std::string::npos) && 
+    sock.poll(INTERNAL_TIMEOUTMS) &&
+      sock.read(p))
+        header += p;
+  std::smatch match { };
+  return std::regex_search(header, match, ok_regex);
+}
+
+template<typename S>
+void sockpp::Recv<S>::req_body(std::string &body, const std::string &header)
+{
+  std::size_t l { };
+  std::smatch match { };
+  if (std::regex_search(header, match, content_length_regex) &&
+      (l = std::stoull(header.substr(match.prefix().length() + 16,
+        header.substr(match.prefix().length() + 16).find("\r\n")))))
+    {
+      char p { };
+      while (body.size() < l && 
+          sock.poll(INTERNAL_TIMEOUTMS) && 
+            sock.read(p))
+        body += p;
+    }
+}
+
+template<typename S>
+void sockpp::Recv<S>::req_body(const Cb &cb)
+{
+  std::string body;
+  std::size_t l { };
+  char p { };
+  while (sock.poll(INTERNAL_TIMEOUTMS) && sock.read(p))
+  {
+    body += p;
+    if (body == "\r\n");
+    else if (!l && body.rfind("\r\n") < std::string::npos)
+    {
+      body.erase(body.end() - 2, body.end());
+      if (!(l = std::stoull(body, nullptr, 16)))
+        break;
+    }
+    else if (body.size() == l)
+    {
+      cb(body);
+      l = 0;
+    }
+    else
+      continue;
+
+    body.clear();
+  }
+}
+
+template<typename S>
+void sockpp::Recv<S>::req_raw(const Cb &cb)
+{
+  std::string body;
+  char p { };
+  while (sock.poll(INTERNAL_TIMEOUTMS) && sock.read(p))
+  {
+    body += p;
+    cb(body);
+    body.clear();
+  }
+}
 
 template class sockpp::Recv<sockpp::Http>;
 template class sockpp::Recv<sockpp::Https>;
 
 template<typename S>
-sockpp::Client<S>::Client(const float httpver, const std::string &host, const unsigned port) : 
+sockpp::Client<S>::Client(const float httpver, const std::string &host, const std::string &port) : 
   host { host }
 {
-  snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
-  if (sock.init_sd())
-  {
-    sock.init_sa(host, port);
-    if (!sock.connect(host))
-      throw "Failed to connect";
-  }
-
+  ::snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
+  if (sock.init_client(host.c_str(), port.c_str()) && sock.connect(host.c_str()))
+    sock.init_poll();
   else
-    throw "Failed to init sd";
+    throw "Failed to init client";
 }
 
 template<typename S>
@@ -331,7 +465,7 @@ bool sockpp::Client<S>::sendreq(const Req req, const std::vector<std::string> &H
   std::string request { 
     REQ[req] + " " + endp + " " + "HTTP/" + std::string(httpver) + "\r\n" +
     "Host: " + host + "\r\n" +
-    "User-Agent: " + std::string(agent) + "\r\n" +
+    "User-Agent: " + std::string(AGENT) + "\r\n" +
     "Accept: */*" + "\r\n" };
 
   for (auto &h : HEAD)
@@ -347,7 +481,8 @@ bool sockpp::Client<S>::sendreq(const Req req, const std::vector<std::string> &H
 template<typename S>
 bool sockpp::Client<S>::performreq(XHandle &h)
 {
-  if (sendreq(h.req, h.HEAD, h.data, h.endp))
+  if (sendreq(h.req, h.HEAD, h.data, h.endp) &&
+      sock.poll(INTERNAL_TIMEOUTMS))
   {
     Recv<S> recv { sock };
     std::string swap;
@@ -399,52 +534,29 @@ void sockpp::Multi<S>::performreq(const std::vector<std::reference_wrapper<XHand
     return f.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
 }
 
-template<typename S>
-void sockpp::Multi<S>::performreq(const std::size_t async, const std::vector<std::reference_wrapper<XHandle>> &H)
-{
-  const auto nasync { std::min(async, H.size()) };
-  std::list<std::future<void>> F;
-  for (auto h { H.begin() }; h < H.end(); h += nasync)
-  {
-    for (auto j { h }; j < h + nasync && j < H.end(); j++)
-    { 
-      auto f { std::async(std::launch::async, 
-        [&, j](void) { 
-          auto i { j - H.begin() };
-          Client<S> &c { C[i].get() };
-          // Implicitly verify state of client sd
-          if (c.sendreq(j->get().req, j->get().HEAD, j->get().data, j->get().endp))
-            while (!c.performreq(*j))
-              std::this_thread::sleep_for(std::chrono::milliseconds(1));
-          }
-        )
-      };
-
-      F.emplace_back(std::move(f));
-    }
-
-    F.remove_if([](auto &f) { 
-      return f.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready; });
-  }
-}
-
 template class sockpp::Multi<sockpp::Http>;
 template class sockpp::Multi<sockpp::Https>;
 
 template<typename S>
-sockpp::Server<S>::Server(const std::string &host, const unsigned port) :
-  host { host }
+sockpp::Server<S>::Server(const char port[])
 {
+  if (sock.init_server(port))
+    sock.init_poll();
+  else
+    throw "Failed to init server";
+
+  /*
   if (sock.init_sd())
   {
     sock.init_sa(host, port);
-    sock.init_psd();
+    sock.init_poll();
     if (!sock.bind() || !sock.listen())
       throw "Failed to bind";
   }
 
   else
     throw "Failed to init sd";
+    */
 }
 
 template<>
@@ -453,7 +565,7 @@ void sockpp::Server<sockpp::Http>::recv_client(const std::function<void(Http &)>
   auto f { std::async(std::launch::async, 
     [&](void) {
       Http sock { this->sock.accept() };
-      sock.init_psd();
+      sock.init_poll();
       cb(sock);
     }) 
   };
@@ -464,15 +576,16 @@ void sockpp::Server<sockpp::Http>::recv_client(const std::function<void(Http &)>
 template<>
 void sockpp::Server<sockpp::Https>::recv_client(const std::function<void(Https &)> &cb, const std::string &certpem, const std::string &keypem)
 {
+  /*
   auto f { std::async(std::launch::async, 
     [&, certpem, keypem](void) { 
       Https client;
       if (!client.configure_context(certpem, keypem) ||
         !client.set_hostname(host))
         return;
-      auto sd { sock.Http::accept() };
-      Https sock { sd };
-      sock.init_psd();
+      auto sockfd { sock.Http::accept() };
+      Https sock { sockfd };
+      sock.init_poll();
       sock.set_fd();
       sock.ssl_ctx(client.ssl_ctx());
       if (sock.accept())
@@ -481,6 +594,7 @@ void sockpp::Server<sockpp::Https>::recv_client(const std::function<void(Https &
   };
 
   F.emplace_back(std::move(f));
+  */
 }
 
 template<typename S>

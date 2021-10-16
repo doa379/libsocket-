@@ -3,99 +3,99 @@ LIBSPATH = -L ${LOCAL}/libsockpp -Wl,-R$(LOCAL)/libsockpp '-Wl,-R$$ORIGIN' -L /u
 INCS = -I /usr/local/include -I ${LOCAL}/
 LIBS = -l sockpp
 
-SRC_TEST0 = client_example.cpp
+SRC_TEST0 = client.cpp
 OBJ_TEST0 = ${SRC_TEST0:.cpp=.o}
-SRC_TEST1 = chunked_example.cpp
+SRC_TEST1 = chunked.cpp
 OBJ_TEST1 = ${SRC_TEST1:.cpp=.o}
-SRC_TEST2 = streaming_example.cpp
+SRC_TEST2 = streaming.cpp
 OBJ_TEST2 = ${SRC_TEST2:.cpp=.o}
-SRC_TEST3 = requests_example.cpp
+SRC_TEST3 = requests.cpp
 OBJ_TEST3 = ${SRC_TEST3:.cpp=.o}
-SRC_TEST4 = multi_example.cpp
+SRC_TEST4 = multi.cpp
 OBJ_TEST4 = ${SRC_TEST4:.cpp=.o}
-SRC_TEST5 = multiasync_example.cpp
+SRC_TEST5 = multiasync.cpp
 OBJ_TEST5 = ${SRC_TEST5:.cpp=.o}
-SRC_TEST6 = sslclient_example.cpp
+SRC_TEST6 = sslclient.cpp
 OBJ_TEST6 = ${SRC_TEST6:.cpp=.o}
-SRC_TEST7 = sslserver_example.cpp
+SRC_TEST7 = sslserver.cpp
 OBJ_TEST7 = ${SRC_TEST7:.cpp=.o}
-SRC_TEST8 = sslstreaming_example.cpp
+SRC_TEST8 = sslstreaming.cpp
 OBJ_TEST8 = ${SRC_TEST8:.cpp=.o}
-SRC_TEST9 = sslmulti_example.cpp
+SRC_TEST9 = sslmulti.cpp
 OBJ_TEST9 = ${SRC_TEST9:.cpp=.o}
-SRC_TESTA = sslmultiasync_example.cpp
+SRC_TESTA = sslmultiasync.cpp
 OBJ_TESTA = ${SRC_TESTA:.cpp=.o}
-SRC_TESTB = reuseclient_example.cpp
+SRC_TESTB = reuseclient.cpp
 OBJ_TESTB = ${SRC_TESTB:.cpp=.o}
 
 CC = c++
-RELEASE_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
-DEBUG_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -g ${INCS}
-CFLAGS = ${RELEASE_CFLAGS}
+REL_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
+DEB_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -g ${INCS}
+CFLAGS = ${DEB_CFLAGS}
 LDFLAGS += ${LIBSPATH} ${LIBS}
 
-all: client_example \
-  chunked_example \
-  streaming_example \
-  requests_example \
-  multi_example \
-  multiasync_example \
-  sslclient_example \
-  sslserver_example \
-  sslstreaming_example \
-  sslmulti_example \
-  sslmultiasync_example \
-  reuseclient_example
+all: client \
+  chunked \
+  streaming \
+  requests \
+  multi \
+  multiasync \
+  sslclient \
+  sslserver \
+  sslstreaming \
+  sslmulti \
+  sslmultiasync \
+  reuseclient
 
 .cpp.o:
 	@echo CC $<
 	@${CC} ${CFLAGS} $<
 
-client_example: ${OBJ_TEST0}
+client: ${OBJ_TEST0}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST0} ${LDFLAGS}
 
-chunked_example: ${OBJ_TEST1}
+chunked: ${OBJ_TEST1}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST1} ${LDFLAGS}
 
-streaming_example: ${OBJ_TEST2}
+streaming: ${OBJ_TEST2}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST2} ${LDFLAGS}
 
-requests_example: ${OBJ_TEST3}
+requests: ${OBJ_TEST3}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST3} ${LDFLAGS}
 
-multi_example: ${OBJ_TEST4}
+multi: ${OBJ_TEST4}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS}
 
-multiasync_example: ${OBJ_TEST5}
+multiasync: ${OBJ_TEST5}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS}
 
-sslclient_example: ${OBJ_TEST6}
+sslclient: ${OBJ_TEST6}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS}
 
-sslserver_example: ${OBJ_TEST7}
+sslserver: ${OBJ_TEST7}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST7} ${LDFLAGS}
 
-sslstreaming_example: ${OBJ_TEST8}
+sslstreaming: ${OBJ_TEST8}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST8} ${LDFLAGS}
 
-sslmulti_example: ${OBJ_TEST9}
+sslmulti: ${OBJ_TEST9}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST9} ${LDFLAGS}
 
-sslmultiasync_example: ${OBJ_TESTA}
+sslmultiasync: ${OBJ_TESTA}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TESTA} ${LDFLAGS}
 
-reuseclient_example: ${OBJ_TESTB}
+reuseclient: ${OBJ_TESTB}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TESTB} ${LDFLAGS}
 
@@ -113,4 +113,15 @@ clean:
     ${OBJ_TEST9} \
     ${OBJ_TESTA} \
     ${OBJ_TESTB}
-	@rm -f *example
+	@rm -f client \
+	chunked \
+	streaming \
+  requests \
+  multi \
+  multiasync \
+  sslclient \
+  sslserver \
+  sslstreaming \
+  sslmulti \
+  sslmultiasync \
+  reuseclient

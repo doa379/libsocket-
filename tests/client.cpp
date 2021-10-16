@@ -1,32 +1,27 @@
 #include <iostream>
 #include <libsockpp/sock.h>
 
-static const std::string host0 { "webscantest.com" };
-static const std::string host1 { "localhost" };
-static const unsigned port { 80 };
+static const char HOST0[] { "webscantest.com" };
+static const char HOST1[] { "localhost" };
+static const char PORT[] { "http" };
 
-int main(int argc, char *argv[])
+int main(int ARGC, char *ARGV[])
 {
   std::string hostname;
-  unsigned port_no;
-  if (argc != 3)
+  if (ARGC != 2)
   {
-    std::cerr << "Usage: ./client_example <hostname> <port>\n";
-    hostname = host0;
-    port_no = port;
+    std::cerr << "Usage: ./client_example <hostname>\n";
+    hostname = std::string(HOST0);
   }
 
   else
-  {
-    hostname = std::string(argv[1]);
-    port_no = std::atoi(argv[2]);
-  }
+    hostname = std::string(ARGV[1]);
 
   // Chunked transfer
   sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
-  sockpp::XHandle h { cb };
+  sockpp::XHandle h { cb, GET, { }, { }, "/" };
   try {
-    sockpp::Client<sockpp::Http> client(1.1, hostname, port_no);
+    sockpp::Client<sockpp::Http> client { 1.1, hostname, PORT };
     // Perform request on handle
     if (!client.performreq(h))
       throw "Unable to sendreq()";
