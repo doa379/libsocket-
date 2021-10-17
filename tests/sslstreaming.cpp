@@ -1,29 +1,14 @@
 #include <iostream>
 #include <libsockpp/sock.h>
 
-static const std::string host0 { "localhost" };
-static const unsigned port0 { 4433 };
+static const char HOST[] { "localhost" };
+static const char PORT[] { "4433" };
 
 // Remember to generate a set of pems
 // $ openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout /tmp/key.pem -out /tmp/cert.pem
 
-int main(int argc, char *argv[])
+int main(int ARGC, char *ARGV[])
 {
-  std::string hostname;
-  unsigned port_no;
-  if (argc != 3)
-  {
-    std::cerr << "Usage: ./sslstreaming_example <hostname> <port>\n";
-    hostname = host0;
-    port_no = port0;
-  }
-
-  else
-  {
-    hostname = std::string(argv[1]);
-    port_no = std::atoi(argv[2]);
-  }
-  
   sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
   // Data sent as POST request
   // Header validates request is OK
@@ -31,7 +16,7 @@ int main(int argc, char *argv[])
   sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
 
   try {
-    sockpp::Client<sockpp::Https> client(1.1, hostname, port_no);
+    sockpp::Client<sockpp::Https> client { 1.1, HOST, PORT };
     if (!client.performreq(h))
       throw "Unable to sendreq()";
 

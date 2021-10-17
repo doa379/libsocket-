@@ -1,32 +1,32 @@
 #include <iostream>
 #include <libsockpp/sock.h>
 
-static const std::string host0 { "webscantest.com" };
-static const unsigned port0 { 80 };
-static const std::string host1 { "localhost" };
-static const unsigned port1 { 80 };
+static const char HOST0[] { "localhost" };
+static const char HOST1[] { "webscantest.com" };
+static const char PORT[] { "80" };
 
-int main(int argc, char *argv[])
+int main(int ARGC, char *ARGV[])
 {
   sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
   sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
+  sockpp::XHandle h2 { sockpp::Cb { }, GET, { }, { }, "/" };
+  sockpp::XHandle h3 { sockpp::Cb { }, GET, { }, { }, "/" };
   try {
-    sockpp::Client<sockpp::Http> conn0 { 1.1, host0, port0 };
-    sockpp::Client<sockpp::Http> conn1 { 1.1, host1, port1 };
-    sockpp::Multi<sockpp::Http> M { { conn0, conn1 } };
-    // Perform using 2 async xfrs
-    M.performreq(2, { h0, h1 });
-    std::cout << "All async transfer(s) completed\n";
-    std::cout << "(Client0):\n===================\n";
-    std::cout << "The response header:\n===================\n";
-    std::cout << h0.header << std::endl;
-    std::cout << "The response body:\n===================\n";
-    std::cout << h0.body << std::endl;
-    std::cout << "(Client1):\n===================\n";
-    std::cout << "The response header:\n===================\n";
-    std::cout << h1.header << std::endl;
-    std::cout << "The response body:\n===================\n";
-    std::cout << h1.body << std::endl;
+    sockpp::Client<sockpp::Http> client0 { 1.1, HOST0, PORT }, 
+      client1 { 1.1, HOST0, PORT },
+      client2 { 1.1, HOST0, PORT };
+    sockpp::Multi<sockpp::Http> M { { client0, client1 } };
+    std::vector<std::reference_wrapper<sockpp::XHandle>> H { { h0, h1, h2, h3 } };
+    M.performreq(H);
+    std::cout << "All transfer(s) completed\n";
+    for (auto i { 0U }; i < H.size(); i++)
+    {
+      std::cout << "(Handle" << i << "):\n===================\n";
+      std::cout << "The response header:\n===================\n";
+      std::cout << H[i].get().header << std::endl;
+      std::cout << "The response body:\n===================\n";
+      std::cout << H[i].get().body << std::endl;
+    }
   }
 
   catch (const char e[]) {

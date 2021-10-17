@@ -12,26 +12,10 @@
 #include <libsockpp/utils.h>
 #include <libsockpp/time.h>
 
-static const std::string host { "localhost" };
-static const unsigned port { 8080 };
+static const char PORT[] { "8080" };
 
-int main(const int argc, const char *argv[])
+int main(const int ARGC, const char *ARGV[])
 {
-  std::string hostname;
-  unsigned port_no;
-  if (argc != 3)
-  {
-    std::cerr << "Usage: ./server_example <hostname> <port>\n";
-    hostname = host;
-    port_no = port;
-  }
-
-  else
-  {
-    hostname = std::string(argv[1]);
-    port_no = std::atoi(argv[2]);
-  }
-
   signal(SIGPIPE, SIG_IGN);
   auto cb {
     [&](sockpp::Http &sock) {
@@ -64,7 +48,7 @@ int main(const int argc, const char *argv[])
   };
   
   try {
-    sockpp::Server<sockpp::Http> server { hostname, port_no };
+    sockpp::Server<sockpp::Http> server { PORT };
     std::cout << "Running server...\n";
     while (1)
     {

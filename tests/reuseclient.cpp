@@ -1,18 +1,17 @@
 #include <iostream>
 #include <libsockpp/sock.h>
 
-static const std::string host0 { "localhost" };
-static const std::string host { host0 };
-static const unsigned port { 8080 };
+static const char HOST[] { "localhost" };
+static const char PORT[] { "8080" };
 using ConnType = sockpp::Http;
 
-int main(const int argc, const char *argv[])
+int main(const int ARGC, const char *ARGV[])
 {
   // Chunked transfer
   sockpp::Cb cb { [](const std::string &buffer) { std::cout << "Recv from server " << buffer; } };
   sockpp::XHandle h { cb, GET, { { "OK" } }, { } };
   try {
-    sockpp::Client<ConnType> client { 1.1, host, port };
+    sockpp::Client<ConnType> client { 1.1, HOST, PORT };
     for (auto i { 0 }; i < 10; i++)
     {
       // Perform request on handle

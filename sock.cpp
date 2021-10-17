@@ -29,8 +29,6 @@ SOFTWARE.
 #include <libsockpp/sock.h>
 
 static const float DEFAULT_HTTPVER { 2.0 };
-static const char CERTPEM[] { "/tmp/cert.pem" };
-static const char KEYPEM[] { "/tmp/key.pem" };
 static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
 static const unsigned char LISTEN_QLEN { 16 };
 static const unsigned INTERNAL_TIMEOUTMS { 5000 };
@@ -192,7 +190,7 @@ sockpp::Https::~Https(void)
 {
   if (ssl)
   {
-    ::SSL_shutdown(ssl);
+    //::SSL_shutdown(ssl);
     ::SSL_free(ssl);
   }
 

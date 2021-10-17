@@ -29,6 +29,7 @@ SOFTWARE.
 #include <array>
 #include <functional>
 #include <openssl/ssl.h>
+#include <openssl/bio.h>
 #include <regex>
 #include <list>
 #include <future>
@@ -46,7 +47,7 @@ namespace sockpp
   {
   protected:
     int sockfd { -1 };
-    struct pollfd pollfd { };
+    struct ::pollfd pollfd { };
   public:
     Http(void) = default;
     Http(const int sockfd) : sockfd { sockfd } { };
@@ -79,7 +80,7 @@ namespace sockpp
   class Https : private InitHttps, public Http
   {
     //::SSL_CTX *ctx { nullptr };
-    BIO *bio { BIO_new(BIO_s_mem()) };
+    ::BIO *r { BIO_new(BIO_s_mem()) }, *s { nullptr };
     ::SSL *ssl { nullptr };
     //bool ssl_error { false };
   public:
@@ -178,8 +179,7 @@ namespace sockpp
   public:
     Server(const char []);
     bool poll_listen(const int timeout_ms) { return sock.poll(timeout_ms); }
-    //void recv_client(const std::function<void(S &)> &, const std::string & = CERTPEM, const std::string & = KEYPEM);
-    void recv_client(const std::function<void(S &)> &, const std::string &, const std::string &);
+    void recv_client(const std::function<void(S &)> &, const std::string & = "/tmp/cert.pem", const std::string & = "/tmp/key.pem");
     void refresh_clients(void);
   };
 }

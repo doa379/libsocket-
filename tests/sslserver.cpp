@@ -5,26 +5,10 @@
 #include <libsockpp/sock.h>
 #include <libsockpp/utils.h>
 
-static const std::string host0 { "localhost" };
-static const unsigned port0 { 4433 };
+static const char PORT[] { "4433" };
 
-int main(int argc, char *argv[])
+int main(int ARGC, char *ARGV[])
 {
-  std::string hostname;
-  unsigned port_no;
-  if (argc != 3)
-  {
-    std::cerr << "Usage: ./sslserver_example <hostname> <port>\n";
-    hostname = host0;
-    port_no = port0;
-  }
-
-  else
-  {
-    hostname = std::string(argv[1]);
-    port_no = std::atoi(argv[2]);
-  }
-
   signal(SIGPIPE, SIG_IGN);
   auto client_msg { 
     [&](sockpp::Https &sock) {
@@ -73,7 +57,7 @@ int main(int argc, char *argv[])
   };
   
   try {
-    sockpp::Server<sockpp::Https> server(hostname, port_no);
+    sockpp::Server<sockpp::Https> server { PORT };
     std::cout << "Running SSL server...\n";
     while (1)
     {
