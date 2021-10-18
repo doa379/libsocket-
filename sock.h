@@ -80,7 +80,7 @@ namespace sockpp
   class Https : private InitHttps, public Http
   {
     //::SSL_CTX *ctx { nullptr };
-    ::BIO *r { BIO_new(BIO_s_mem()) }, *s { nullptr };
+    ::BIO *r { ::BIO_new(::BIO_s_mem()) }, *s { nullptr };
     ::SSL *ssl { nullptr };
     //bool ssl_error { false };
   public:
@@ -118,7 +118,8 @@ namespace sockpp
     Recv(S &sock) : sock { sock } { }
     bool is_chunked(const std::string &);
     bool req_header(std::string &);
-    void req_body(std::string &, const std::string &);
+    std::size_t parse_cl(const std::string &);
+    void req_body(std::string &, const std::size_t);
     void req_body(const Cb &);
     void req_raw(const Cb &);
   };

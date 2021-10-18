@@ -14,12 +14,14 @@ int main(int ARGC, char *ARGV[])
     [&](sockpp::Https &sock) {
       sockpp::Recv<sockpp::Https> recv { sock };
       std::string cli_head, cli_body;
-      recv.req_header(cli_head);
-      recv.req_body(cli_body, cli_head);
-      std::cout << "-Receive from client-\n";
-      std::cout << cli_head << "\n";
-      std::cout << cli_body << "\n";
-      std::cout << "-End receive from client-\n";
+      if (recv.req_header(cli_head))
+      {
+        recv.req_body(cli_body, recv.parse_cl(cli_head));
+        std::cout << "-Receive from client-\n";
+        std::cout << cli_head << "\n";
+        std::cout << cli_body << "\n";
+        std::cout << "-End receive from client-\n";
+      }
     }
   };
 

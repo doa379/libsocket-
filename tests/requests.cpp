@@ -26,7 +26,7 @@ int main(const int ARGC, const char *ARGV[])
           std::string cli_head, cli_body;
           // Recv determines if client is still at socket
           if (recv.req_header(cli_head))
-            recv.req_body(cli_body, cli_head);
+            recv.req_body(cli_body, recv.parse_cl(cli_head));
           else
             break;
           std::cout << "Received from client\n";

@@ -2,7 +2,7 @@
 #include <libsockpp/sock.h>
 
 static const char HOST[] { "www.openssl.org" };
-static const char PORT[] { "443" };
+static const char PORT[] { "https" };
 
 int main(int ARGC, char *ARGV[])
 {
