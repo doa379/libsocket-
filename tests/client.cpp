@@ -7,21 +7,18 @@ static const char PORT[] { "http" };
 
 int main(int ARGC, char *ARGV[])
 {
-  std::string hostname;
+  std::string host { HOST0 };
   if (ARGC != 2)
-  {
-    std::cerr << "Usage: ./client_example <hostname>\n";
-    hostname = std::string(HOST0);
-  }
+    std::cerr << "Usage: ./client <host>\n";
 
   else
-    hostname = std::string(ARGV[1]);
+    host = std::string(ARGV[1]);
 
   // Chunked transfer
   sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
   sockpp::XHandle h { cb, GET, { }, { }, "/" };
   try {
-    sockpp::Client<sockpp::Http> client { 1.1, hostname, PORT };
+    sockpp::Client<sockpp::Http> client { 1.1, host.c_str(), PORT };
     // Perform request on handle
     if (!client.performreq(h))
       throw "Unable to sendreq()";

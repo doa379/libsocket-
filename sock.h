@@ -28,15 +28,18 @@ SOFTWARE.
 #include <vector>
 #include <array>
 #include <functional>
-#include <openssl/ssl.h>
-#include <openssl/bio.h>
 #include <regex>
 #include <list>
 #include <future>
+#include <sys/socket.h>
+#include <openssl/ssl.h>
+#include <openssl/bio.h>
 #include <poll.h>
 #include <unistd.h>
 
 enum Req { GET, POST, PUT, DELETE };
+const char CERT[] { "/tmp/cert.pem" };
+const char KEY[] { "/tmp/key.pem" };
 
 namespace sockpp
 {
@@ -56,22 +59,18 @@ namespace sockpp
     bool init_server(const char []);
     void deinit(void) { ::close(sockfd); }
     void init_poll(void);
-    virtual bool poll(const int);
-    bool pollin(void);
-    bool pollerr(void);
-    virtual bool connect(const char []);
+    bool pollin(const int);
+    bool pollerr(const int);
+    virtual void connect(void) { };
     virtual bool read(char &);
     virtual bool write(const std::string &);
     ////////////////////
-    int accept(void);
-    //bool bind(void);
-    //bool listen(void);
+    int accept(void) { return ::accept(sockfd, nullptr, nullptr); }
   };
 
   class InitHttps
   {
   protected:
-    static ::SSL_CTX *client, *server;
   public:
     InitHttps(void);
     static void init(void);
@@ -79,30 +78,35 @@ namespace sockpp
 
   class Https : private InitHttps, public Http
   {
-    //::SSL_CTX *ctx { nullptr };
-    ::BIO *r { ::BIO_new(::BIO_s_mem()) }, *s { nullptr };
-    ::SSL *ssl { nullptr };
-    //bool ssl_error { false };
+    ::SSL_CTX *client { nullptr }, *server { nullptr };
+    ::SSL *ssl {nullptr };
+    ::BIO *r { nullptr }, *w { nullptr }, *s { nullptr };
   public:
-    //Https(const ::SSL_METHOD * = ::TLS_client_method()) noexcept;
-    //Https(const int, const ::SSL_METHOD * = ::TLS_server_method()) noexcept;
-    Https(void) noexcept;
-    Https(const int) noexcept;
-    ~Https(void);
-    bool configure_context(const std::string &, const std::string &);
-    bool set_hostname(const char []);
+    Https(void) { }
+    Https(const int sockfd) : Http { sockfd } { }
+    ~Https(void) { /*::SSL_free(ssl);*/ }
+    void init_client_ctx(void) { client = ::SSL_CTX_new(::TLS_client_method()); }
+    void init_client(void) { ssl = ::SSL_new(client); }
+    void init_server_ctx(void) { server = ::SSL_CTX_new(::TLS_server_method()); }
+    void init_server(void) { ssl = ::SSL_new(server); }
+    bool configure_ctx(::SSL_CTX *, const char [], const char []);
+    void set_connect_state(void) { ::SSL_set_connect_state(ssl); }
+    void set_accept_state(void) { ::SSL_set_accept_state(ssl); }
 ////////
-    bool set_fd(void);
-    bool connect(const char []) override;
-    bool poll(const int) override;
+    void connect(void) override;
     bool read(char &) override;
     bool write(const std::string &) override;
-    bool clear(void);
+    bool clear(void) { return ::SSL_clear(ssl) > 0; }
 ////////
-    bool accept(void);
-    //::SSL_CTX *ssl_ctx(::SSL_CTX *);
-    //::SSL_CTX *ssl_ctx(void) { return ctx; }
-    int error(int);
+    ::SSL *get_ssl(void) { return ssl; };
+    ::SSL_CTX *set_ctx(::SSL_CTX *ctx) { return ::SSL_set_SSL_CTX(ssl, ctx); }
+    ::SSL_CTX *client_ctx(void) { return client; }
+    ::SSL_CTX *server_ctx(void) { return server; }
+    int error(int err) { return ::SSL_get_error(ssl, err); }
+    void init_rbio(void) { r = ::BIO_new(::BIO_s_mem()); }
+    void init_wbio(void) { w = ::BIO_new(::BIO_s_mem()); }
+    ::BIO *init_sbio(int sockfd) { return ::BIO_new_socket(sockfd, BIO_NOCLOSE); }
+    void set_bio(::BIO *r, ::BIO *w) { ::SSL_set_bio(ssl, r, w); }
     void certinfo(std::string &, std::string &, std::string &);
   };
   
@@ -132,20 +136,6 @@ namespace sockpp
     const std::string data, endp { "/" };
     std::string header, body;
     XHandle(void) = default;
-    /*
-    XHandle(decltype(endp) &endp) : 
-      endp { endp } { }
-    XHandle(const Req req, decltype(HEAD) &HEAD, decltype(data) &data, decltype(endp) &endp = "/") : 
-      req { req }, HEAD { HEAD }, data { data }, endp { endp } { }
-    XHandle(const Cb &cb, const Req req, decltype(HEAD) &HEAD, decltype(data) &data, decltype(endp) &endp = "/") : 
-      cb { cb }, req { req }, HEAD { HEAD }, data { data }, endp { endp } { }
-    XHandle(decltype(HEAD) &HEAD, decltype(endp) &endp = "/") : 
-      HEAD { HEAD }, endp { endp } { }
-    XHandle(const Cb &cb, decltype(HEAD) &HEAD, decltype(endp) &endp = "/") : 
-      cb { cb }, HEAD { HEAD }, endp { endp } { }
-    XHandle(const Cb &cb, decltype(endp) &endp = "/") : 
-      cb { cb }, endp { endp } { }
-      */
   };
 
   template<typename S>
@@ -156,7 +146,7 @@ namespace sockpp
     const char *AGENT { "TCPRequest" };
     char httpver[8] { };
   public:
-    Client(const float, const std::string &, const std::string &);
+    Client(const float, const char [], const char []);
     bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &);
     bool performreq(XHandle &);
     void close(void) { sock.deinit(); }
@@ -175,12 +165,12 @@ namespace sockpp
   class Server
   {
     S sock;
-    //const std::string host;
+    const std::string host;
     std::list<std::future<void>> F;
   public:
     Server(const char []);
-    bool poll_listen(const int timeout_ms) { return sock.poll(timeout_ms); }
-    void recv_client(const std::function<void(S &)> &, const std::string & = "/tmp/cert.pem", const std::string & = "/tmp/key.pem");
+    bool poll_listen(const int timeout_ms) { return sock.pollin(timeout_ms); }
+    void recv_client(const std::function<void(S &)> &, const char [] = CERT, const char [] = KEY);
     void refresh_clients(void);
   };
 }

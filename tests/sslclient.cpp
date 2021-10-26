@@ -6,20 +6,21 @@ static const char PORT[] { "https" };
 
 int main(int ARGC, char *ARGV[])
 {
-  std::string hostname { HOST }, endp { "/" };
-  if (ARGC != 3)
-    std::cerr << "Usage: ./sslclient_example <hostname> <endp>\n";
+  std::string host { HOST }, port { PORT }, endp { "/" };
+  if (ARGC != 4)
+    std::cerr << "Usage: ./sslclient <host> <port> <endp>\n";
 
   else
   {
-    hostname = std::string(ARGV[1]);
-    endp = std::string(ARGV[2]);
+    host = std::string(ARGV[1]);
+    port = std::string(ARGV[2]);
+    endp = std::string(ARGV[3]);
   }
 
   sockpp::Cb cb { [&](const std::string &buffer) { std::cout << buffer; } };
-  sockpp::XHandle h { cb, GET, { { "Connection: close" } }, { }, endp };
+  sockpp::XHandle h { cb, GET, { "Connection: close" }, { }, endp };
   try {
-    sockpp::Client<sockpp::Https> client { 1.1, hostname, PORT };
+    sockpp::Client<sockpp::Https> client { 1.1, host.c_str(), port.c_str() };
     // Perform request on handle
     if (!client.performreq(h))
       throw "Unable to sendreq()";

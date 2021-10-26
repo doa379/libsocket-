@@ -64,7 +64,7 @@ int main(int ARGC, char *ARGV[])
     while (1)
     {
       if (server.poll_listen(100))
-        server.recv_client(chunked_cb);
+        server.recv_client(cb);
       server.refresh_clients();
     }
   }

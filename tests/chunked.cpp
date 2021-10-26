@@ -14,7 +14,7 @@ int main(const int ARGC, const char *ARGV[])
   auto cb {
     [&](sockpp::Http &sock) {
       while (1)
-        if (sock.poll(-1))
+        if (sock.pollin(-1))
         {
           sockpp::Recv<sockpp::Http> recv { sock };
           std::string cli_head, cli_body;
