@@ -21,7 +21,7 @@ int main(int ARGC, char *ARGV[])
     sockpp::Client<sockpp::Http> client { 1.1, host.c_str(), PORT };
     // Perform request on handle
     if (!client.performreq(h))
-      throw "Unable to sendreq()";
+      throw "Failed to performreq()";
 
     std::cout << "The response header:\n===================\n";
     std::cout << h.header << std::endl;

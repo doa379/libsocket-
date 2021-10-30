@@ -31,7 +31,7 @@ OBJ_TESTB = ${SRC_TESTB:.cpp=.o}
 CC = c++
 REL_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
 DEB_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -g ${INCS}
-CFLAGS = ${DEB_CFLAGS}
+CFLAGS = ${REL_CFLAGS}
 LDFLAGS += ${LIBSPATH} ${LIBS}
 
 all: client \

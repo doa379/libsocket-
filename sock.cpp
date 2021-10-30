@@ -29,7 +29,7 @@ SOFTWARE.
 static const float DEFAULT_HTTPVER { 2.0 };
 static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
 static const unsigned char LISTEN_QLEN { 16 };
-static const unsigned INTERNAL_TIMEOUTMS { 500 };
+static const unsigned INTERNAL_TIMEOUTMS { 5000 };
 
 bool sockpp::Http::init_client(const char HOST[], const char PORT[])
 {
@@ -115,9 +115,9 @@ bool sockpp::Http::read(char &p)
   return ::read(sockfd, &p, sizeof p) > 0;
 }
 
-bool sockpp::Http::write(const std::string &data)
+bool sockpp::Http::write(const std::string &req)
 {
-  return ::write(sockfd, data.c_str(), data.size()) == (ssize_t) data.size();
+  return ::write(sockfd, req.c_str(), req.size()) > 0;
 }
 
 sockpp::InitHttps::InitHttps(void)
@@ -127,11 +127,10 @@ sockpp::InitHttps::InitHttps(void)
 
 void sockpp::InitHttps::init(void)
 {
-  ::OpenSSL_add_ssl_algorithms();
-  ::SSL_load_error_strings();
+  ::OpenSSL_add_all_algorithms();
 }
 
-bool sockpp::Https::configure_ctx(::SSL_CTX *ctx, const char CERT[], const char KEY[])
+bool sockpp::Https::configure_ctx(const char CERT[], const char KEY[])
 {
   SSL_CTX_set_ecdh_auto(ctx, 1);
   return SSL_CTX_use_certificate_file(ctx, CERT, SSL_FILETYPE_PEM) > 0 &&
@@ -139,45 +138,57 @@ bool sockpp::Https::configure_ctx(::SSL_CTX *ctx, const char CERT[], const char 
         SSL_CTX_check_private_key(ctx) > 0;
 }
 
-void sockpp::Https::connect(void)
+void sockpp::Https::connect(const char HOST[])
 {
-  Https::init_client_ctx();
   Https::init_client();
-  auto sbio { init_sbio(sockfd) };
-  set_bio(sbio, sbio);
+  init();
+  set_hostname(HOST);
   set_connect_state();
+  set_fd(Http::sockfd);
+  do_handshake();
+  init_rbio();
+  init_wbio();
+  set_rwbio();
 }
 
-bool sockpp::Https::read(char &p)
+void sockpp::Https::readfilter(char p)
+{
+  ::BIO_write(r, &p, sizeof p);
+}
+
+bool sockpp::Https::postread(char &p)
 {
   return ::SSL_read(ssl, &p, sizeof p) > 0;
 }
 
-bool sockpp::Https::write(const std::string &data)
+bool sockpp::Https::write(const std::string &req)
 {
-  return ::SSL_write(ssl, data.c_str(), data.size()) == (ssize_t) data.size();
+  char buffer[16384] { };
+  ssize_t Nenc { };
+  return ::SSL_write(ssl, req.c_str(), req.size()) > 0 &&
+    (Nenc = ::BIO_read(w, buffer, sizeof buffer)) > 0 &&
+      ::write(sockfd, buffer, Nenc) > 0;
 }
 
-void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::string &issue)
+void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::string &iss)
 {
-  // Method must be called after connect()
   cipherinfo = std::string(::SSL_get_cipher(ssl));
   ::X509 *server_cert { ::SSL_get_peer_certificate(ssl) };
   if (!server_cert)
     return;
 
-  char *certificate { ::X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
-  if (certificate)
+  auto CERT { ::X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
+  if (CERT)
   {
-    cert = std::string(certificate);
-    ::OPENSSL_free(certificate);
+    cert = std::string(CERT);
+    ::OPENSSL_free(CERT);
   }
 
-  char *issuer { ::X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
-  if (issuer)
+  auto ISS { ::X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
+  if (ISS)
   {
-    issue = std::string(issuer);
-    ::OPENSSL_free(issuer);
+    iss = std::string(ISS);
+    ::OPENSSL_free(ISS);
   }
 
   ::X509_free(server_cert);
@@ -195,11 +206,18 @@ template<typename S>
 bool sockpp::Recv<S>::req_header(std::string &header)
 {
   char p { };
-  while (!(header.rfind("\r\n\r\n") < std::string::npos) && 
-    sock.pollin(INTERNAL_TIMEOUTMS) && sock.read(p))
+  while (sock.pollin(INTERNAL_TIMEOUTMS) && sock.read(p))
+  {
+    sock.readfilter(p);
+    while (sock.postread(p))
+    {
       header += p;
-  std::smatch match { };
-  return std::regex_search(header, match, ok_regex);
+      if (header.rfind("\r\n\r\n") < std::string::npos)
+        return true;
+    }
+  }
+
+  return false;
 }
 
 template<typename S>
@@ -214,52 +232,74 @@ std::size_t sockpp::Recv<S>::parse_cl(const std::string &header)
 }
 
 template<typename S>
-void sockpp::Recv<S>::req_body(std::string &body, const std::size_t cl)
+bool sockpp::Recv<S>::req_body(std::string &body, const std::size_t cl)
 {
   char p { };
-  while (body.size() < cl && sock.pollin(INTERNAL_TIMEOUTMS) && 
-      sock.read(p))
+  while (body.size() < cl && sock.postread(p))
     body += p;
+  if (body.size() > cl - 1)
+    return true;
+
+  while (sock.pollin(INTERNAL_TIMEOUTMS) && sock.read(p))
+  {
+    sock.readfilter(p);
+    while (sock.postread(p))
+    {
+      body += p;
+      if (body.size() > cl - 1)
+        return true;
+    }
+  }
+
+  return false;
 }
 
 template<typename S>
 void sockpp::Recv<S>::req_body(const Cb &cb)
 {
+  char p { };
   std::string body;
   std::size_t l { };
-  char p { };
   while (sock.pollin(INTERNAL_TIMEOUTMS) && sock.read(p))
   {
-    body += p;
-    if (body == "\r\n");
-    else if (!l && body.rfind("\r\n") < std::string::npos)
+    sock.readfilter(p);
+    while (sock.postread(p))
     {
-      body.erase(body.end() - 2, body.end());
-      if (!(l = std::stoull(body, nullptr, 16)))
-        break;
-    }
-    else if (body.size() == l)
-    {
-      cb(body);
-      l = 0;
-    }
-    else
-      continue;
+      body += p;
+      if (body == "\r\n");
+      else if (!l && body.rfind("\r\n") < std::string::npos)
+      {
+        body.erase(body.end() - 2, body.end());
+        if (!(l = std::stoull(body, nullptr, 16)))
+          return;;
+      }
+      else if (body.size() == l)
+      {
+        cb(body);
+        l = 0;
+      }
+      else
+        continue;
 
-    body.clear();
+      body.clear();
+    }
   }
 }
 
 template<typename S>
 void sockpp::Recv<S>::req_raw(const Cb &cb)
 {
-  std::string body;
   char p { };
+  std::string body;
   while (sock.pollin(INTERNAL_TIMEOUTMS) && sock.read(p))
   {
-    body += p;
-    cb(body);
-    body.clear();
+    sock.readfilter(p);
+    while (sock.postread(p))
+    {
+      body += p;
+      cb(body);
+      body.clear();
+    }
   }
 }
 
@@ -273,7 +313,7 @@ sockpp::Client<S>::Client(const float httpver, const char HOST[], const char POR
   ::snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
   if (sock.Http::init_client(HOST, PORT))
   {
-    sock.connect();
+    sock.connect(HOST);
     sock.init_poll();
   }
 
@@ -308,27 +348,18 @@ bool sockpp::Client<S>::sendreq(const Req req, const std::vector<std::string> &H
 template<typename S>
 bool sockpp::Client<S>::performreq(XHandle &h)
 {
-  if (sendreq(h.req, h.HEAD, h.data, h.endp))
+  Recv<S> recv { sock };
+  if (sendreq(h.req, h.HEAD, h.data, h.endp) && recv.req_header(h.header))
   {
-    Recv<S> recv { sock };
-    std::string swap;
-    if (recv.req_header(swap))
+    if (recv.is_chunked(h.header))
+      recv.req_body(h.cb);
+    else
     {
-      h.header = swap;
-      if (recv.is_chunked(h.header))
-        recv.req_body(h.cb);
-      else
-      {
-        swap.clear();
-        auto cl { recv.parse_cl(h.header) };
-        if (cl)
-          recv.req_body(swap, cl);
-        
-        h.body = swap;
-      }
-      return true;
+      auto cl { recv.parse_cl(h.header) };
+      return cl && recv.req_body(h.body, cl);
     }
   }
+
   return false;
 }
 
@@ -368,7 +399,7 @@ template class sockpp::Multi<sockpp::Https>;
 
 template<typename S>
 sockpp::Server<S>::Server(const char PORT[])
-{
+{ // Construct a server for each client
   if (sock.Http::init_server(PORT))
     sock.init_poll();
   else
@@ -395,17 +426,20 @@ void sockpp::Server<sockpp::Https>::recv_client(const std::function<void(Https &
   auto f { std::async(std::launch::async, 
     [&, CERT, KEY](void) {
       Https client;
-      client.init_client_ctx();
-      if (!client.configure_ctx(client.client_ctx(), CERT, KEY))
+      client.init_client();
+      if (!client.configure_ctx(CERT, KEY))
         return;
       auto sockfd { sock.Http::accept() };
       Https server { sockfd };
-      server.init_server_ctx();
       server.init_server();
-      server.set_ctx(client.client_ctx());
-      auto sbio { server.init_sbio(sockfd) };
-      server.set_bio(sbio, sbio);
+      server.init();
+      server.set_ctx(client.get_ctx());
       server.set_accept_state();
+      server.set_fd(sockfd);
+      server.do_handshake();
+      server.init_rbio();
+      server.init_wbio();
+      server.set_rwbio();
       server.init_poll();
       cb(server);
     })

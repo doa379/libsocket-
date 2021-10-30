@@ -48,6 +48,7 @@ namespace sockpp
 
   class Http
   {
+    char p { };
   protected:
     int sockfd { -1 };
     struct ::pollfd pollfd { };
@@ -61,11 +62,12 @@ namespace sockpp
     void init_poll(void);
     bool pollin(const int);
     bool pollerr(const int);
-    virtual void connect(void) { };
-    virtual bool read(char &);
-    virtual bool write(const std::string &);
-    ////////////////////
     int accept(void) { return ::accept(sockfd, nullptr, nullptr); }
+    bool read(char &);
+    virtual void connect(const char []) { }
+    virtual void readfilter(char p) { this->p = p; }
+    virtual bool postread(char &p) { p = this->p; this->p = '\0'; return p; }
+    virtual bool write(const std::string &);
   };
 
   class InitHttps
@@ -78,36 +80,32 @@ namespace sockpp
 
   class Https : private InitHttps, public Http
   {
-    ::SSL_CTX *client { nullptr }, *server { nullptr };
-    ::SSL *ssl {nullptr };
-    ::BIO *r { nullptr }, *w { nullptr }, *s { nullptr };
+    ::SSL_CTX *ctx { nullptr };
+    ::SSL *ssl { nullptr };
+    ::BIO *r { nullptr }, *w { nullptr };
   public:
     Https(void) { }
     Https(const int sockfd) : Http { sockfd } { }
-    ~Https(void) { /*::SSL_free(ssl);*/ }
-    void init_client_ctx(void) { client = ::SSL_CTX_new(::TLS_client_method()); }
-    void init_client(void) { ssl = ::SSL_new(client); }
-    void init_server_ctx(void) { server = ::SSL_CTX_new(::TLS_server_method()); }
-    void init_server(void) { ssl = ::SSL_new(server); }
-    bool configure_ctx(::SSL_CTX *, const char [], const char []);
-    void set_connect_state(void) { ::SSL_set_connect_state(ssl); }
-    void set_accept_state(void) { ::SSL_set_accept_state(ssl); }
-////////
-    void connect(void) override;
-    bool read(char &) override;
-    bool write(const std::string &) override;
-    bool clear(void) { return ::SSL_clear(ssl) > 0; }
-////////
-    ::SSL *get_ssl(void) { return ssl; };
+    ~Https(void) { }
+    void init_client(void) { ctx = ::SSL_CTX_new(::TLS_client_method()); }
+    void init_server(void) { ctx = ::SSL_CTX_new(::TLS_server_method()); }
+    void init(void) { ssl = ::SSL_new(ctx); }
+    bool configure_ctx(const char [], const char []);
     ::SSL_CTX *set_ctx(::SSL_CTX *ctx) { return ::SSL_set_SSL_CTX(ssl, ctx); }
-    ::SSL_CTX *client_ctx(void) { return client; }
-    ::SSL_CTX *server_ctx(void) { return server; }
-    int error(int err) { return ::SSL_get_error(ssl, err); }
+    ::SSL_CTX *get_ctx(void) { return ctx; }
     void init_rbio(void) { r = ::BIO_new(::BIO_s_mem()); }
     void init_wbio(void) { w = ::BIO_new(::BIO_s_mem()); }
-    ::BIO *init_sbio(int sockfd) { return ::BIO_new_socket(sockfd, BIO_NOCLOSE); }
-    void set_bio(::BIO *r, ::BIO *w) { ::SSL_set_bio(ssl, r, w); }
+    void set_rwbio(void) { ::SSL_set_bio(ssl, r, w); }
+    void set_connect_state(void) { ::SSL_set_connect_state(ssl); }
+    void set_accept_state(void) { ::SSL_set_accept_state(ssl); }
+    void set_hostname(const char HOST[]) { ::SSL_set_tlsext_host_name(ssl, HOST); }
+    void set_fd(int sockfd) { ::SSL_set_fd(ssl, sockfd); }
+    void do_handshake(void) { ::SSL_do_handshake(ssl); }
     void certinfo(std::string &, std::string &, std::string &);
+    void connect(const char []) override;
+    void readfilter(char) override;
+    bool postread(char &) override;
+    bool write(const std::string &) override;
   };
   
   template<typename S>
@@ -123,7 +121,7 @@ namespace sockpp
     bool is_chunked(const std::string &);
     bool req_header(std::string &);
     std::size_t parse_cl(const std::string &);
-    void req_body(std::string &, const std::size_t);
+    bool req_body(std::string &, const std::size_t);
     void req_body(const Cb &);
     void req_raw(const Cb &);
   };
