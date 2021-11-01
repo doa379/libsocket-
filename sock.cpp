@@ -172,7 +172,7 @@ bool sockpp::Https::write(const std::string &req)
 
 void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::string &iss)
 {
-  cipherinfo = std::string(::SSL_get_cipher(ssl));
+  cipherinfo = std::string { ::SSL_get_cipher(ssl) };
   ::X509 *server_cert { ::SSL_get_peer_certificate(ssl) };
   if (!server_cert)
     return;
@@ -180,14 +180,14 @@ void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::st
   auto CERT { ::X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
   if (CERT)
   {
-    cert = std::string(CERT);
+    cert = std::string { CERT };
     ::OPENSSL_free(CERT);
   }
 
   auto ISS { ::X509_NAME_oneline(X509_get_issuer_name(server_cert), 0, 0) };
   if (ISS)
   {
-    iss = std::string(ISS);
+    iss = std::string { ISS };
     ::OPENSSL_free(ISS);
   }
 
@@ -255,7 +255,7 @@ bool sockpp::Recv<S>::req_body(std::string &body, const std::size_t cl)
 }
 
 template<typename S>
-void sockpp::Recv<S>::req_body(const Cb &cb)
+bool sockpp::Recv<S>::req_body(const Cb &cb)
 {
   char p { };
   std::string body;
@@ -271,7 +271,7 @@ void sockpp::Recv<S>::req_body(const Cb &cb)
       {
         body.erase(body.end() - 2, body.end());
         if (!(l = std::stoull(body, nullptr, 16)))
-          return;;
+          return true;
       }
       else if (body.size() == l)
       {
@@ -284,6 +284,8 @@ void sockpp::Recv<S>::req_body(const Cb &cb)
       body.clear();
     }
   }
+
+  return false;
 }
 
 template<typename S>
@@ -308,7 +310,7 @@ template class sockpp::Recv<sockpp::Https>;
 
 template<typename S>
 sockpp::Client<S>::Client(const float httpver, const char HOST[], const char PORT[]) : 
-  host { std::string(HOST) }
+  host { std::string { HOST } }
 {
   ::snprintf(this->httpver, sizeof this->httpver - 1, "%.1f", httpver);
   if (sock.Http::init_client(HOST, PORT))
@@ -329,9 +331,9 @@ bool sockpp::Client<S>::sendreq(const Req req, const std::vector<std::string> &H
     return false;
 
   std::string request { 
-    REQ[req] + " " + endp + " " + "HTTP/" + std::string(httpver) + "\r\n" +
+    REQ[req] + " " + endp + " " + "HTTP/" + std::string { httpver } + "\r\n" +
       "Host: " + host + "\r\n" +
-        "User-Agent: " + std::string(AGENT) + "\r\n" +
+        "User-Agent: " + std::string { AGENT } + "\r\n" +
           "Accept: */*" + "\r\n" 
     };
 
@@ -352,7 +354,7 @@ bool sockpp::Client<S>::performreq(XHandle &h)
   if (sendreq(h.req, h.HEAD, h.data, h.endp) && recv.req_header(h.header))
   {
     if (recv.is_chunked(h.header))
-      recv.req_body(h.cb);
+      return recv.req_body(h.cb);
     else
     {
       auto cl { recv.parse_cl(h.header) };
@@ -382,8 +384,9 @@ void sockpp::Multi<S>::performreq(const std::vector<std::reference_wrapper<XHand
     auto i { &c - &C[0] };
     auto f { std::async(std::launch::async, 
       [&, i](void) {
-        for (auto h { H.begin() + i * N }; h <  H.begin() + (i + 1) * N && h < H.end(); h++)
-          c.get().performreq(*h);
+        for (auto h { H.begin() + i * N };
+          h <  H.begin() + (i + 1) * N && h < H.end(); h++)
+            c.get().performreq(*h);
       })
     };
   

@@ -122,7 +122,7 @@ namespace sockpp
     bool req_header(std::string &);
     std::size_t parse_cl(const std::string &);
     bool req_body(std::string &, const std::size_t);
-    void req_body(const Cb &);
+    bool req_body(const Cb &);
     void req_raw(const Cb &);
   };
 
