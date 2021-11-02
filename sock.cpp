@@ -130,6 +130,18 @@ void sockpp::InitHttps::init(void)
   ::OpenSSL_add_all_algorithms();
 }
 
+void sockpp::Https::deinit(void)
+{
+  if (ssl)
+  {
+    ::SSL_shutdown(ssl);
+    ::SSL_free(ssl);
+  }
+
+  if (ctx)
+    ::SSL_CTX_free(ctx);
+}
+
 bool sockpp::Https::configure_ctx(const char CERT[], const char KEY[])
 {
   SSL_CTX_set_ecdh_auto(ctx, 1);
@@ -212,7 +224,7 @@ bool sockpp::Recv<S>::req_header(std::string &header)
     while (sock.postread(p))
     {
       header += p;
-      if (header.rfind("\r\n\r\n") < std::string::npos)
+      if ((ssize_t) header.rfind("\r\n\r\n") > -1)
         return true;
     }
   }
@@ -237,7 +249,7 @@ bool sockpp::Recv<S>::req_body(std::string &body, const std::size_t cl)
   char p { };
   while (body.size() < cl && sock.postread(p))
     body += p;
-  if (body.size() > cl - 1)
+  if (body.size() == cl)
     return true;
 
   while (sock.pollin(INTERNAL_TIMEOUTMS) && sock.read(p))
@@ -246,7 +258,7 @@ bool sockpp::Recv<S>::req_body(std::string &body, const std::size_t cl)
     while (sock.postread(p))
     {
       body += p;
-      if (body.size() > cl - 1)
+      if (body.size() == cl)
         return true;
     }
   }
@@ -267,10 +279,10 @@ bool sockpp::Recv<S>::req_body(const Cb &cb)
     {
       body += p;
       if (body == "\r\n");
-      else if (!l && body.rfind("\r\n") < std::string::npos)
+      else if (l == 0 && (ssize_t) body.rfind("\r\n") > -1)
       {
         body.erase(body.end() - 2, body.end());
-        if (!(l = std::stoull(body, nullptr, 16)))
+        if ((l = std::stoull(body, nullptr, 16)) == 0)
           return true;
       }
       else if (body.size() == l)

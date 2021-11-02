@@ -86,10 +86,11 @@ namespace sockpp
   public:
     Https(void) { }
     Https(const int sockfd) : Http { sockfd } { }
-    ~Https(void) { }
+    ~Https(void) { deinit(); }
     void init_client(void) { ctx = ::SSL_CTX_new(::TLS_client_method()); }
     void init_server(void) { ctx = ::SSL_CTX_new(::TLS_server_method()); }
     void init(void) { ssl = ::SSL_new(ctx); }
+    void deinit(void);
     bool configure_ctx(const char [], const char []);
     ::SSL_CTX *set_ctx(::SSL_CTX *ctx) { return ::SSL_set_SSL_CTX(ssl, ctx); }
     ::SSL_CTX *get_ctx(void) { return ctx; }
