@@ -123,8 +123,9 @@ namespace sockpp
     bool req_header(std::string &);
     std::size_t parse_cl(const std::string &);
     bool req_body(std::string &, const std::size_t);
-    bool req_body(const Cb &);
-    void req_raw(const Cb &);
+    void req_body(const Cb &cb, std::string &body) { req_chunked(cb, body); }
+    void req_chunked(const Cb &, std::string &);
+    void req_chunked_raw(const Cb &, std::string &);
   };
 
   struct XHandle

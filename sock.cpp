@@ -267,10 +267,9 @@ bool sockpp::Recv<S>::req_body(std::string &body, const std::size_t cl)
 }
 
 template<typename S>
-bool sockpp::Recv<S>::req_body(const Cb &cb)
+void sockpp::Recv<S>::req_chunked(const Cb &cb, std::string &body)
 {
   char p { };
-  std::string body;
   std::size_t l { };
   while (sock.pollin(INTERNAL_TIMEOUTMS) && sock.read(p))
   {
@@ -282,8 +281,13 @@ bool sockpp::Recv<S>::req_body(const Cb &cb)
       else if (l == 0 && (ssize_t) body.rfind("\r\n") > -1)
       {
         body.erase(body.end() - 2, body.end());
-        if ((l = std::stoull(body, nullptr, 16)) == 0)
-          return true;
+        try {
+          l = std::stoull(body, nullptr, 16);
+        }
+
+        catch (...) {
+          return;
+        }
       }
       else if (body.size() == l)
       {
@@ -296,15 +300,12 @@ bool sockpp::Recv<S>::req_body(const Cb &cb)
       body.clear();
     }
   }
-
-  return false;
 }
 
 template<typename S>
-void sockpp::Recv<S>::req_raw(const Cb &cb)
+void sockpp::Recv<S>::req_chunked_raw(const Cb &cb, std::string &body)
 {
   char p { };
-  std::string body;
   while (sock.pollin(INTERNAL_TIMEOUTMS) && sock.read(p))
   {
     sock.readfilter(p);
@@ -366,7 +367,7 @@ bool sockpp::Client<S>::performreq(XHandle &h)
   if (sendreq(h.req, h.HEAD, h.data, h.endp) && recv.req_header(h.header))
   {
     if (recv.is_chunked(h.header))
-      return recv.req_body(h.cb);
+      recv.req_body(h.cb, h.body);
     else
     {
       auto cl { recv.parse_cl(h.header) };
