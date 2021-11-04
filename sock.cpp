@@ -102,6 +102,13 @@ bool sockpp::Http::pollin(const int timeout_ms)
   // Poll retval > 0 success, < 0 fail, == 0 timeout
 }
 
+bool sockpp::Http::pollout(const int timeout_ms)
+{
+  pollfd.events = POLLOUT;
+  pollfd.revents = 0;
+  return ::poll(&pollfd, 1, timeout_ms) > 0 && pollfd.revents & POLLOUT;
+}
+
 bool sockpp::Http::pollerr(const int timeout_ms)
 {
   auto event { POLLERR | POLLHUP | POLLNVAL };
@@ -267,7 +274,7 @@ bool sockpp::Recv<S>::req_body(std::string &body, const std::size_t cl)
 }
 
 template<typename S>
-void sockpp::Recv<S>::req_chunked(const Cb &cb, std::string &body)
+bool sockpp::Recv<S>::req_chunked(const Cb &cb, std::string &body)
 {
   char p { };
   std::size_t l { };
@@ -286,8 +293,11 @@ void sockpp::Recv<S>::req_chunked(const Cb &cb, std::string &body)
         }
 
         catch (...) {
-          return;
+          return false;
         }
+
+        if (l == 0)
+          return true;
       }
       else if (body.size() == l)
       {
@@ -300,10 +310,12 @@ void sockpp::Recv<S>::req_chunked(const Cb &cb, std::string &body)
       body.clear();
     }
   }
+
+  return true;
 }
 
 template<typename S>
-void sockpp::Recv<S>::req_chunked_raw(const Cb &cb, std::string &body)
+bool sockpp::Recv<S>::req_chunked_raw(const Cb &cb, std::string &body)
 {
   char p { };
   while (sock.pollin(INTERNAL_TIMEOUTMS) && sock.read(p))
@@ -316,6 +328,8 @@ void sockpp::Recv<S>::req_chunked_raw(const Cb &cb, std::string &body)
       body.clear();
     }
   }
+
+  return true;
 }
 
 template class sockpp::Recv<sockpp::Http>;
@@ -367,7 +381,7 @@ bool sockpp::Client<S>::performreq(XHandle &h)
   if (sendreq(h.req, h.HEAD, h.data, h.endp) && recv.req_header(h.header))
   {
     if (recv.is_chunked(h.header))
-      recv.req_body(h.cb, h.body);
+      return recv.req_body(h.cb, h.body);
     else
     {
       auto cl { recv.parse_cl(h.header) };
