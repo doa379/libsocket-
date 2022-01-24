@@ -5,8 +5,7 @@ static const char HOST0[] { "www.openssl.org" };
 static const char HOST1[] { "www.openssl.org" };
 static const char PORT[] { "443" };
 
-int main(const int ARGC, const char *ARGV[])
-{
+int main(const int ARGC, const char *ARGV[]) {
   sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
   sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
   try {
@@ -25,11 +24,6 @@ int main(const int ARGC, const char *ARGV[])
     std::cout << h1.header << std::endl;
     std::cout << "The response body:\n===================\n";
     std::cout << h1.body << std::endl;
-  }
-
-  catch (const char e[]) {
-    std::cerr << std::string(e) << "\n";
-  }
-
+  } catch (const char E[]) { std::cerr << E << "\n"; }
   return 0;
 }

@@ -5,8 +5,7 @@ static const char HOST0[] { "webscantest.com" };
 static const char HOST1[] { "localhost" };
 static const char PORT[] { "http" };
 
-int main(int ARGC, char *ARGV[])
-{
+int main(int ARGC, char *ARGV[]) {
   std::string host { HOST0 };
   if (ARGC != 2)
     std::cerr << "Usage: ./client <host>\n";
@@ -27,11 +26,6 @@ int main(int ARGC, char *ARGV[])
     std::cout << h.header << std::endl;
     std::cout << "The response body:\n===================\n";
     std::cout << h.body << std::endl;
-  }
-
-  catch (const char e[]) {
-    std::cout << std::string(e) << std::endl;
-  }
-
+  } catch (const char E[]) { std::cout << E << std::endl; }
   return 0;
 }

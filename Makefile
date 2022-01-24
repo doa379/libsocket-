@@ -6,11 +6,14 @@ LIBS = -l ssl -l crypto
 SRC_LIBSOCK = sock.cpp utils.cpp
 OBJ_LIBSOCK = ${SRC_LIBSOCK:.cpp=.o}
 
+REL_CFLAGS = -O3
+DBG_CFLAGS = -g
+REL_LDFLAGS = -s
+DBG_LDFLAGS =
+
+CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic ${DBG_CFLAGS} ${INCS}
+LDFLAGS = ${DBG_LDFLAGS} ${LIBSPATH}
 CC = c++
-REL_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -O3 ${INCS}
-DEB_CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic -g ${INCS}
-CFLAGS = ${REL_CFLAGS}
-LDFLAGS += ${LIBSPATH}
 
 all: libsockpp.so
 

@@ -7,13 +7,12 @@ static const char PORT[] { "4433" };
 // Remember to generate a set of pems
 // $ openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout /tmp/key.pem -out /tmp/cert.pem
 
-int main(int ARGC, char *ARGV[])
-{
+int main(int ARGC, char *ARGV[]) {
   sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
   // Data sent as POST request
   // Header validates request is OK
   // Chunked transfer calls cb()
-  sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
+  sockpp::XHandle h { cb, POST, { "Some Header", "Some Header" }, "Some Data", "/" };
 
   try {
     sockpp::Client<sockpp::Https> client { 1.1, HOST, PORT };
@@ -23,11 +22,6 @@ int main(int ARGC, char *ARGV[])
     std::cout << "Stream disconnected\n";
     std::cout << "The response header:\n===================\n";
     std::cout << h.header << std::endl;
-  }
-
-  catch (const char e[]) {
-    std::cout << std::string(e) << std::endl;
-  }
-
+  } catch (const char E[]) { std::cout << E << std::endl; }
   return 0;
 }

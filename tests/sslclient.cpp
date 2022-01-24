@@ -4,14 +4,11 @@
 static const char HOST[] { "www.openssl.org" };
 static const char PORT[] { "https" };
 
-int main(int ARGC, char *ARGV[])
-{
+int main(int ARGC, char *ARGV[]) {
   std::string host { HOST }, port { PORT }, endp { "/" };
   if (ARGC != 4)
     std::cerr << "Usage: ./sslclient <host> <port> <endp>\n";
-
-  else
-  {
+  else {
     host = std::string(ARGV[1]);
     port = std::string(ARGV[2]);
     endp = std::string(ARGV[3]);
@@ -28,11 +25,6 @@ int main(int ARGC, char *ARGV[])
     std::cout << h.header << std::endl;
     std::cout << "The response body:\n===================\n";
     std::cout << h.body << std::endl;
-  }
-
-  catch (const char e[]) {
-    std::cout << std::string(e) << std::endl;
-  }
-
+  } catch (const char E[]) { std::cout << E << std::endl; }
   return 0;
 }

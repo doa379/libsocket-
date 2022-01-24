@@ -4,14 +4,12 @@
 static const char HOST[] { "127.0.0.1" };
 static const char PORT[] { "8080" };
 
-int main(int ARGC, char *ARGV[])
-{
+int main(int ARGC, char *ARGV[]) {
   sockpp::Cb cb { [](const std::string &buffer) { std::cout << "Received " << buffer; } };
-  sockpp::XHandle h { cb, POST, { "OK" }, "Some Data", "/" };
+  sockpp::XHandle h { cb, POST, { "Some Header", "Some Header" }, "Some Data", "/" };
   try {
     sockpp::Client<sockpp::Http> client { 1.1, HOST, PORT };
-    while (1)
-    {
+    while (1) {
       if (!client.performreq(h))
         throw "Unable to sendreq()";
       std::cout << "Stream disconnected\n";
@@ -20,11 +18,6 @@ int main(int ARGC, char *ARGV[])
       std::cout << "The response body:\n===================\n";
       std::cout << h.body << std::endl;
     }
-  }
-
-  catch (const char e[]) {
-    std::cout << std::string(e) << std::endl;
-  }
-
+  } catch (const char E[]) { std::cout << E << std::endl; }
   return 0;
 }
