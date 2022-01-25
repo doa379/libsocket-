@@ -258,7 +258,9 @@ bool sockpp::Recv<S>::req_chunked(const Cb &cb, std::string &body) const {
       } else if (body.size() == l) {
         cb(body);
         l = 0;
-      } else continue;
+      } else
+          continue;
+      
       body.clear();
     }
   }

@@ -6,8 +6,8 @@ static const char HOST1[] { "www.openssl.org" };
 static const char PORT[] { "443" };
 
 int main(const int ARGC, const char *ARGV[]) {
-  sockpp::XHandle h0 { sockpp::Cb { }, GET, { }, { }, "/" };
-  sockpp::XHandle h1 { sockpp::Cb { }, GET, { }, { }, "/" };
+  sockpp::XHandle h0 { sockpp::Cb { }, sockpp::Req::GET, { }, { }, "/" };
+  sockpp::XHandle h1 { sockpp::Cb { }, sockpp::Req::GET, { }, { }, "/" };
   try {
     sockpp::Client<sockpp::Https> client0 { 1.1, HOST0, PORT },
       client1 { 1.1, HOST1, PORT };

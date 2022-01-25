@@ -12,7 +12,7 @@ int main(int ARGC, char *ARGV[]) {
   // Data sent as POST request
   // Header validates request is OK
   // Chunked transfer calls cb()
-  sockpp::XHandle h { cb, POST, { "Some Header", "Some Header" }, "Some Data", "/" };
+  sockpp::XHandle h { cb, sockpp::Req::POST, { "Some Header", "Some Header" }, "Some Data", "/" };
 
   try {
     sockpp::Client<sockpp::Https> client { 1.1, HOST, PORT };

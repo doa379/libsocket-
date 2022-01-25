@@ -15,7 +15,7 @@ int main(int ARGC, char *ARGV[]) {
 
   // Chunked transfer
   sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
-  sockpp::XHandle h { cb, GET, { }, { }, "/" };
+  sockpp::XHandle h { cb, sockpp::Req::GET, { }, { }, "/" };
   try {
     sockpp::Client<sockpp::Http> client { 1.1, host.c_str(), PORT };
     // Perform request on handle
