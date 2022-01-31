@@ -20,12 +20,12 @@ int main(const int ARGC, const char *ARGV[]) {
     [&](sockpp::Http &sock) {
       while (1)
         if (sock.pollin(100)) {
-          sockpp::Recv<sockpp::Http> recv { sock };
+          sockpp::Recv recv { 1000 };
           std::string cli_head, cli_body;
           // Recv determines if client is still at socket
-          if (!recv.req_header(cli_head))
+          if (!recv.req_header(sock, cli_head))
             break;
-          recv.req_body(cli_body, recv.parse_cl(cli_head));
+          recv.req_body(sock, cli_body, recv.parse_cl(cli_head));
           std::cout << "Received from client\n";
           auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
           const std::string document { s + "\r\n" };
@@ -52,7 +52,7 @@ int main(const int ARGC, const char *ARGV[]) {
         server.recv_client(cb);
       }
 
-      server.refresh_clients();
+      //server.refresh_clients();
     }
   } catch (const char E[]) { std::cout << E << std::endl; }
   return 0;

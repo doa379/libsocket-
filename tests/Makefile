@@ -13,8 +13,6 @@ SRC_TEST3 = requests.cpp
 OBJ_TEST3 = ${SRC_TEST3:.cpp=.o}
 SRC_TEST4 = multi.cpp
 OBJ_TEST4 = ${SRC_TEST4:.cpp=.o}
-SRC_TEST5 = multiasync.cpp
-OBJ_TEST5 = ${SRC_TEST5:.cpp=.o}
 SRC_TEST6 = sslclient.cpp
 OBJ_TEST6 = ${SRC_TEST6:.cpp=.o}
 SRC_TEST7 = sslserver.cpp
@@ -23,8 +21,6 @@ SRC_TEST8 = sslstreaming.cpp
 OBJ_TEST8 = ${SRC_TEST8:.cpp=.o}
 SRC_TEST9 = sslmulti.cpp
 OBJ_TEST9 = ${SRC_TEST9:.cpp=.o}
-SRC_TESTA = sslmultiasync.cpp
-OBJ_TESTA = ${SRC_TESTA:.cpp=.o}
 SRC_TESTB = reuseclient.cpp
 OBJ_TESTB = ${SRC_TESTB:.cpp=.o}
 
@@ -39,12 +35,10 @@ all: client \
   streaming \
   requests \
   multi \
-  multiasync \
   sslclient \
   sslserver \
   sslstreaming \
   sslmulti \
-  sslmultiasync \
   reuseclient
 
 .cpp.o:
@@ -71,10 +65,6 @@ multi: ${OBJ_TEST4}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST4} ${LDFLAGS}
 
-multiasync: ${OBJ_TEST5}
-	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TEST5} ${LDFLAGS}
-
 sslclient: ${OBJ_TEST6}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST6} ${LDFLAGS}
@@ -91,10 +81,6 @@ sslmulti: ${OBJ_TEST9}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TEST9} ${LDFLAGS}
 
-sslmultiasync: ${OBJ_TESTA}
-	@echo CC -o $@
-	@${CC} -o $@ ${OBJ_TESTA} ${LDFLAGS}
-
 reuseclient: ${OBJ_TESTB}
 	@echo CC -o $@
 	@${CC} -o $@ ${OBJ_TESTB} ${LDFLAGS}
@@ -106,22 +92,18 @@ clean:
     ${OBJ_TEST2} \
     ${OBJ_TEST3} \
     ${OBJ_TEST4} \
-    ${OBJ_TEST5} \
     ${OBJ_TEST6} \
     ${OBJ_TEST7} \
     ${OBJ_TEST8} \
     ${OBJ_TEST9} \
-    ${OBJ_TESTA} \
     ${OBJ_TESTB}
 	@rm -f client \
 	chunked \
 	streaming \
   requests \
   multi \
-  multiasync \
   sslclient \
   sslserver \
   sslstreaming \
   sslmulti \
-  sslmultiasync \
   reuseclient

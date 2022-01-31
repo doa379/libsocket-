@@ -14,10 +14,10 @@ int main(const int ARGC, const char *ARGV[]) {
     [&](sockpp::Http &sock) {
       while (1)
         if (sock.pollin(-1)) {
-          sockpp::Recv<sockpp::Http> recv { sock };
+          sockpp::Recv recv { 1000 };
           std::string cli_head, cli_body;
-          if (recv.req_header(cli_head))
-            recv.req_body(cli_body, recv.parse_cl(cli_head));
+          if (recv.req_header(sock, cli_head))
+            recv.req_body(sock, cli_body, recv.parse_cl(cli_head));
           else 
             break;
           std::cout << "-Receive from client-\n";
@@ -56,7 +56,7 @@ int main(const int ARGC, const char *ARGV[]) {
         server.recv_client(cb);
       }
 
-      server.refresh_clients();
+      //server.refresh_clients();
     }
   } catch (const char E[]) { std::cout << E << std::endl; }
   return 0;

@@ -9,10 +9,8 @@ int main(const int ARGC, const char *ARGV[]) {
   sockpp::XHandle h0 { sockpp::Cb { }, sockpp::Req::GET, { }, { }, "/" };
   sockpp::XHandle h1 { sockpp::Cb { }, sockpp::Req::GET, { }, { }, "/" };
   try {
-    sockpp::Client<sockpp::Https> client0 { 1.1, HOST0, PORT },
-      client1 { 1.1, HOST1, PORT };
-    sockpp::Multi<sockpp::Https> M { { client0, client1 } };
-    M.performreq({ h0, h1 });
+    sockpp::MultiClient<sockpp::Https> mc { 1.1, HOST0, PORT, 2 };
+    mc.performreq({ h0, h1 }, 1000);
     std::cout << "All transfer(s) completed\n";
     std::cout << "(Handle0):\n===================\n";
     std::cout << "The response header:\n===================\n";

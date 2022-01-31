@@ -29,8 +29,6 @@ SOFTWARE.
 #include <array>
 #include <functional>
 #include <regex>
-#include <list>
-#include <future>
 #include <sys/socket.h>
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
@@ -81,7 +79,7 @@ namespace sockpp {
     ::SSL *ssl { };
     ::BIO *r { }, *w { };
   public:
-    Https(void) { }
+    Https(void) = default;
     Https(const int sockfd) : Http { sockfd } { }
     ~Https(void) { deinit(); }
     void init_client(void) { ctx = ::SSL_CTX_new(::TLS_client_method()); }
@@ -105,23 +103,34 @@ namespace sockpp {
     bool postread(char &) override;
     bool write(const std::string &) const override;
   };
-  
-  template<typename S>
+ 
+  class Send {
+    const char *AGENT { "TCPRequest" };
+  public:
+    template<typename S>
+    bool req(S &, const float, const std::string &, const Req, const std::vector<std::string> &, const std::string &, const std::string &) const;
+  };
+
   class Recv {
-    S &sock;
+    const unsigned timeout_ms;
     const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
       content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
       transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
       chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
   public:
-    Recv(S &sock) : sock { sock } { }
+    Recv(const unsigned timeout_ms) : timeout_ms { timeout_ms } { }
     bool is_chunked(const std::string &) const;
-    bool req_header(std::string &) const;
+    template<typename S>
+    bool req_header(S &, std::string &) const;
     std::size_t parse_cl(const std::string &) const;
-    bool req_body(std::string &, const std::size_t) const;
-    bool req_body(const Cb &cb, std::string &body) const { return req_chunked(cb, body); }
-    bool req_chunked(const Cb &, std::string &) const;
-    bool req_chunked_raw(const Cb &, std::string &) const;
+    template<typename S>
+    bool req_body(S &, std::string &, const std::size_t) const;
+    template<typename S>
+    bool req_body(S &s, const Cb &cb, std::string &body) const { return req_chunked(s, cb, body); }
+    template<typename S>
+    bool req_chunked(S &, const Cb &, std::string &) const;
+    template<typename S>
+    bool req_chunked_raw(S &, const Cb &, std::string &) const;
   };
 
   struct XHandle {
@@ -135,34 +144,34 @@ namespace sockpp {
 
   template<typename S>
   class Client {
-    S sock;
+    const float ver;
     const std::string host;
-    const char *AGENT { "TCPRequest" };
-    char httpver[8] { };
+    S sock;
   public:
     Client(const float, const char [], const char []);
-    bool sendreq(const Req, const std::vector<std::string> &, const std::string &, const std::string &) const;
     bool performreq(XHandle &);
     void close(void) { sock.Http::deinit(); }
   };
 
   template<typename S>
-  class Multi {
-    const std::vector<std::reference_wrapper<Client<S>>> C;
+  class MultiClient {
+    static const auto MAX_N { 24 };
+    const float ver;
+    const std::string host;
+    std::array<S, MAX_N> SOCK;
+    unsigned count { };
   public:
-    Multi(const std::vector<std::reference_wrapper<Client<S>>> &C) : C { C } { }
-    void performreq(const std::vector<std::reference_wrapper<XHandle>> &) const;
+    MultiClient(const float, const char [], const char [], const unsigned);
+    bool performreq(const std::vector<std::reference_wrapper<XHandle>> &, const unsigned);
   };
-  
+
   template<typename S>
   class Server {
-    S sock;
     const std::string host;
-    std::list<std::future<void>> F;
+    S sock;
   public:
     Server(const char []);
     bool poll_listen(const int timeout_ms) { return sock.pollin(timeout_ms); }
     void recv_client(const std::function<void(S &)> &, const char [] = CERT, const char [] = KEY);
-    void refresh_clients(void);
   };
 }

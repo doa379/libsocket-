@@ -11,10 +11,10 @@ int main(int ARGC, char *ARGV[]) {
   signal(SIGPIPE, SIG_IGN);
   auto client_msg { 
     [&](sockpp::Https &sock) {
-      sockpp::Recv<sockpp::Https> recv { sock };
+      sockpp::Recv recv { 1000 };
       std::string cli_head, cli_body;
-      if (recv.req_header(cli_head)) {
-        recv.req_body(cli_body, recv.parse_cl(cli_head));
+      if (recv.req_header(sock, cli_head)) {
+        recv.req_body(sock, cli_body, recv.parse_cl(cli_head));
         std::cout << "-Receive from client-\n";
         std::cout << cli_head << "\n";
         std::cout << cli_body << "\n";
@@ -59,7 +59,7 @@ int main(int ARGC, char *ARGV[]) {
     while (1) {
       if (server.poll_listen(100))
         server.recv_client(cb);
-      server.refresh_clients();
+      //server.refresh_clients();
     }
   } catch (const char E[]) { std::cout << E << std::endl; }
   return 0;
