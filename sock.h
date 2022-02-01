@@ -35,10 +35,12 @@ SOFTWARE.
 #include <poll.h>
 #include <unistd.h>
 
-const char CERT[] { "/tmp/cert.pem" };
-const char KEY[] { "/tmp/key.pem" };
-
 namespace sockpp {
+  static const float DEFAULT_HTTPVER { 2.0 };
+  static const unsigned SINGULAR_TIMEOUTMS { 5000 };
+  static const unsigned MULTI_TIMEOUTMS { 5 };
+  static const char CERT[] { "/tmp/cert.pem" };
+  static const char KEY[] { "/tmp/key.pem" };
   enum class Req { GET, POST, PUT, DELETE };
   using Cb = std::function<void(const std::string &)>;
   const Cb ident_cb { [](const std::string &) { } };
@@ -112,7 +114,7 @@ namespace sockpp {
   };
 
   class Recv {
-    const unsigned timeout_ms;
+    const unsigned timeout_ms { SINGULAR_TIMEOUTMS };
     const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
       content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
       transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
@@ -144,25 +146,25 @@ namespace sockpp {
 
   template<typename S>
   class Client {
-    const float ver;
+    const float ver { DEFAULT_HTTPVER };
     const std::string host;
     S sock;
   public:
     Client(const float, const char [], const char []);
-    bool performreq(XHandle &);
+    bool performreq(XHandle &, const unsigned = SINGULAR_TIMEOUTMS);
     void close(void) { sock.Http::deinit(); }
   };
 
   template<typename S>
   class MultiClient {
     static const auto MAX_N { 24 };
-    const float ver;
+    const float ver { DEFAULT_HTTPVER };
     const std::string host;
     std::array<S, MAX_N> SOCK;
     unsigned count { };
   public:
     MultiClient(const float, const char [], const char [], const unsigned);
-    bool performreq(const std::vector<std::reference_wrapper<XHandle>> &, const unsigned);
+    bool performreq(const std::vector<std::reference_wrapper<XHandle>> &, const unsigned = SINGULAR_TIMEOUTMS);
   };
 
   template<typename S>

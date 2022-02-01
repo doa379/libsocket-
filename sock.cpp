@@ -27,11 +27,8 @@ SOFTWARE.
 #include <libsockpp/sock.h>
 #include <libsockpp/time.h>
 
-static const float DEFAULT_HTTPVER { 2.0 };
 static const std::array<std::string, 4> REQ { "GET", "POST", "PUT", "DELETE" };
 static const unsigned char LISTEN_QLEN { 16 };
-static const unsigned SINGULAR_TIMEOUTMS { 5000 };
-static const unsigned MULTI_TIMEOUTMS { 5 };
 
 bool sockpp::Http::init_client(const char HOST[], const char PORT[]) {
   struct ::addrinfo hints { };
@@ -318,9 +315,9 @@ sockpp::Client<S>::Client(const float ver, const char HOST[], const char PORT[])
 }
 
 template<typename S>
-bool sockpp::Client<S>::performreq(XHandle &h) {
+bool sockpp::Client<S>::performreq(XHandle &h, const unsigned timeout_ms) {
   Send send;
-  Recv recv { SINGULAR_TIMEOUTMS };
+  Recv recv { timeout_ms };
   if (send.req(sock, ver, host, h.req, h.HEAD, h.data, h.endp) && recv.req_header(sock, h.header)) {
     if (recv.is_chunked(h.header))
       return recv.req_body(sock, h.cb, h.body);
@@ -365,7 +362,7 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
   };
 
   std::vector<X> XH(count);
-  Recv recv { MULTI_TIMEOUTMS };
+  Recv recv { sockpp::MULTI_TIMEOUTMS };
   unsigned complete { };
   sockpp::Time time;
   auto init_time { time.now() };
