@@ -185,17 +185,21 @@ void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::st
   ::X509_free(server_cert);
 }
 
+sockpp::Send::Send(const float ver) { 
+  char httpver[8] { };
+  ::snprintf(httpver, sizeof httpver - 1, "%.1f", ver);
+  this->httpver = std::string { httpver };
+}
+
 template<typename S>
-bool sockpp::Send::req(S &s, const float ver, const std::string &host, const Req req, const std::vector<std::string> &HEAD, const std::string &data, const std::string &endp) const {
+bool sockpp::Send::req(S &s, const std::string &host, const Req req, const std::vector<std::string> &HEAD, const std::string &data, const std::string &endp) const {
   if (&REQ[static_cast<int>(req)] > &REQ[REQ.size() - 1] || (req == Req::GET && data.size()))
     return false;
   
-  char httpver[8] { };
-  ::snprintf(httpver, sizeof httpver - 1, "%.1f", ver);
   std::string request { 
-    REQ[static_cast<int>(req)] + " " + endp + " " + "HTTP/" + std::string { httpver } + "\r\n" +
+    REQ[static_cast<int>(req)] + " " + endp + " " + "HTTP/" + httpver + "\r\n" +
       "Host: " + host + "\r\n" +
-        "User-Agent: " + std::string { AGENT } + "\r\n" +
+        "User-Agent: " + agent + "\r\n" +
           "Accept: */*" + "\r\n" 
     };
 
@@ -311,14 +315,14 @@ sockpp::Client<S>::Client(const float ver, const char HOST[], const char PORT[])
     sock.connect(HOST);
     sock.init_poll();
   } else
-      throw "Failed to init client";
+      throw;
 }
 
 template<typename S>
 bool sockpp::Client<S>::performreq(XHandle &h, const unsigned timeout_ms) {
-  Send send;
+  Send send { ver };
   Recv recv { timeout_ms };
-  if (send.req(sock, ver, host, h.req, h.HEAD, h.data, h.endp) && recv.req_header(sock, h.header)) {
+  if (send.req(sock, host, h.req, h.HEAD, h.data, h.endp) && recv.req_header(sock, h.header)) {
     if (recv.is_chunked(h.header))
       return recv.req_body(sock, h.cb, h.body);
     else {
@@ -346,14 +350,14 @@ sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const ch
   }
   
   if (!count)
-    throw "Failed to init client";
+    throw;
 }
 
 template<typename S>
 bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper<XHandle>> &H, const unsigned timeout_ms) {
-  Send send;
+  Send send { ver };
   for (auto i { 0U }; i < count; i++)
-    if (!send.req(SOCK[i], ver, host, H[i].get().req, H[i].get().HEAD, H[i].get().data, H[i].get().endp))
+    if (!send.req(SOCK[i], host, H[i].get().req, H[i].get().HEAD, H[i].get().data, H[i].get().endp))
       return false;
 
   struct X {
@@ -366,7 +370,8 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
   unsigned complete { };
   sockpp::Time time;
   auto init_time { time.now() };
-  while (complete < count && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
+  while (complete < count &&
+      time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
     for (auto i { 0U }; i < count; i++)
       if (!XH[i].head && recv.req_header(SOCK[i], H[i].get().header)) {
         complete++;
@@ -378,10 +383,12 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
       }
 
   complete = 0;
-  while (complete < count && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
+  while (complete < count &&
+      time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
     for (auto i { 0U }; i < count; i++)
-      if ((XH[i].ischunked && !XH[i].body && recv.req_body(SOCK[i], H[i].get().cb, H[i].get().body)) ||
-            (XH[i].cl && !XH[i].body && recv.req_body(SOCK[i], H[i].get().body, XH[i].cl))) {
+      if (!XH[i].body &&
+        ((XH[i].ischunked && recv.req_body(SOCK[i], H[i].get().cb, H[i].get().body)) ||
+            (XH[i].cl && recv.req_body(SOCK[i], H[i].get().body, XH[i].cl)))) {
               XH[i].body = 1;
               complete++;
       }
@@ -397,7 +404,7 @@ sockpp::Server<S>::Server(const char PORT[]) { // Construct a server for each cl
   if (sock.Http::init_server(PORT))
     sock.init_poll();
   else
-    throw "Failed to init server";
+    throw;
 }
 
 template<>

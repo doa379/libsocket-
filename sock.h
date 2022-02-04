@@ -107,10 +107,13 @@ namespace sockpp {
   };
  
   class Send {
-    const char *AGENT { "TCPRequest" };
+    const std::string agent { "TCPRequest" };
+    std::string httpver;
   public:
+    Send(void) = delete;
+    Send(const float);
     template<typename S>
-    bool req(S &, const float, const std::string &, const Req, const std::vector<std::string> &, const std::string &, const std::string &) const;
+    bool req(S &, const std::string &, const Req, const std::vector<std::string> &, const std::string &, const std::string &) const;
   };
 
   class Recv {
@@ -150,6 +153,7 @@ namespace sockpp {
     const std::string host;
     S sock;
   public:
+    Client(void) = delete;
     Client(const float, const char [], const char []);
     bool performreq(XHandle &, const unsigned = SINGULAR_TIMEOUTMS);
     void close(void) { sock.Http::deinit(); }
@@ -157,12 +161,13 @@ namespace sockpp {
 
   template<typename S>
   class MultiClient {
-    static const auto MAX_N { 24 };
+    static const auto MAX_N { 32 };
     const float ver { DEFAULT_HTTPVER };
     const std::string host;
     std::array<S, MAX_N> SOCK;
     unsigned count { };
   public:
+    MultiClient(void) = delete;
     MultiClient(const float, const char [], const char [], const unsigned);
     bool performreq(const std::vector<std::reference_wrapper<XHandle>> &, const unsigned = SINGULAR_TIMEOUTMS);
   };
@@ -172,6 +177,7 @@ namespace sockpp {
     const std::string host;
     S sock;
   public:
+    Server(void) = delete;
     Server(const char []);
     bool poll_listen(const int timeout_ms) { return sock.pollin(timeout_ms); }
     void recv_client(const std::function<void(S &)> &, const char [] = CERT, const char [] = KEY);
