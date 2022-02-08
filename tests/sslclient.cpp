@@ -14,7 +14,7 @@ int main(int ARGC, char *ARGV[]) {
     endp = std::string(ARGV[3]);
   }
 
-  sockpp::Cb cb { [&](const std::string &buffer) { std::cout << buffer; } };
+  sockpp::Client_cb cb { [&](const std::string &buffer) { std::cout << buffer; } };
   sockpp::XHandle h { cb, sockpp::Req::GET, { "Connection: close" }, { }, endp };
   try {
     sockpp::Client<sockpp::Https> client { 1.1, host.c_str(), port.c_str() };

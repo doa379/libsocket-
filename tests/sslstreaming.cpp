@@ -8,7 +8,7 @@ static const char PORT[] { "4433" };
 // $ openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout /tmp/key.pem -out /tmp/cert.pem
 
 int main(int ARGC, char *ARGV[]) {
-  sockpp::Cb cb { [](const std::string &buffer) { std::cout << buffer; } };
+  sockpp::Client_cb cb { [](const std::string &buffer) { std::cout << buffer; } };
   // Data sent as POST request
   // Header validates request is OK
   // Chunked transfer calls cb()

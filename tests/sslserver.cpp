@@ -24,43 +24,42 @@ int main(int ARGC, char *ARGV[]) {
   };
 
   auto cb { 
-    [&](sockpp::Https &sock) {
+    [&](sockpp::Https &sock) -> bool {
       client_msg(sock);
       const std::string document { "Document" }, 
             header { 
                 std::string("Content-Length: ") + std::to_string(document.size()) + std::string("\r\n") +
                 "\r\n" };
-      sock.write(header + document);
+      return sock.write(header + document) ? true : false;
     }
   };
 
   auto chunked_cb { 
-    [&](sockpp::Https &sock) {
+    [&](sockpp::Https &sock) -> bool {
       client_msg(sock);
       const std::string header { 
           std::string("Transfer-Encoding: chunked\r\n") + "\r\n" };
       if (!sock.write(header))
-        return;
+        return false;
       std::string document;
       while (1) {
         auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
         std::cout << s << std::endl;
         document = sockpp::to_base16(s.size() + 2) + "\r\n" + s + "\r\n";
         if (!sock.write(document))
-          break;
+          return false;
         std::this_thread::sleep_for(std::chrono::milliseconds(sockpp::rand(500, 2000)));
       }
+      // Blocks indefinitely at the server end
+      return true;
     }
   };
   
   try {
     sockpp::Server<sockpp::Https> server { PORT };
     std::cout << "Running SSL server...\n";
-    while (1) {
-      if (server.poll_listen(100))
-        server.recv_client(cb);
-      //server.refresh_clients();
-    }
+    server.run(cb);
   } catch (const char E[]) { std::cout << E << std::endl; }
+  
   return 0;
 }

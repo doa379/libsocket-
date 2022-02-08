@@ -9,7 +9,7 @@ using ConnType = sockpp::Http;
 
 int main(const int ARGC, const char *ARGV[]) {
   // Chunked transfer
-  sockpp::Cb cb { [](const std::string &buffer) { std::cout << "Recv from server " << buffer; } };
+  sockpp::Client_cb cb { [](const std::string &buffer) { std::cout << "Recv from server " << buffer; } };
   sockpp::XHandle h { cb, sockpp::Req::GET, { }, { } };
   try {
     sockpp::Client<ConnType> client { 1.1, HOST, PORT };

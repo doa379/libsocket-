@@ -1,7 +1,7 @@
 /**********************************************************************************
 MIT License
 
-Copyright (c) 2021 doa379
+Copyright (c) 2021-22 doa379
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -136,16 +136,17 @@ bool sockpp::Https::configure_ctx(const char CERT[], const char KEY[]) const {
         SSL_CTX_check_private_key(ctx) > 0;
 }
 
-void sockpp::Https::connect(const char HOST[]) {
-  Https::init_client();
-  init();
-  set_hostname(HOST);
-  set_connect_state();
-  set_fd(Http::sockfd);
-  do_handshake();
-  init_rbio();
-  init_wbio();
-  set_rwbio();
+bool sockpp::Https::connect(const char HOST[]) {
+  if (Https::init_client() && init() && set_hostname(HOST)) {
+      set_connect_state();
+      if (set_fd(Http::sockfd) && do_handshake() && init_rbio() && init_wbio()) {
+        set_rwbio();
+        return true;
+      }
+  }
+
+  return false;
+
 }
 
 void sockpp::Https::readfilter(char p) {
@@ -264,7 +265,7 @@ bool sockpp::Recv::req_body(S &s, std::string &body, const std::size_t cl) const
 }
 
 template<typename S>
-bool sockpp::Recv::req_chunked(S &s, const Cb &cb, std::string &body) const {
+bool sockpp::Recv::req_chunked(S &s, const Client_cb &cb, std::string &body) const {
   char p { };
   std::size_t l { };
   while (s.pollin(timeout_ms) && s.read(p)) {
@@ -294,7 +295,7 @@ bool sockpp::Recv::req_chunked(S &s, const Cb &cb, std::string &body) const {
 }
 
 template<typename S>
-bool sockpp::Recv::req_chunked_raw(S &s, const Cb &cb, std::string &body) const {
+bool sockpp::Recv::req_chunked_raw(S &s, const Client_cb &cb, std::string &body) const {
   char p { };
   while (s.pollin(timeout_ms) && s.read(p)) {
     s.readfilter(p);
@@ -311,11 +312,10 @@ bool sockpp::Recv::req_chunked_raw(S &s, const Cb &cb, std::string &body) const 
 template<typename S>
 sockpp::Client<S>::Client(const float ver, const char HOST[], const char PORT[]) : 
   ver { ver }, host { std::string { HOST } } {
-  if (sock.Http::init_client(HOST, PORT)) {
-    sock.connect(HOST);
+  if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST))
     sock.init_poll();
-  } else
-      throw;
+  else
+    throw "Unable to connect";
 }
 
 template<typename S>
@@ -342,15 +342,14 @@ sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const ch
   ver { ver }, host { std::string { HOST } } {
   for (auto i { 0U }; i < N && N < MAX_N; i++) {
     S &sock { SOCK[i] };
-    if (sock.Http::init_client(HOST, PORT)) {
-      sock.connect(HOST);
+    if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST)) {
       sock.init_poll();
       count++;
     }
   }
   
   if (!count)
-    throw;
+    throw "Unable to connect";
 }
 
 template<typename S>
@@ -400,40 +399,54 @@ template class sockpp::MultiClient<sockpp::Http>;
 template class sockpp::MultiClient<sockpp::Https>;
 
 template<typename S>
-sockpp::Server<S>::Server(const char PORT[]) { // Construct a server for each client
+sockpp::Server<S>::Server(const char PORT[]) {
   if (sock.Http::init_server(PORT))
     sock.init_poll();
-  else
-    throw;
+  else 
+    throw "Unable to init server";
+}
+// Construct a server for each client
+template<>
+void sockpp::Server<sockpp::Http>::recv_client(const char [], const char []) {
+  auto server { std::make_unique<Http>(this->sock.accept()) };
+  server->init_poll();
+  SOCK.emplace_back(std::move(server));
 }
 
 template<>
-void sockpp::Server<sockpp::Http>::recv_client(const std::function<void(Http &)> &cb, const char [], const char []) {
-  Http server { this->sock.accept() };
-  server.init_poll();
-  cb(server);
-}
-
-template<>
-void sockpp::Server<sockpp::Https>::recv_client(const std::function<void(Https &)> &cb, const char CERT[], const char KEY[]) {
+void sockpp::Server<sockpp::Https>::recv_client(const char CERT[], const char KEY[]) {
   Https client;
-  client.init_client();
-  if (!client.configure_ctx(CERT, KEY))
+  if (!client.init_client() || !client.configure_ctx(CERT, KEY))
     return;
   auto sockfd { sock.Http::accept() };
-  Https server { sockfd };
-  server.init_server();
-  server.init();
-  server.set_ctx(client.get_ctx());
-  server.set_accept_state();
-  server.set_fd(sockfd);
-  server.do_handshake();
-  server.init_rbio();
-  server.init_wbio();
-  server.set_rwbio();
-  server.init_poll();
-  cb(server);
+  auto server { std::make_unique<Https>(sockfd) };
+  if (server->init_server() && server->init()) {
+    server->set_ctx(client.get_ctx());
+    server->set_accept_state();
+    if (server->set_fd(sockfd) && server->do_handshake() &&
+      server->init_rbio() && server->init_wbio()) {
+        server->set_rwbio();
+        server->init_poll();
+        SOCK.emplace_back(std::move(server));
+    }
+  }
 }
-// TODO: Handle multiple clients
+
+template<typename S>
+void sockpp::Server<S>::run(const Server_cb<S> &cb, const char CERT[], const char KEY[]) {
+  while (!quit) {
+    if (poll_listen(10))
+      recv_client(CERT, KEY);
+
+    for (auto &sock : SOCK) {
+      if (sock->pollin(10) && !cb(*sock)) {
+        auto i { &sock - &SOCK[0] };
+        SOCK.erase(SOCK.begin() + i);
+        break;
+      }
+    }
+  }
+}
+
 template class sockpp::Server<sockpp::Http>;
 template class sockpp::Server<sockpp::Https>;
