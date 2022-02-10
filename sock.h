@@ -173,6 +173,7 @@ namespace sockpp {
     MultiClient(void) = delete;
     MultiClient(const float, const char [], const char [], const unsigned);
     bool performreq(const std::vector<std::reference_wrapper<XHandle>> &, const unsigned = SINGULAR_TIMEOUTMS);
+    decltype(count) conn_count(void) const { return count; }
   };
   
   template<typename S>

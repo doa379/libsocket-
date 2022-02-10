@@ -354,8 +354,11 @@ sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const ch
 
 template<typename S>
 bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper<XHandle>> &H, const unsigned timeout_ms) {
+  if (H.size() > count)
+    return false;
+
   Send send { ver };
-  for (auto i { 0U }; i < count; i++)
+  for (auto i { 0U }; i < H.size(); i++)
     if (!send.req(SOCK[i], host, H[i].get().req, H[i].get().HEAD, H[i].get().data, H[i].get().endp))
       return false;
 
@@ -364,14 +367,14 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
     std::size_t cl { };
   };
 
-  std::vector<X> XH(count);
+  std::vector<X> XH(H.size());
   Recv recv { sockpp::MULTI_TIMEOUTMS };
   unsigned complete { };
   sockpp::Time time;
   auto init_time { time.now() };
-  while (complete < count &&
+  while (complete < H.size() &&
       time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
-    for (auto i { 0U }; i < count; i++)
+    for (auto i { 0U }; i < H.size(); i++)
       if (!XH[i].head && recv.req_header(SOCK[i], H[i].get().header)) {
         complete++;
         XH[i].head = 1;
@@ -382,9 +385,9 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
       }
 
   complete = 0;
-  while (complete < count &&
+  while (complete < H.size() &&
       time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
-    for (auto i { 0U }; i < count; i++)
+    for (auto i { 0U }; i < H.size(); i++)
       if (!XH[i].body &&
         ((XH[i].ischunked && recv.req_body(SOCK[i], H[i].get().cb, H[i].get().body)) ||
             (XH[i].cl && recv.req_body(SOCK[i], H[i].get().body, XH[i].cl)))) {
