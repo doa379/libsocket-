@@ -341,7 +341,7 @@ template<typename S>
 sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const char PORT[], const unsigned N) : 
   ver { ver }, host { std::string { HOST } } {
   for (auto i { 0U }; i < N && N < MAX_N; i++) {
-    S &sock { SOCK[i] };
+    S &sock { SOCK[count] };
     if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST)) {
       sock.init_poll();
       count++;
