@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include <netdb.h>
 #include <cmath>
+#include <bitset>
 #include <libsockpp/sock.h>
 #include <libsockpp/time.h>
 
@@ -358,25 +359,28 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
     return false;
 
   Send send { ver };
+  std::bitset<MAX_N> sent { };
   for (auto i { 0U }; i < H.size(); i++)
-    if (!send.req(SOCK[i], host, H[i].get().req, H[i].get().HEAD, H[i].get().data, H[i].get().endp))
-      return false;
+    if (send.req(SOCK[i], host, H[i].get().req, H[i].get().HEAD, H[i].get().data, H[i].get().endp))
+      sent[i] = 1;
+  
+  if (!sent.any())
+    return false;
 
   struct X {
     bool head { }, ischunked { }, body { };
     std::size_t cl { };
   };
 
-  std::vector<X> XH(H.size());
+  std::vector<X> XH(sent.count());
   Recv recv { sockpp::MULTI_TIMEOUTMS };
-  unsigned complete { };
+  auto pending { sent };
   sockpp::Time time;
   auto init_time { time.now() };
-  while (complete < H.size() &&
-      time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
+  while (pending.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
     for (auto i { 0U }; i < H.size(); i++)
-      if (!XH[i].head && recv.req_header(SOCK[i], H[i].get().header)) {
-        complete++;
+      if (pending[i] && !XH[i].head && recv.req_header(SOCK[i], H[i].get().header)) {
+        pending[i] = 0;
         XH[i].head = 1;
         if (recv.is_chunked(H[i].get().header))
           XH[i].ischunked = 1;
@@ -384,15 +388,14 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
           XH[i].cl = recv.parse_cl(H[i].get().header);
       }
 
-  complete = 0;
-  while (complete < H.size() &&
-      time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
+  pending = sent;
+  while (pending.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
     for (auto i { 0U }; i < H.size(); i++)
-      if (!XH[i].body &&
+      if (pending[i] && !XH[i].body &&
         ((XH[i].ischunked && recv.req_body(SOCK[i], H[i].get().cb, H[i].get().body)) ||
             (XH[i].cl && recv.req_body(SOCK[i], H[i].get().body, XH[i].cl)))) {
               XH[i].body = 1;
-              complete++;
+              pending[i] = 0;
       }
 
   return true;
