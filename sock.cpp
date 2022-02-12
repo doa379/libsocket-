@@ -367,36 +367,28 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
   if (!sent.any())
     return false;
 
-  struct X {
-    bool head { }, ischunked { }, body { };
-    std::size_t cl { };
-  };
-
-  std::vector<X> XH(sent.count());
+  std::bitset<MAX_N> header { }, ischunked { };
+  std::array<std::size_t, MAX_N> CL;
   Recv recv { sockpp::MULTI_TIMEOUTMS };
-  auto pending { sent };
   sockpp::Time time;
   auto init_time { time.now() };
-  while (pending.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
+  while (sent.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
     for (auto i { 0U }; i < H.size(); i++)
-      if (pending[i] && !XH[i].head && recv.req_header(SOCK[i], H[i].get().header)) {
-        pending[i] = 0;
-        XH[i].head = 1;
+      if (sent[i] && !header[i] && recv.req_header(SOCK[i], H[i].get().header)) {
+        header[i] = 1;
+        sent[i] = 0;
         if (recv.is_chunked(H[i].get().header))
-          XH[i].ischunked = 1;
+          ischunked[i] = 1;
         else
-          XH[i].cl = recv.parse_cl(H[i].get().header);
+          CL[i] = recv.parse_cl(H[i].get().header);
       }
 
-  pending = sent;
-  while (pending.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
+  while (header.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
     for (auto i { 0U }; i < H.size(); i++)
-      if (pending[i] && !XH[i].body &&
-        ((XH[i].ischunked && recv.req_body(SOCK[i], H[i].get().cb, H[i].get().body)) ||
-            (XH[i].cl && recv.req_body(SOCK[i], H[i].get().body, XH[i].cl)))) {
-              XH[i].body = 1;
-              pending[i] = 0;
-      }
+      if (header[i] &&
+        ((ischunked[i] && recv.req_body(SOCK[i], H[i].get().cb, H[i].get().body)) ||
+            (CL[i] && recv.req_body(SOCK[i], H[i].get().body, CL[i]))))
+              header[i] = 0;
 
   return true;
 }
