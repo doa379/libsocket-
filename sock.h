@@ -37,7 +37,7 @@ SOFTWARE.
 #include <atomic>
 
 namespace sockpp {
-  static const float DEFAULT_HTTPVER { 2.0 };
+  static constexpr float DEFAULT_HTTPVER { 2.0 };
   static const unsigned SINGULAR_TIMEOUTMS { 5000 };
   static const unsigned MULTI_TIMEOUTMS { 5 };
   static const char CERT[] { "/tmp/cert.pem" };

@@ -38,9 +38,7 @@ bool sockpp::Http::init_client(const char HOST[], const char PORT[]) {
   hints.ai_flags = { };
   hints.ai_protocol = { };
   struct ::addrinfo *result;
-  if (::getaddrinfo(HOST, PORT, &hints, &result))
-    return false;
-
+  if (::getaddrinfo(HOST, PORT, &hints, &result)) return false;
   for (struct ::addrinfo *rp { result }; rp; rp = rp->ai_next) {
     if ((sockfd = ::socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol)) > -1 &&
           ::connect(sockfd, rp->ai_addr, rp->ai_addrlen) > -1) {
@@ -65,9 +63,7 @@ bool sockpp::Http::init_server(const char PORT[]) {
   hints.ai_addr = { };
   hints.ai_next = { };
   struct ::addrinfo *result;
-  if (::getaddrinfo(nullptr, PORT, &hints, &result))
-    return false;
-
+  if (::getaddrinfo(nullptr, PORT, &hints, &result)) return false;
   for (struct ::addrinfo *rp { result }; rp; rp = rp->ai_next) {
     if ((sockfd = ::socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol)) > -1 &&
           ::bind(sockfd, rp->ai_addr, rp->ai_addrlen) > -1 &&
@@ -147,7 +143,6 @@ bool sockpp::Https::connect(const char HOST[]) {
   }
 
   return false;
-
 }
 
 void sockpp::Https::readfilter(char p) {
@@ -169,8 +164,7 @@ bool sockpp::Https::write(const std::string &req) const {
 void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::string &iss) const {
   cipherinfo = std::string { ::SSL_get_cipher(ssl) };
   ::X509 *server_cert { ::SSL_get_peer_certificate(ssl) };
-  if (!server_cert)
-    return;
+  if (!server_cert) return;
 
   auto CERT { ::X509_NAME_oneline(X509_get_subject_name(server_cert), 0, 0) };
   if (CERT) {
@@ -228,8 +222,7 @@ bool sockpp::Recv::req_header(S &s, std::string &header) const {
     s.readfilter(p);
     while (s.postread(p)) {
       header += p;
-      if ((ssize_t) header.rfind("\r\n\r\n") > -1)
-        return true;
+      if ((ssize_t) header.rfind("\r\n\r\n") > -1) return true;
     }
   }
 
@@ -280,14 +273,11 @@ bool sockpp::Recv::req_chunked(S &s, const Client_cb &cb, std::string &body) con
           l = std::stoull(body, nullptr, 16);
         } catch (...) { return false; }
 
-        if (l == 0)
-          return true;
+        if (l == 0) return true;
       } else if (body.size() == l) {
         cb(body);
         l = 0;
-      } else
-          continue;
-      
+      } else continue;
       body.clear();
     }
   }
@@ -313,10 +303,8 @@ bool sockpp::Recv::req_chunked_raw(S &s, const Client_cb &cb, std::string &body)
 template<typename S>
 sockpp::Client<S>::Client(const float ver, const char HOST[], const char PORT[]) : 
   ver { ver }, host { std::string { HOST } } {
-  if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST))
-    sock.init_poll();
-  else
-    throw "Unable to connect";
+  if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST)) sock.init_poll();
+  else throw "Unable to connect";
 }
 
 template<typename S>
@@ -324,8 +312,7 @@ bool sockpp::Client<S>::performreq(XHandle &h, const unsigned timeout_ms) {
   Send send { ver };
   Recv recv { timeout_ms };
   if (send.req(sock, host, h.req, h.HEAD, h.data, h.endp) && recv.req_header(sock, h.header)) {
-    if (recv.is_chunked(h.header))
-      return recv.req_body(sock, h.cb, h.body);
+    if (recv.is_chunked(h.header)) return recv.req_body(sock, h.cb, h.body);
     else {
       auto cl { recv.parse_cl(h.header) };
       return cl && recv.req_body(sock, h.body, cl);
@@ -341,32 +328,28 @@ template class sockpp::Client<sockpp::Https>;
 template<typename S>
 sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const char PORT[], const unsigned N) : 
   ver { ver }, host { std::string { HOST } } {
-  for (auto i { 0U }; i < N && N < MAX_N; i++) {
-    S &sock { SOCK[count] };
+  if (N > MAX_N) throw "# of requested connexions exceeds supremum";
+  for (auto i { 0U }; i < N; i++) {
+    S &sock { SOCK[i] };
     if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST)) {
       sock.init_poll();
       count++;
     }
   }
   
-  if (!count)
-    throw "Unable to connect";
+  if (!count) throw "Unable to connect";
 }
 
 template<typename S>
 bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper<XHandle>> &H, const unsigned timeout_ms) {
-  if (H.size() > count)
-    return false;
-
+  if (H.size() > count) return false;
   Send send { ver };
   std::bitset<MAX_N> sent { };
   for (auto i { 0U }; i < H.size(); i++)
     if (send.req(SOCK[i], host, H[i].get().req, H[i].get().HEAD, H[i].get().data, H[i].get().endp))
       sent[i] = 1;
   
-  if (!sent.any())
-    return false;
-
+  if (!sent.any()) return false;
   std::bitset<MAX_N> header { }, ischunked { };
   std::array<std::size_t, MAX_N> CL;
   Recv recv { sockpp::MULTI_TIMEOUTMS };
@@ -377,10 +360,8 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
       if (sent[i] && !header[i] && recv.req_header(SOCK[i], H[i].get().header)) {
         header[i] = 1;
         sent[i] = 0;
-        if (recv.is_chunked(H[i].get().header))
-          ischunked[i] = 1;
-        else
-          CL[i] = recv.parse_cl(H[i].get().header);
+        if (recv.is_chunked(H[i].get().header)) ischunked[i] = 1;
+        else CL[i] = recv.parse_cl(H[i].get().header);
       }
 
   while (header.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
@@ -398,10 +379,8 @@ template class sockpp::MultiClient<sockpp::Https>;
 
 template<typename S>
 sockpp::Server<S>::Server(const char PORT[]) {
-  if (sock.Http::init_server(PORT))
-    sock.init_poll();
-  else 
-    throw "Unable to init server";
+  if (sock.Http::init_server(PORT)) sock.init_poll();
+  else throw "Unable to init server";
 }
 // Construct a server for each client
 template<>
@@ -414,8 +393,7 @@ void sockpp::Server<sockpp::Http>::recv_client(const char [], const char []) {
 template<>
 void sockpp::Server<sockpp::Https>::recv_client(const char CERT[], const char KEY[]) {
   Https client;
-  if (!client.init_client() || !client.configure_ctx(CERT, KEY))
-    return;
+  if (!client.init_client() || !client.configure_ctx(CERT, KEY)) return;
   auto sockfd { sock.Http::accept() };
   auto server { std::make_unique<Https>(sockfd) };
   if (server->init_server() && server->init()) {
@@ -433,9 +411,7 @@ void sockpp::Server<sockpp::Https>::recv_client(const char CERT[], const char KE
 template<typename S>
 void sockpp::Server<S>::run(const Server_cb<S> &cb, const char CERT[], const char KEY[]) {
   while (!quit) {
-    if (poll_listen(10))
-      recv_client(CERT, KEY);
-
+    if (poll_listen(10)) recv_client(CERT, KEY);
     for (auto &sock : SOCK) {
       if (sock->pollin(10) && !cb(*sock)) {
         auto i { &sock - &SOCK[0] };
