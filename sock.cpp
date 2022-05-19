@@ -342,7 +342,6 @@ sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const ch
 
 template<typename S>
 bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper<XHandle>> &H, const unsigned timeout_ms) {
-  if (H.size() > count) return false;
   Send send { ver };
   std::bitset<MAX_N> sent { };
   for (auto i { 0U }; i < H.size(); i++)

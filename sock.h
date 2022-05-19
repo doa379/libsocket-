@@ -39,7 +39,7 @@ SOFTWARE.
 namespace sockpp {
   static constexpr float DEFAULT_HTTPVER { 2.0 };
   static const unsigned SINGULAR_TIMEOUTMS { 5000 };
-  static const unsigned MULTI_TIMEOUTMS { 5 };
+  static const unsigned MULTI_TIMEOUTMS { 2500 };
   static const char CERT[] { "/tmp/cert.pem" };
   static const char KEY[] { "/tmp/key.pem" };
   enum class Req { GET, POST, PUT, DELETE };
@@ -147,7 +147,6 @@ namespace sockpp {
     const std::vector<std::string> HEAD;
     const std::string data, endp { "/" };
     std::string header, body;
-    XHandle(void) = default;
   };
 
   template<typename S>
