@@ -24,7 +24,6 @@ SOFTWARE.
 
 #include <netdb.h>
 #include <cmath>
-#include <bitset>
 #include <libsockpp/sock.h>
 #include <libsockpp/time.h>
 
@@ -333,42 +332,42 @@ sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const ch
     S &sock { SOCK[i] };
     if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST)) {
       sock.init_poll();
-      count++;
+      CONN[i] = 1;
     }
   }
   
-  if (!count) throw "Unable to connect";
+  if (!CONN.any()) throw "Unable to connect";
 }
 
 template<typename S>
 bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper<XHandle>> &H, const unsigned timeout_ms) {
   Send send { ver };
-  std::bitset<MAX_N> sent { };
+  std::bitset<MAX_N> SENT;
   for (auto i { 0U }; i < H.size(); i++)
-    if (send.req(SOCK[i], host, H[i].get().req, H[i].get().HEAD, H[i].get().data, H[i].get().endp))
-      sent[i] = 1;
+    if (CONN[i] && send.req(SOCK[i], host, H[i].get().req, H[i].get().HEAD, H[i].get().data, H[i].get().endp))
+      SENT[i] = 1;
   
-  if (!sent.any()) return false;
-  std::bitset<MAX_N> header { }, ischunked { };
+  if (!SENT.any()) return false;
+  std::bitset<MAX_N> HDR, ISCHK;
   std::array<std::size_t, MAX_N> CL;
   Recv recv { sockpp::MULTI_TIMEOUTMS };
   sockpp::Time time;
   auto init_time { time.now() };
-  while (sent.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
+  while (SENT.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
     for (auto i { 0U }; i < H.size(); i++)
-      if (sent[i] && !header[i] && recv.req_header(SOCK[i], H[i].get().header)) {
-        header[i] = 1;
-        sent[i] = 0;
-        if (recv.is_chunked(H[i].get().header)) ischunked[i] = 1;
+      if (SENT[i] && !HDR[i] && recv.req_header(SOCK[i], H[i].get().header)) {
+        HDR[i] = 1;
+        SENT[i] = 0;
+        if (recv.is_chunked(H[i].get().header)) ISCHK[i] = 1;
         else CL[i] = recv.parse_cl(H[i].get().header);
       }
 
-  while (header.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
+  while (HDR.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)
     for (auto i { 0U }; i < H.size(); i++)
-      if (header[i] &&
-        ((ischunked[i] && recv.req_body(SOCK[i], H[i].get().cb, H[i].get().body)) ||
+      if (HDR[i] &&
+        ((ISCHK[i] && recv.req_body(SOCK[i], H[i].get().cb, H[i].get().body)) ||
             (CL[i] && recv.req_body(SOCK[i], H[i].get().body, CL[i]))))
-              header[i] = 0;
+              HDR[i] = 0;
 
   return true;
 }

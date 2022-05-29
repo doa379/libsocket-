@@ -35,6 +35,7 @@ SOFTWARE.
 #include <unistd.h>
 #include <vector>
 #include <atomic>
+#include <bitset>
 
 namespace sockpp {
   static constexpr float DEFAULT_HTTPVER { 2.0 };
@@ -167,12 +168,12 @@ namespace sockpp {
     const float ver { DEFAULT_HTTPVER };
     const std::string host;
     std::array<S, MAX_N> SOCK;
-    unsigned count { };
+    std::bitset<MAX_N> CONN;
   public:
     MultiClient(void) = delete;
     MultiClient(const float, const char [], const char [], const unsigned);
     bool performreq(const std::vector<std::reference_wrapper<XHandle>> &, const unsigned = SINGULAR_TIMEOUTMS);
-    decltype(count) conn_count(void) const { return count; }
+    decltype(MAX_N) count(void) const { return CONN.count(); }
   };
   
   template<typename S>
