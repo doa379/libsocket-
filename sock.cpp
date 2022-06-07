@@ -303,7 +303,7 @@ template<typename S>
 sockpp::Client<S>::Client(const float ver, const char HOST[], const char PORT[]) : 
   ver { ver }, host { std::string { HOST } } {
   if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST)) sock.init_poll();
-  else throw "Unable to connect";
+  else throw std::runtime_error("Unable to connect");
 }
 
 template<typename S>
@@ -327,7 +327,7 @@ template class sockpp::Client<sockpp::Https>;
 template<typename S>
 sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const char PORT[], const unsigned N) : 
   ver { ver }, host { std::string { HOST } } {
-  if (N > MAX_N) throw "# of requested connexions exceeds supremum";
+  if (N > MAX_N) throw std::runtime_error("# of requested connexions exceeds supremum");
   for (auto i { 0U }; i < N; i++) {
     S &sock { SOCK[i] };
     if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST)) {
@@ -336,7 +336,7 @@ sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const ch
     }
   }
   
-  if (!CONN.any()) throw "Unable to connect";
+  if (!CONN.any()) throw std::runtime_error("Unable to connect");
 }
 
 template<typename S>
@@ -378,7 +378,7 @@ template class sockpp::MultiClient<sockpp::Https>;
 template<typename S>
 sockpp::Server<S>::Server(const char PORT[]) {
   if (sock.Http::init_server(PORT)) sock.init_poll();
-  else throw "Unable to init server";
+  else throw std::runtime_error("Unable to init server");
 }
 // Construct a server for each client
 template<>
