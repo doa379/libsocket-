@@ -13,7 +13,7 @@ int main(const int ARGC, const char *ARGV[]) {
   signal(SIGPIPE, SIG_IGN);
   auto cb { 
     [&](sockpp::Https &sock) -> bool { 
-      sockpp::Recv recv { 1000 };
+      sockpp::Recv<sockpp::Https> recv { 1000 };
       std::string cli_head, cli_body;
       if (recv.req_header(sock, cli_head))
         recv.req_body(sock, cli_body, recv.parse_cl(cli_head));
@@ -47,7 +47,7 @@ int main(const int ARGC, const char *ARGV[]) {
     sockpp::Server<sockpp::Https> server { SSLPORT };
     std::cout << "Running HTTP/S server...\n";
     server.run(cb);
-  } catch (const char E[]) { std::cout << E << std::endl; }
+  } catch (const std::exception &e) { std::cerr << e.what() << std::endl; }
 
   return 0;
 }

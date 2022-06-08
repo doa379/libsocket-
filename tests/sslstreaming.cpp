@@ -22,6 +22,6 @@ int main(int ARGC, char *ARGV[]) {
     std::cout << "Stream disconnected\n";
     std::cout << "The response header:\n===================\n";
     std::cout << h.header << std::endl;
-  } catch (const char E[]) { std::cout << E << std::endl; }
+  } catch (const std::exception &e) { std::cerr << e.what() << std::endl; }
   return 0;
 }

@@ -18,7 +18,7 @@ int main(const int ARGC, const char *ARGV[]) {
   signal(SIGPIPE, SIG_IGN);
   auto cb {
     [&](sockpp::Http &sock) -> bool {
-      sockpp::Recv recv { 1000 };
+      sockpp::Recv<sockpp::Http> recv { 1000 };
       std::string cli_head, cli_body;
       // Recv determines if client is still at socket
       if (!recv.req_header(sock, cli_head))
@@ -44,6 +44,6 @@ int main(const int ARGC, const char *ARGV[]) {
     sockpp::Server<sockpp::Http> server { PORT };
     std::cout << "Running HTTP server...\n";
     server.run(cb);
-  } catch (const char E[]) { std::cout << E << std::endl; }
+  } catch (const std::exception &e) { std::cerr << e.what() << std::endl; }
   return 0;
 }

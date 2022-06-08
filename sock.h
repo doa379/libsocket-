@@ -110,16 +110,17 @@ namespace sockpp {
     bool write(const std::string &) const override;
   };
  
+  template<typename S>
   class Send {
     const std::string agent { "TCPRequest" };
     std::string httpver;
   public:
     Send(void) = delete;
     Send(const float);
-    template<typename S>
     bool req(S &, const std::string &, const Req, const std::vector<std::string> &, const std::string &, const std::string &) const;
   };
 
+  template<typename S>
   class Recv {
     const unsigned timeout_ms { SINGULAR_TIMEOUTMS };
     const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
@@ -129,16 +130,11 @@ namespace sockpp {
   public:
     Recv(const unsigned timeout_ms) : timeout_ms { timeout_ms } { }
     bool is_chunked(const std::string &) const;
-    template<typename S>
     bool req_header(S &, std::string &) const;
     std::size_t parse_cl(const std::string &) const;
-    template<typename S>
     bool req_body(S &, std::string &, const std::size_t) const;
-    template<typename S>
     bool req_body(S &s, const Client_cb &cb, std::string &body) const { return req_chunked(s, cb, body); }
-    template<typename S>
     bool req_chunked(S &, const Client_cb &, std::string &) const;
-    template<typename S>
     bool req_chunked_raw(S &, const Client_cb &, std::string &) const;
   };
 

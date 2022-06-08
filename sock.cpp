@@ -180,14 +180,15 @@ void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::st
   ::X509_free(server_cert);
 }
 
-sockpp::Send::Send(const float ver) { 
+template<typename S>
+sockpp::Send<S>::Send(const float ver) { 
   char httpver[8] { };
   ::snprintf(httpver, sizeof httpver - 1, "%.1f", ver);
   this->httpver = std::string { httpver };
 }
 
 template<typename S>
-bool sockpp::Send::req(S &s, const std::string &host, const Req req, const std::vector<std::string> &HEAD, const std::string &data, const std::string &endp) const {
+bool sockpp::Send<S>::req(S &s, const std::string &host, const Req req, const std::vector<std::string> &HEAD, const std::string &data, const std::string &endp) const {
   if (&REQ[static_cast<int>(req)] > &REQ[REQ.size() - 1] || (req == Req::GET && data.size()))
     return false;
   
@@ -208,14 +209,18 @@ bool sockpp::Send::req(S &s, const std::string &host, const Req req, const std::
   return s.write(request);
 }
 
-bool sockpp::Recv::is_chunked(const std::string &header) const {
+template class sockpp::Send<sockpp::Http>;
+template class sockpp::Send<sockpp::Https>;
+
+template<typename S>
+bool sockpp::Recv<S>::is_chunked(const std::string &header) const {
   std::smatch match { };
   return std::regex_search(header, match, transfer_encoding_regex) &&
     std::regex_match(header.substr(match.prefix().length() + 19, 7), chunked_regex);
 }
 
 template<typename S>
-bool sockpp::Recv::req_header(S &s, std::string &header) const {
+bool sockpp::Recv<S>::req_header(S &s, std::string &header) const {
   char p { };
   while (s.pollin(timeout_ms) && s.read(p)) {
     s.readfilter(p);
@@ -228,7 +233,8 @@ bool sockpp::Recv::req_header(S &s, std::string &header) const {
   return false;
 }
 
-std::size_t sockpp::Recv::parse_cl(const std::string &header) const {
+template<typename S>
+std::size_t sockpp::Recv<S>::parse_cl(const std::string &header) const {
   std::size_t cl { };
   std::smatch match { };
   if (std::regex_search(header, match, content_length_regex) &&
@@ -238,7 +244,7 @@ std::size_t sockpp::Recv::parse_cl(const std::string &header) const {
 }
 
 template<typename S>
-bool sockpp::Recv::req_body(S &s, std::string &body, const std::size_t cl) const {
+bool sockpp::Recv<S>::req_body(S &s, std::string &body, const std::size_t cl) const {
   char p { };
   while (body.size() < cl && s.postread(p))
     body += p;
@@ -258,7 +264,7 @@ bool sockpp::Recv::req_body(S &s, std::string &body, const std::size_t cl) const
 }
 
 template<typename S>
-bool sockpp::Recv::req_chunked(S &s, const Client_cb &cb, std::string &body) const {
+bool sockpp::Recv<S>::req_chunked(S &s, const Client_cb &cb, std::string &body) const {
   char p { };
   std::size_t l { };
   while (s.pollin(timeout_ms) && s.read(p)) {
@@ -285,7 +291,7 @@ bool sockpp::Recv::req_chunked(S &s, const Client_cb &cb, std::string &body) con
 }
 
 template<typename S>
-bool sockpp::Recv::req_chunked_raw(S &s, const Client_cb &cb, std::string &body) const {
+bool sockpp::Recv<S>::req_chunked_raw(S &s, const Client_cb &cb, std::string &body) const {
   char p { };
   while (s.pollin(timeout_ms) && s.read(p)) {
     s.readfilter(p);
@@ -299,6 +305,9 @@ bool sockpp::Recv::req_chunked_raw(S &s, const Client_cb &cb, std::string &body)
   return true;
 }
 
+template class sockpp::Recv<sockpp::Http>;
+template class sockpp::Recv<sockpp::Https>;
+
 template<typename S>
 sockpp::Client<S>::Client(const float ver, const char HOST[], const char PORT[]) : 
   ver { ver }, host { std::string { HOST } } {
@@ -308,8 +317,8 @@ sockpp::Client<S>::Client(const float ver, const char HOST[], const char PORT[])
 
 template<typename S>
 bool sockpp::Client<S>::performreq(XHandle &h, const unsigned timeout_ms) {
-  Send send { ver };
-  Recv recv { timeout_ms };
+  Send<S> send { ver };
+  Recv<S> recv { timeout_ms };
   if (send.req(sock, host, h.req, h.HEAD, h.data, h.endp) && recv.req_header(sock, h.header)) {
     if (recv.is_chunked(h.header)) return recv.req_body(sock, h.cb, h.body);
     else {
@@ -341,7 +350,7 @@ sockpp::MultiClient<S>::MultiClient(const float ver, const char HOST[], const ch
 
 template<typename S>
 bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper<XHandle>> &H, const unsigned timeout_ms) {
-  Send send { ver };
+  Send<S> send { ver };
   std::bitset<MAX_N> SENT;
   for (auto i { 0U }; i < H.size(); i++)
     if (CONN[i] && send.req(SOCK[i], host, H[i].get().req, H[i].get().HEAD, H[i].get().data, H[i].get().endp))
@@ -350,7 +359,7 @@ bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper
   if (!SENT.any()) return false;
   std::bitset<MAX_N> HDR, ISCHK;
   std::array<std::size_t, MAX_N> CL;
-  Recv recv { sockpp::MULTI_TIMEOUTMS };
+  Recv<S> recv { sockpp::MULTI_TIMEOUTMS };
   sockpp::Time time;
   auto init_time { time.now() };
   while (SENT.any() && time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < timeout_ms)

@@ -22,6 +22,6 @@ int main(const int ARGC, const char *ARGV[]) {
     std::cout << h1.header << std::endl;
     std::cout << "The response body:\n===================\n";
     std::cout << h1.body << std::endl;
-  } catch (const char E[]) { std::cerr << E << "\n"; }
+  } catch (const std::exception &e) { std::cerr << e.what() << "\n"; }
   return 0;
 }

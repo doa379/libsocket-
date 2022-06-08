@@ -21,6 +21,6 @@ int main(const int ARGC, const char *ARGV[]) {
       std::cout << "Received from server " << h.body;
       std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-  } catch (const char E[]) { std::cout << E << std::endl; }
+  } catch (const std::exception &e) { std::cerr << e.what() << std::endl; }
   return 0;
 }
