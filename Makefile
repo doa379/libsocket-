@@ -11,7 +11,7 @@ DBG_CFLAGS = -g
 REL_LDFLAGS = -s
 DBG_LDFLAGS =
 
-CFLAGS = -std=c++17 -c -Wall -fPIE -fPIC -pedantic ${REL_CFLAGS} ${INCS}
+CFLAGS = -std=c++2a -c -Wall -fPIE -fPIC -pedantic ${REL_CFLAGS} ${INCS}
 LDFLAGS = ${REL_LDFLAGS} ${LIBSPATH}
 CC = c++
 

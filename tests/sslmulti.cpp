@@ -10,7 +10,8 @@ int main(const int ARGC, const char *ARGV[]) {
   sockpp::XHandle h1 { sockpp::Client_cb { }, sockpp::Req::GET, { }, { }, "/" };
   try {
     sockpp::MultiClient<sockpp::Https> mc { 1.1, HOST0, PORT, 2 };
-    mc.performreq({ h0, h1 }, 1000);
+    std::vector<sockpp::XHandle> H { h0, h1 };
+    mc.performreq(H, 1000);
     std::cout << "All transfer(s) completed\n";
     std::cout << "(Handle0):\n===================\n";
     std::cout << "The response header:\n===================\n";

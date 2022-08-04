@@ -26,26 +26,29 @@ SOFTWARE.
 
 #include <string>
 #include <array>
-#include <functional>
+#include <vector>
+#include <atomic>
+#include <bitset>
 #include <regex>
 #include <sys/socket.h>
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <poll.h>
 #include <unistd.h>
-#include <vector>
-#include <atomic>
-#include <bitset>
 
 namespace sockpp {
   static constexpr float DEFAULT_HTTPVER { 2.0 };
-  static const unsigned SINGULAR_TIMEOUTMS { 5000 };
-  static const unsigned MULTI_TIMEOUTMS { 2500 };
-  static const char CERT[] { "/tmp/cert.pem" };
-  static const char KEY[] { "/tmp/key.pem" };
+  // Timeout Milliseconds (TOMS)
+  static constexpr unsigned SINGULAR_TOMS { 5000 };
+  static constexpr unsigned MULTI_TOMS { 2500 };
+  // SSL BIO Buffer Size
+  static constexpr unsigned SBN { 32768 };
+  static constexpr char CERT[] { "/tmp/cert.pem" };
+  static constexpr char KEY[] { "/tmp/key.pem" };
   enum class Req { GET, POST, PUT, DELETE };
   using Client_cb = std::function<void(const std::string &)>;
-  const Client_cb ident_cb { [](const std::string &) { } };
+  // Idempotent Callback
+  static const Client_cb IDCB { [](const std::string &) { } };
   template<typename S>
   using Server_cb = std::function<bool(S &)>;
 
@@ -56,21 +59,24 @@ namespace sockpp {
     struct ::pollfd pollfd { };
   public:
     Http(void) = default;
-    Http(const int sockfd) : sockfd { sockfd } { };
+    explicit Http(const int FD) : sockfd { FD } { };
     ~Http(void) { deinit(); }
     bool init_client(const char [], const char []);
     bool init_server(const char []);
     void deinit(void);
-    void init_poll(void);
+    void init_poll(void) { pollfd.fd = sockfd; }
     bool pollin(const int);
     bool pollout(const int);
     bool pollerr(const int);
     int accept(void) { return ::accept(sockfd, nullptr, nullptr); }
-    bool read(char &) const;
+    bool read(char &p) const {
+      return ::read(sockfd, &p, sizeof p) > 0; }
     virtual bool connect(const char []) { return true; }
     virtual void readfilter(char p) { this->p = p; }
-    virtual bool postread(char &p) { p = this->p; this->p = '\0'; return p; }
-    virtual bool write(const std::string &) const;
+    virtual bool postread(char &p) {
+      p = this->p; this->p = '\0'; return p; }
+    virtual bool write(const std::string &req) const {
+      return ::write(sockfd, req.c_str(), req.size()) > 0; }
   };
 
   class InitHttps {
@@ -86,92 +92,120 @@ namespace sockpp {
     ::BIO *r { }, *w { };
   public:
     Https(void) = default;
-    Https(const int sockfd) : Http { sockfd } { }
+    explicit Https(const int FD) : Http { FD } { }
     ~Https(void) { deinit(); }
-    bool init_client(void) { return (ctx = ::SSL_CTX_new(::TLS_client_method())); }
-    bool init_server(void) { return (ctx = ::SSL_CTX_new(::TLS_server_method())); }
+    bool init_client(void) {
+      return (ctx = ::SSL_CTX_new(::TLS_client_method())); }
+    bool init_server(void) {
+      return (ctx = ::SSL_CTX_new(::TLS_server_method())); }
     bool init(void) { return (ssl = ::SSL_new(ctx)); }
     void deinit(void) const;
     bool configure_ctx(const char [], const char []) const;
-    ::SSL_CTX *set_ctx(::SSL_CTX *ctx) const { return ::SSL_set_SSL_CTX(ssl, ctx); }
+    ::SSL_CTX *set_ctx(::SSL_CTX *ctx) const {
+      return ::SSL_set_SSL_CTX(ssl, ctx); }
     ::SSL_CTX *get_ctx(void) const { return ctx; }
     bool init_rbio(void) { return (r = ::BIO_new(::BIO_s_mem())); }
     bool init_wbio(void) { return (w = ::BIO_new(::BIO_s_mem())); }
     void set_rwbio(void) const { ::SSL_set_bio(ssl, r, w); }
     void set_connect_state(void) const { ::SSL_set_connect_state(ssl); }
     void set_accept_state(void) const { ::SSL_set_accept_state(ssl); }
-    bool set_hostname(const char HOST[]) const { return ::SSL_set_tlsext_host_name(ssl, HOST) > -1; }
+    bool set_hostname(const char HOST[]) const {
+      return ::SSL_set_tlsext_host_name(ssl, HOST) > -1; }
     bool set_fd(int sockfd) const { return ::SSL_set_fd(ssl, sockfd) > -1; }
     bool do_handshake(void) const { return ::SSL_do_handshake(ssl) > -1; }
     void certinfo(std::string &, std::string &, std::string &) const;
     bool connect(const char []) override;
-    void readfilter(char) override;
-    bool postread(char &) override;
+    void readfilter(char p) override { ::BIO_write(r, &p, sizeof p); }
+    bool postread(char &p) override { 
+      return ::SSL_read(ssl, &p, sizeof p) > 0; }
     bool write(const std::string &) const override;
   };
  
   template<typename S>
   class Send {
-    const std::string agent { "TCPRequest" };
+    const std::string AGENT { "TCPRequest" };
+    const std::array<std::string, 4> REQSTR { "GET", "POST", "PUT", "DELETE" };
     std::string httpver;
   public:
     Send(void) = delete;
-    Send(const float);
-    bool req(S &, const std::string &, const Req, const std::vector<std::string> &, const std::string &, const std::string &) const;
+    explicit Send(const float);
+    bool req(S &, 
+      const std::string &, 
+        const Req,
+          const std::vector<std::string> &,
+            const std::string &,
+              const std::string &) const;
   };
+
+  template class Send<Http>;
+  template class Send<Https>;
 
   template<typename S>
   class Recv {
-    const unsigned timeout_ms { SINGULAR_TIMEOUTMS };
-    const std::regex ok_regex { std::regex("OK", std::regex_constants::icase) },
-      content_length_regex { std::regex("Content-Length: ", std::regex_constants::icase) },
-      transfer_encoding_regex { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
-      chunked_regex { std::regex("Chunked", std::regex_constants::icase) };
+    const unsigned TOMS { SINGULAR_TOMS };
+    struct Regex { 
+      const std::regex OK { std::regex("OK", std::regex_constants::icase) },
+        CL { std::regex("Content-Length: ", std::regex_constants::icase) },
+        TE { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
+        CHKD { std::regex("Chunked", std::regex_constants::icase) };
+    };
+    const Regex RGX;
   public:
-    Recv(const unsigned timeout_ms) : timeout_ms { timeout_ms } { }
+    Recv(void) = default;
+    explicit Recv(const unsigned TOMS) : TOMS { TOMS } { }
     bool is_chunked(const std::string &) const;
     bool req_header(S &, std::string &) const;
     std::size_t parse_cl(const std::string &) const;
     bool req_body(S &, std::string &, const std::size_t) const;
-    bool req_body(S &s, const Client_cb &cb, std::string &body) const { return req_chunked(s, cb, body); }
+    bool req_body(S &s, const Client_cb &CB, std::string &body) const {
+      return req_chunked(s, CB, body); }
     bool req_chunked(S &, const Client_cb &, std::string &) const;
     bool req_chunked_raw(S &, const Client_cb &, std::string &) const;
   };
 
+  template class Recv<Http>;
+  template class Recv<Https>;
+
   struct XHandle {
-    const Client_cb cb { ident_cb };
-    const Req req { Req::GET };
+    const Client_cb CB { IDCB };
+    const Req REQ { Req::GET };
     const std::vector<std::string> HEAD;
-    const std::string data, endp { "/" };
+    const std::string DATA, ENDP { "/" };
     std::string header, body;
   };
 
   template<typename S>
   class Client {
-    const float ver { DEFAULT_HTTPVER };
-    const std::string host;
+    const float VER { DEFAULT_HTTPVER };
+    const std::string HOST;
     S sock;
   public:
     Client(void) = delete;
     Client(const float, const char [], const char []);
-    bool performreq(XHandle &, const unsigned = SINGULAR_TIMEOUTMS);
+    bool performreq(XHandle &, const unsigned = SINGULAR_TOMS);
     void close(void) { sock.Http::deinit(); }
   };
 
+  template class Client<Http>;
+  template class Client<Https>;
+
   template<typename S>
   class MultiClient {
-    static const auto MAX_N { 32 };
-    const float ver { DEFAULT_HTTPVER };
-    const std::string host;
+    static constexpr auto MAX_N { 32 };
+    const float VER { DEFAULT_HTTPVER };
+    const std::string HOST;
     std::array<S, MAX_N> SOCK;
     std::bitset<MAX_N> CONN;
   public:
     MultiClient(void) = delete;
     MultiClient(const float, const char [], const char [], const unsigned);
-    bool performreq(const std::vector<std::reference_wrapper<XHandle>> &, const unsigned = SINGULAR_TIMEOUTMS);
+    bool performreq(std::vector<XHandle> &, const unsigned = SINGULAR_TOMS);
     decltype(MAX_N) count(void) const { return CONN.count(); }
   };
-  
+
+  template class MultiClient<Http>;
+  template class MultiClient<Https>;
+
   template<typename S>
   class Server {
     S sock;  // Master
@@ -179,10 +213,13 @@ namespace sockpp {
     std::atomic<bool> quit { };
   public:
     Server(void) = delete;
-    Server(const char []);
-    bool poll_listen(const int timeout_ms) { return sock.pollin(timeout_ms); }
+    explicit Server(const char []);
+    bool poll_listen(const int TOMS) { return sock.pollin(TOMS); }
     void recv_client(const char [], const char []);
     void run(const Server_cb<S> &, const char [] = CERT, const char [] = KEY);
     void exit(void) { quit = true; }
   };
+
+  template class Server<Http>;
+  template class Server<Https>;
 }
