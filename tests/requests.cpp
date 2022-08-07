@@ -16,14 +16,20 @@ static const char PORT[] { "8080" };
 
 int main(const int ARGC, const char *ARGV[]) {
   signal(SIGPIPE, SIG_IGN);
+  sockpp::Client_cb gen_writer {
+    [](const std::string &buffer) {
+      std::cout << buffer << "\n";
+    }
+  };
+  
   auto cb {
     [&](sockpp::Http &sock) -> bool {
       sockpp::Recv<sockpp::Http> recv { 1000 };
-      std::string cli_head, cli_body;
+      std::string cli_head;
       // Recv determines if client is still at socket
-      if (!recv.req_header(sock, cli_head))
+      if (!recv.reqhdr(sock, cli_head))
         return false;
-      recv.req_body(sock, cli_body, recv.parse_cl(cli_head));
+      recv.reqbody(sock, gen_writer, recv.parsecl(cli_head));
       std::cout << "Received from client\n";
       auto s { std::to_string(pow(2, sockpp::rand(8, 32))) };
       const std::string document { s + "\r\n" };

@@ -162,50 +162,52 @@ void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::st
 }
 
 template<typename S>
-sockpp::Send<S>::Send(const float ver) { 
+sockpp::Send<S>::Send(const float VER) { 
   char httpver[8] { };
-  ::snprintf(httpver, sizeof httpver - 1, "%.1f", ver);
+  ::snprintf(httpver, sizeof httpver - 1, "%.1f", VER);
   this->httpver = std::string { httpver };
 }
 
 template<typename S>
-bool sockpp::Send<S>::req(S &s, const std::string &HOST, const Req REQ, const std::vector<std::string> &HEAD, const std::string &DATA, const std::string &ENDP) const {
-  if (&REQSTR[static_cast<int>(REQ)] > &REQSTR[REQSTR.size() - 1] ||
-      (REQ == Req::GET && DATA.size()))
+bool sockpp::Send<S>::req(S &s, const std::string &HOST, const Handle::Req &req) const {
+  if (&METHSTR[static_cast<int>(req.METH)] > &METHSTR[METHSTR.size() - 1] ||
+      (req.METH == Meth::GET && req.DATA.size()))
     return false;
   
   std::string request { 
-    REQSTR[static_cast<int>(REQ)] + " " + ENDP + " " + "HTTP/" + httpver + "\r\n" +
-      "Host: " + HOST + "\r\n" +
-        "User-Agent: " + AGENT + "\r\n" +
-          "Accept: */*" + "\r\n" 
+    METHSTR[static_cast<int>(req.METH)] + " " + req.ENDP + " " +
+      "HTTP/" + httpver + "\r\n" +
+        "Host: " + HOST + "\r\n" +
+          "User-Agent: " + AGENT + "\r\n" +
+            "Accept: */*" + "\r\n" 
     };
 
-  for (const auto &h : HEAD)
+  for (const auto &h : req.HEAD)
     request += h + "\r\n";
 
-  if (DATA.size())
-    request += "Content-Length: " + std::to_string(DATA.size()) + "\r\n\r\n" + DATA;
+  if (req.DATA.size())
+    request += "Content-Length: " + std::to_string(req.DATA.size()) +
+      "\r\n\r\n" + req.DATA;
 
   request += "\r\n";
   return s.write(request);
 }
 
 template<typename S>
-bool sockpp::Recv<S>::is_chunked(const std::string &HDR) const {
+bool sockpp::Recv<S>::ischkd(const std::string &HDR) const {
   std::smatch match { };
   return std::regex_search(HDR, match, RGX.TE) &&
     std::regex_match(HDR.substr(match.prefix().length() + 19, 7), RGX.CHKD);
 }
 
 template<typename S>
-bool sockpp::Recv<S>::req_header(S &s, std::string &header) const {
+bool sockpp::Recv<S>::reqhdr(S &s, std::string &hdr) const {
   char p { };
   while (s.pollin(TOMS) && s.read(p)) {
     s.readfilter(p);
     while (s.postread(p)) {
-      header += p;
-      if (static_cast<ssize_t>(header.rfind("\r\n\r\n")) > -1)
+      hdr += p;
+      if (static_cast<ssize_t>(hdr.rfind("\r\n\r\n")) > -1)
         return true;
     }
   }
@@ -214,7 +216,7 @@ bool sockpp::Recv<S>::req_header(S &s, std::string &header) const {
 }
 
 template<typename S>
-std::size_t sockpp::Recv<S>::parse_cl(const std::string &HDR) const {
+std::size_t sockpp::Recv<S>::parsecl(const std::string &HDR) const {
   std::size_t l { };
   std::smatch match { };
   if (std::regex_search(HDR, match, RGX.CL) &&
@@ -225,20 +227,25 @@ std::size_t sockpp::Recv<S>::parse_cl(const std::string &HDR) const {
 }
 
 template<typename S>
-bool sockpp::Recv<S>::req_body(S &s, std::string &body, const std::size_t L) const {
+bool sockpp::Recv<S>::reqbody(S &s, const Client_cb &CB, const std::size_t L) const {
   char p { };
+  std::string body;
   while (body.size() < L && s.postread(p))
     body += p;
   
-  if (body.size() == L)
+  if (body.size() == L) {
+    CB(body);
     return true;
+  }
 
   while (s.pollin(TOMS) && s.read(p)) {
     s.readfilter(p);
     while (s.postread(p)) {
       body += p;
-      if (body.size() == L)
+      if (body.size() == L) {
+        CB(body);
         return true;
+      }
     }
   }
 
@@ -246,9 +253,10 @@ bool sockpp::Recv<S>::req_body(S &s, std::string &body, const std::size_t L) con
 }
 
 template<typename S>
-bool sockpp::Recv<S>::req_chunked(S &s, const Client_cb &CB, std::string &body) const {
+bool sockpp::Recv<S>::reqchkd(S &s, const Client_cb &CB) const {
   char p { };
   std::size_t l { };
+  std::string body;
   while (s.pollin(TOMS) && s.read(p)) {
     s.readfilter(p);
     while (s.postread(p)) {
@@ -278,8 +286,9 @@ bool sockpp::Recv<S>::req_chunked(S &s, const Client_cb &CB, std::string &body) 
 }
 
 template<typename S>
-bool sockpp::Recv<S>::req_chunked_raw(S &s, const Client_cb &CB, std::string &body) const {
+bool sockpp::Recv<S>::reqchkd_raw(S &s, const Client_cb &CB) const {
   char p { };
+  std::string body;
   while (s.pollin(TOMS) && s.read(p)) {
     s.readfilter(p);
     while (s.postread(p)) {
@@ -302,16 +311,16 @@ sockpp::Client<S>::Client(const float VER, const char HOST[], const char PORT[])
 }
 
 template<typename S>
-bool sockpp::Client<S>::performreq(XHandle &h, const unsigned TOMS) {
+bool sockpp::Client<S>::performreq(Handle::Xfr &h, const unsigned TOMS) {
   Send<S> send { VER };
   Recv<S> recv { TOMS };
-  if (send.req(sock, HOST, h.REQ, h.HEAD, h.DATA, h.ENDP) &&
-      recv.req_header(sock, h.header)) {
-    if (recv.is_chunked(h.header))
-      return recv.req_body(sock, h.CB, h.body);
+  if (send.req(sock, HOST, h.req())) {
+    h.setres();
+    if (recv.reqhdr(sock, h.header()) && recv.ischkd(h.header()))
+      return recv.reqbody(sock, h.writercb());
     else {
-      auto l { recv.parse_cl(h.header) };
-      return l && recv.req_body(sock, h.body, l);
+      auto l { recv.parsecl(h.header()) };
+      return l && recv.reqbody(sock, h.writercb(), l);
     }
   }
 
@@ -336,13 +345,14 @@ sockpp::MultiClient<S>::MultiClient(const float VER, const char HOST[], const ch
 }
 
 template<typename S>
-bool sockpp::MultiClient<S>::performreq(std::vector<XHandle> &H, const unsigned TOMS) {
+bool sockpp::MultiClient<S>::performreq(std::vector<std::reference_wrapper<Handle::Xfr>> &H, const unsigned TOMS) {
   Send<S> send { VER };
   std::bitset<MAX_N> SENT;
   for (auto i { 0U }; i < H.size(); i++)
-    if (CONN[i] && 
-        send.req(SOCK[i], HOST, H[i].REQ, H[i].HEAD, H[i].DATA, H[i].ENDP))
+    if (CONN[i] && send.req(SOCK[i], HOST, H[i].get().req())) {
+      H[i].get().setres();
       SENT[i] = 1;
+    }
   
   if (!SENT.any())
     return false;
@@ -350,27 +360,25 @@ bool sockpp::MultiClient<S>::performreq(std::vector<XHandle> &H, const unsigned 
   std::bitset<MAX_N> HDR, ISCHKD;
   std::array<std::size_t, MAX_N> L;
   Recv<S> recv { sockpp::MULTI_TOMS };
-  sockpp::Time time;
-  auto init_time { time.now() };
-  while (SENT.any() &&
-      time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < TOMS)
-    for (auto i { 0U }; i < H.size(); i++)
-      if (SENT[i] && !HDR[i] && recv.req_header(SOCK[i], H[i].header)) {
+  Time time;
+  const auto INITTIME { time.now() };
+  while ((SENT.any() || HDR.any()) &&
+      time.diffpt<std::chrono::milliseconds>(time.now(), INITTIME) < TOMS)
+    for (auto i { 0U }; i < H.size(); i++) {
+      if (SENT[i] && !HDR[i] && recv.reqhdr(SOCK[i], H[i].get().header())) {
         HDR[i] = 1;
         SENT[i] = 0;
-        if (recv.is_chunked(H[i].header))
+        if (recv.ischkd(H[i].get().header()))
           ISCHKD[i] = 1;
         else
-          L[i] = recv.parse_cl(H[i].header);
+          L[i] = recv.parsecl(H[i].get().header());
       }
 
-  while (HDR.any() &&
-      time.diffpt<std::chrono::milliseconds>(time.now(), init_time) < TOMS)
-    for (auto i { 0U }; i < H.size(); i++)
       if (HDR[i] &&
-        ((ISCHKD[i] && recv.req_body(SOCK[i], H[i].CB, H[i].body)) ||
-            (L[i] && recv.req_body(SOCK[i], H[i].body, L[i]))))
-              HDR[i] = 0;
+            ((ISCHKD[i] && recv.reqbody(SOCK[i], H[i].get().writercb())) ||
+              (L[i] && recv.reqbody(SOCK[i], H[i].get().writercb(), L[i]))))
+        HDR[i] = 0;
+    }
 
   return true;
 }

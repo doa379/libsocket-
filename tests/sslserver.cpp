@@ -9,15 +9,20 @@ static const char PORT[] { "4433" };
 
 int main(int ARGC, char *ARGV[]) {
   signal(SIGPIPE, SIG_IGN);
+  sockpp::Client_cb gen_writer {
+    [](const std::string &buffer) {
+      std::cout << buffer << "\n";
+    }
+  };
+  
   auto client_msg { 
     [&](sockpp::Https &sock) {
       sockpp::Recv<sockpp::Https> recv { 1000 };
-      std::string cli_head, cli_body;
-      if (recv.req_header(sock, cli_head)) {
-        recv.req_body(sock, cli_body, recv.parse_cl(cli_head));
+      std::string cli_head;
+      if (recv.reqhdr(sock, cli_head)) {
+        recv.reqbody(sock, gen_writer, recv.parsecl(cli_head));
         std::cout << "-Receive from client-\n";
         std::cout << cli_head << "\n";
-        std::cout << cli_body << "\n";
         std::cout << "-End receive from client-\n";
       }
     }
@@ -28,8 +33,10 @@ int main(int ARGC, char *ARGV[]) {
       client_msg(sock);
       const std::string document { "Document" }, 
             header { 
-                std::string("Content-Length: ") + std::to_string(document.size()) + std::string("\r\n") +
-                "\r\n" };
+                std::string("Content-Length: ") + 
+                  std::to_string(document.size()) + 
+                    std::string("\r\n") +
+                      "\r\n" };
       return sock.write(header + document) ? true : false;
     }
   };

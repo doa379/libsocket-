@@ -11,17 +11,22 @@ static const char SSLPORT[] { "4433" };
 
 int main(const int ARGC, const char *ARGV[]) {
   signal(SIGPIPE, SIG_IGN);
+  sockpp::Client_cb gen_writer {
+    [](const std::string &buffer) {
+      std::cout << buffer << "\n";
+    }
+  };
+  
   auto cb { 
     [&](sockpp::Https &sock) -> bool { 
       sockpp::Recv<sockpp::Https> recv { 1000 };
-      std::string cli_head, cli_body;
-      if (recv.req_header(sock, cli_head))
-        recv.req_body(sock, cli_body, recv.parse_cl(cli_head));
+      std::string cli_head;
+      if (recv.reqhdr(sock, cli_head))
+        recv.reqbody(sock, gen_writer, recv.parsecl(cli_head));
       else 
         return false;
       std::cout << "-Receive from client-\n";
       std::cout << cli_head << "\n";
-      std::cout << cli_body << "\n";
       std::cout << "-End receive from client-\n";
       const std::string header {
         std::string("Transfer-Encoding: chunked\r\n") + "\r\n" };

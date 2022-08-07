@@ -30,6 +30,7 @@ SOFTWARE.
 #include <atomic>
 #include <bitset>
 #include <regex>
+#include <variant>
 #include <sys/socket.h>
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
@@ -45,12 +46,6 @@ namespace sockpp {
   static constexpr unsigned SBN { 32768 };
   static constexpr char CERT[] { "/tmp/cert.pem" };
   static constexpr char KEY[] { "/tmp/key.pem" };
-  enum class Req { GET, POST, PUT, DELETE };
-  using Client_cb = std::function<void(const std::string &)>;
-  // Idempotent Callback
-  static const Client_cb IDCB { [](const std::string &) { } };
-  template<typename S>
-  using Server_cb = std::function<bool(S &)>;
 
   class Http {
     char p { };
@@ -121,59 +116,81 @@ namespace sockpp {
     bool write(const std::string &) const override;
   };
  
+  // Mandatory
+  using Client_cb = std::function<void(const std::string &)>;
+  // Idempotent Client Callback Writer
+  static Client_cb const IDCB { [](const std::string &) { } };
+  enum class Meth { GET, POST, PUT, DELETE };
+  
+  namespace Handle {
+    struct Req {
+      const Meth METH { Meth::GET };
+      const std::vector<std::string> HEAD;
+      const std::string DATA, ENDP { "/" };
+    };
+    
+    class Xfr {
+      std::variant<Req, std::string> vrr;
+      Client_cb cb { IDCB };
+    public:
+      Xfr(void) = default;
+      explicit Xfr(const Req &REQ) : vrr { REQ } { }
+      Xfr(const Req &REQ, const Client_cb &CB) : vrr { REQ }, cb { CB } { }
+      Req &req(void) { return std::get<Req>(vrr); }
+      void setres(void) { vrr = std::string { }; }
+      std::string &header(void) { return std::get<std::string>(vrr); }
+      Client_cb &writercb(void) { return cb; };
+    };
+  }
+
   template<typename S>
   class Send {
-    const std::string AGENT { "TCPRequest" };
-    const std::array<std::string, 4> REQSTR { "GET", "POST", "PUT", "DELETE" };
+    static std::string AGENT;
+    static std::array<std::string, 4> METHSTR;
     std::string httpver;
   public:
     Send(void) = delete;
     explicit Send(const float);
-    bool req(S &, 
-      const std::string &, 
-        const Req,
-          const std::vector<std::string> &,
-            const std::string &,
-              const std::string &) const;
+    bool req(S &, const std::string &, const Handle::Req &) const;
   };
 
+  template<typename S>
+  std::string Send<S>::AGENT { "TCPRequest" };
+  template<typename S>
+  std::array<std::string, 4> Send<S>::METHSTR { "GET", "POST", "PUT", "DELETE" };
+  
   template class Send<Http>;
   template class Send<Https>;
+
+  struct Regex { 
+    std::regex OK { std::regex("OK", std::regex_constants::icase) },
+      CL { std::regex("Content-Length: ", std::regex_constants::icase) },
+      TE { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
+      CHKD { std::regex("Chunked", std::regex_constants::icase) };
+  };
 
   template<typename S>
   class Recv {
     const unsigned TOMS { SINGULAR_TOMS };
-    struct Regex { 
-      const std::regex OK { std::regex("OK", std::regex_constants::icase) },
-        CL { std::regex("Content-Length: ", std::regex_constants::icase) },
-        TE { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
-        CHKD { std::regex("Chunked", std::regex_constants::icase) };
-    };
-    const Regex RGX;
+    static Regex RGX;
   public:
     Recv(void) = default;
     explicit Recv(const unsigned TOMS) : TOMS { TOMS } { }
-    bool is_chunked(const std::string &) const;
-    bool req_header(S &, std::string &) const;
-    std::size_t parse_cl(const std::string &) const;
-    bool req_body(S &, std::string &, const std::size_t) const;
-    bool req_body(S &s, const Client_cb &CB, std::string &body) const {
-      return req_chunked(s, CB, body); }
-    bool req_chunked(S &, const Client_cb &, std::string &) const;
-    bool req_chunked_raw(S &, const Client_cb &, std::string &) const;
+    bool ischkd(const std::string &) const;
+    bool reqhdr(S &, std::string &) const;
+    std::size_t parsecl(const std::string &) const;
+    bool reqbody(S &, const Client_cb &, const std::size_t) const;
+    bool reqbody(S &s, const Client_cb &CB) const { return reqchkd(s, CB); }
+    bool reqchkd(S &, const Client_cb &) const;
+    bool reqchkd_raw(S &, const Client_cb &) const;
   };
+
+  template<typename S>
+  Regex Recv<S>::RGX;
 
   template class Recv<Http>;
   template class Recv<Https>;
-
-  struct XHandle {
-    const Client_cb CB { IDCB };
-    const Req REQ { Req::GET };
-    const std::vector<std::string> HEAD;
-    const std::string DATA, ENDP { "/" };
-    std::string header, body;
-  };
-
+  
   template<typename S>
   class Client {
     const float VER { DEFAULT_HTTPVER };
@@ -182,7 +199,7 @@ namespace sockpp {
   public:
     Client(void) = delete;
     Client(const float, const char [], const char []);
-    bool performreq(XHandle &, const unsigned = SINGULAR_TOMS);
+    bool performreq(Handle::Xfr &, const unsigned = SINGULAR_TOMS);
     void close(void) { sock.Http::deinit(); }
   };
 
@@ -199,13 +216,17 @@ namespace sockpp {
   public:
     MultiClient(void) = delete;
     MultiClient(const float, const char [], const char [], const unsigned);
-    bool performreq(std::vector<XHandle> &, const unsigned = SINGULAR_TOMS);
+    bool performreq(std::vector<std::reference_wrapper<Handle::Xfr>> &, 
+      const unsigned = SINGULAR_TOMS);
     decltype(MAX_N) count(void) const { return CONN.count(); }
   };
 
   template class MultiClient<Http>;
   template class MultiClient<Https>;
 
+  template<typename S>
+  using Server_cb = std::function<bool(S &)>;
+  
   template<typename S>
   class Server {
     S sock;  // Master
