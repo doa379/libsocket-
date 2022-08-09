@@ -17,9 +17,7 @@ static const char PORT[] { "8080" };
 int main(const int ARGC, const char *ARGV[]) {
   signal(SIGPIPE, SIG_IGN);
   sockpp::Client_cb gen_writer {
-    [](const std::string &buffer) {
-      std::cout << buffer << "\n";
-    }
+    [](const char p) { std::cout << p; }
   };
   
   auto cb {

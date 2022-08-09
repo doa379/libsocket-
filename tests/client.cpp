@@ -13,12 +13,7 @@ int main(int ARGC, char *ARGV[]) {
     host = std::string(ARGV[1]);
 
   // Chunked transfer
-  sockpp::Client_cb writer_cb { 
-    [](const std::string &buffer) { 
-      std::cout << "The response body:\n===================\n";
-      std::cout << buffer;
-    } 
-  };
+  sockpp::Client_cb writer_cb { [](const char p) { std::cout << p; } };
   sockpp::Handle::Xfr h { { sockpp::Meth::GET, { }, { }, "/" }, writer_cb };
   try {
     sockpp::Client<sockpp::Http> client { 1.1, host.c_str(), PORT };

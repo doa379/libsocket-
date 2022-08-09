@@ -40,10 +40,10 @@ SOFTWARE.
 namespace sockpp {
   static constexpr float DEFAULT_HTTPVER { 2.0 };
   // Timeout Milliseconds (TOMS)
-  static constexpr unsigned SINGULAR_TOMS { 5000 };
+  static constexpr unsigned SINGULAR_TOMS { 2000 };
   static constexpr unsigned MULTI_TOMS { 2500 };
   // SSL BIO Buffer Size
-  static constexpr unsigned SBN { 32768 };
+  static constexpr unsigned SBN { 16384 };
   static constexpr char CERT[] { "/tmp/cert.pem" };
   static constexpr char KEY[] { "/tmp/key.pem" };
 
@@ -117,9 +117,9 @@ namespace sockpp {
   };
  
   // Mandatory
-  using Client_cb = std::function<void(const std::string &)>;
+  using Client_cb = std::function<void(const char)>;
   // Idempotent Client Callback Writer
-  static Client_cb const IDCB { [](const std::string &) { } };
+  static Client_cb const IDCB { [](const char) { } };
   enum class Meth { GET, POST, PUT, DELETE };
   
   namespace Handle {
@@ -135,7 +135,8 @@ namespace sockpp {
     public:
       Xfr(void) = default;
       explicit Xfr(const Req &REQ) : vrr { REQ } { }
-      Xfr(const Req &REQ, const Client_cb &CB) : vrr { REQ }, cb { CB } { }
+      Xfr(const Req &REQ, const Client_cb &CB) :
+        vrr { REQ }, cb { CB } { }
       Req &req(void) { return std::get<Req>(vrr); }
       void setres(void) { vrr = std::string { }; }
       std::string &header(void) { return std::get<std::string>(vrr); }
@@ -166,7 +167,8 @@ namespace sockpp {
     std::regex OK { std::regex("OK", std::regex_constants::icase) },
       CL { std::regex("Content-Length: ", std::regex_constants::icase) },
       TE { std::regex("Transfer-Encoding: ", std::regex_constants::icase) },
-      CHKD { std::regex("Chunked", std::regex_constants::icase) };
+      CHKD { std::regex("Chunked", std::regex_constants::icase) },
+      CHKDHDR { std::regex("(0x)?[0-9a-f]+\r\n$", std::regex_constants::icase) };
   };
 
   template<typename S>
@@ -179,8 +181,9 @@ namespace sockpp {
     bool ischkd(const std::string &) const;
     bool reqhdr(S &, std::string &) const;
     std::size_t parsecl(const std::string &) const;
-    bool reqbody(S &, const Client_cb &, const std::size_t) const;
-    bool reqbody(S &s, const Client_cb &CB) const { return reqchkd(s, CB); }
+    bool reqbody(S &, const Client_cb &, std::size_t) const;
+    bool reqbody(S &s, const Client_cb &CB) const {
+      return reqchkd(s, CB); }
     bool reqchkd(S &, const Client_cb &) const;
     bool reqchkd_raw(S &, const Client_cb &) const;
   };

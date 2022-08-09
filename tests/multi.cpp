@@ -7,10 +7,7 @@ static const char PORT[] { "80" };
 
 int main(int ARGC, char *ARGV[]) {
   sockpp::Client_cb gen_writer {
-    [](const std::string &buffer) {
-      std::cout << "The response body:\n===================\n";
-      std::cout << buffer << "\n";
-    }
+    [](const char p) { std::cout << p; }
   };
 
   sockpp::Handle::Xfr h0 { { sockpp::Meth::GET, { }, { }, "/" }, gen_writer };

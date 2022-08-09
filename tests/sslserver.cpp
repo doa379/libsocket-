@@ -10,9 +10,7 @@ static const char PORT[] { "4433" };
 int main(int ARGC, char *ARGV[]) {
   signal(SIGPIPE, SIG_IGN);
   sockpp::Client_cb gen_writer {
-    [](const std::string &buffer) {
-      std::cout << buffer << "\n";
-    }
+    [](const char p) { std::cout << p; }
   };
   
   auto client_msg { 

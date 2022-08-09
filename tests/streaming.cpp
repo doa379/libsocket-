@@ -6,8 +6,8 @@ static const char PORT[] { "8080" };
 
 int main(int ARGC, char *ARGV[]) {
   sockpp::Client_cb writer_cb {
-    [](const std::string &buffer) { 
-      std::cout << "Received " << buffer; 
+    [](const char p) { 
+      std::cout << p; 
     }
   };
   

@@ -9,7 +9,7 @@ static const char PORT[] { "4433" };
 
 int main(int ARGC, char *ARGV[]) {
   sockpp::Client_cb writer_cb {
-    [](const std::string &buffer) { std::cout << buffer; } };
+    [](const char p) { std::cout << p; } };
   // Data sent as POST request
   // Header validates request is OK
   // Chunked transfer calls cb()

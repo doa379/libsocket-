@@ -227,24 +227,46 @@ std::size_t sockpp::Recv<S>::parsecl(const std::string &HDR) const {
 }
 
 template<typename S>
-bool sockpp::Recv<S>::reqbody(S &s, const Client_cb &CB, const std::size_t L) const {
+bool sockpp::Recv<S>::reqbody(S &s, const Client_cb &CB, std::size_t l) const {
   char p { };
-  std::string body;
-  while (body.size() < L && s.postread(p))
-    body += p;
-  
-  if (body.size() == L) {
-    CB(body);
-    return true;
+  while (l && s.postread(p)) {
+    CB(p);
+    l--;
   }
 
+  if (!l)
+    return true;
+
+  while (l && s.pollin(TOMS) && s.read(p)) {
+    s.readfilter(p);
+    while (l && s.postread(p)) {
+      CB(p);
+      l--;
+    }
+  }
+
+  return !l;
+}
+
+template<typename S>
+bool sockpp::Recv<S>::reqchkd(S &s, const Client_cb &CB) const {
+  char p { };
+  std::string len;
+  std::smatch match { };
   while (s.pollin(TOMS) && s.read(p)) {
     s.readfilter(p);
     while (s.postread(p)) {
-      body += p;
-      if (body.size() == L) {
-        CB(body);
-        return true;
+      len += p;
+      if (std::regex_search(len, match, RGX.CHKDHDR)) {
+        try {
+          if (const auto L { std::stoull(len, nullptr, 16) }; L) {
+            reqbody(s, CB, L);
+            len.clear();
+          } else
+              return true;
+        } catch (...) {
+          return false;
+        }
       }
     }
   }
@@ -253,49 +275,12 @@ bool sockpp::Recv<S>::reqbody(S &s, const Client_cb &CB, const std::size_t L) co
 }
 
 template<typename S>
-bool sockpp::Recv<S>::reqchkd(S &s, const Client_cb &CB) const {
-  char p { };
-  std::size_t l { };
-  std::string body;
-  while (s.pollin(TOMS) && s.read(p)) {
-    s.readfilter(p);
-    while (s.postread(p)) {
-      body += p;
-      if (body == "\r\n");
-      else if (l == 0 && static_cast<ssize_t>(body.rfind("\r\n")) > -1) {
-        body.erase(body.end() - 2, body.end());
-        try {
-          l = std::stoull(body, nullptr, 16);
-        } catch (...) {
-          return false;
-        }
-
-        if (l == 0)
-          return true;
-      } else if (body.size() == l) {
-        CB(body);
-        l = 0;
-      } else
-          continue;
-      
-      body.clear();
-    }
-  }
-
-  return true;
-}
-
-template<typename S>
 bool sockpp::Recv<S>::reqchkd_raw(S &s, const Client_cb &CB) const {
   char p { };
-  std::string body;
   while (s.pollin(TOMS) && s.read(p)) {
     s.readfilter(p);
-    while (s.postread(p)) {
-      body += p;
-      CB(body);
-      body.clear();
-    }
+    while (s.postread(p))
+      CB(p);
   }
 
   return true;
@@ -318,11 +303,9 @@ bool sockpp::Client<S>::performreq(Handle::Xfr &h, const unsigned TOMS) {
     h.setres();
     if (recv.reqhdr(sock, h.header()) && recv.ischkd(h.header()))
       return recv.reqbody(sock, h.writercb());
-    else {
-      auto l { recv.parsecl(h.header()) };
-      return l && recv.reqbody(sock, h.writercb(), l);
+    else if (const auto L { recv.parsecl(h.header()) }; L)
+      return recv.reqbody(sock, h.writercb(), L);
     }
-  }
 
   return false;
 }
@@ -347,38 +330,36 @@ sockpp::MultiClient<S>::MultiClient(const float VER, const char HOST[], const ch
 template<typename S>
 bool sockpp::MultiClient<S>::performreq(std::vector<std::reference_wrapper<Handle::Xfr>> &H, const unsigned TOMS) {
   Send<S> send { VER };
-  std::bitset<MAX_N> SENT;
-  for (auto i { 0U }; i < H.size(); i++)
-    if (CONN[i] && send.req(SOCK[i], HOST, H[i].get().req())) {
-      H[i].get().setres();
-      SENT[i] = 1;
-    }
+  auto i { 0U };
+  for (auto h { H.begin() }; h < H.end(); h++, i++) {
+    if (CONN[i] && send.req(SOCK[i], HOST, h->get().req()))
+      h->get().setres();
+    else
+      H.erase(h);
+  }
   
-  if (!SENT.any())
+  if (!H.size())
     return false;
 
-  std::bitset<MAX_N> HDR, ISCHKD;
-  std::array<std::size_t, MAX_N> L;
   Recv<S> recv { sockpp::MULTI_TOMS };
   Time time;
   const auto INITTIME { time.now() };
-  while ((SENT.any() || HDR.any()) &&
-      time.diffpt<std::chrono::milliseconds>(time.now(), INITTIME) < TOMS)
-    for (auto i { 0U }; i < H.size(); i++) {
-      if (SENT[i] && !HDR[i] && recv.reqhdr(SOCK[i], H[i].get().header())) {
-        HDR[i] = 1;
-        SENT[i] = 0;
-        if (recv.ischkd(H[i].get().header()))
-          ISCHKD[i] = 1;
+  while (H.size() &&
+    time.diffpt<std::chrono::milliseconds>(time.now(), INITTIME) < TOMS) {
+    auto i { 0U };
+    for (auto h { H.begin() }; h < H.end(); i++)
+      if (recv.reqhdr(SOCK[i], h->get().header())) {
+        if (recv.ischkd(h->get().header()) && 
+              recv.reqbody(SOCK[i], h->get().writercb()));
+        else if (const auto L { recv.parsecl(h->get().header()) }; L &&
+            recv.reqbody(SOCK[i], h->get().writercb(), L));
         else
-          L[i] = recv.parsecl(H[i].get().header());
-      }
-
-      if (HDR[i] &&
-            ((ISCHKD[i] && recv.reqbody(SOCK[i], H[i].get().writercb())) ||
-              (L[i] && recv.reqbody(SOCK[i], H[i].get().writercb(), L[i]))))
-        HDR[i] = 0;
-    }
+          continue;
+        
+        H.erase(h);
+      } else
+          h++;
+  }
 
   return true;
 }
