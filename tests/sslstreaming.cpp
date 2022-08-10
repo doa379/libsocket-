@@ -19,7 +19,7 @@ int main(int ARGC, char *ARGV[]) {
   };
 
   try {
-    sockpp::Client<sockpp::Https> client { 1.1, HOST, PORT };
+    sockpp::Client<sockpp::Https> client { HOST, PORT };
     if (!client.performreq(h))
       throw "Unable to sendreq()";
 

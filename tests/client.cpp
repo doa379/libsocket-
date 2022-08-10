@@ -16,7 +16,7 @@ int main(int ARGC, char *ARGV[]) {
   sockpp::Client_cb writer_cb { [](const char p) { std::cout << p; } };
   sockpp::Handle::Xfr h { { sockpp::Meth::GET, { }, { }, "/" }, writer_cb };
   try {
-    sockpp::Client<sockpp::Http> client { 1.1, host.c_str(), PORT };
+    sockpp::Client<sockpp::Http> client { host.c_str(), PORT };
     // Perform request on handle
     if (!client.performreq(h))
       throw "Failed to performreq()";

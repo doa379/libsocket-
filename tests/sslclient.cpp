@@ -24,7 +24,7 @@ int main(int ARGC, char *ARGV[]) {
   };
   
   try {
-    sockpp::Client<sockpp::Https> client { 1.1, host.c_str(), port.c_str() };
+    sockpp::Client<sockpp::Https> client { host.c_str(), port.c_str() };
     // Perform request on handle
     if (!client.performreq(h))
       throw "Failed to performreq()";

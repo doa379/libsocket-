@@ -28,8 +28,8 @@ SOFTWARE.
 #include <array>
 #include <vector>
 #include <atomic>
-#include <bitset>
 #include <regex>
+#include <bitset>
 #include <variant>
 #include <sys/socket.h>
 #include <openssl/ssl.h>
@@ -38,7 +38,6 @@ SOFTWARE.
 #include <unistd.h>
 
 namespace sockpp {
-  static constexpr float DEFAULT_HTTPVER { 2.0 };
   // Timeout Milliseconds (TOMS)
   static constexpr unsigned SINGULAR_TOMS { 2000 };
   static constexpr unsigned MULTI_TOMS { 2500 };
@@ -74,14 +73,7 @@ namespace sockpp {
       return ::write(sockfd, req.c_str(), req.size()) > 0; }
   };
 
-  class InitHttps {
-  protected:
-  public:
-    InitHttps(void) { InitHttps::init(); }
-    static void init(void) { ::OpenSSL_add_ssl_algorithms(); }
-  };
-
-  class Https : private InitHttps, public Http {
+  class Https : public Http {
     ::SSL_CTX *ctx { };
     ::SSL *ssl { };
     ::BIO *r { }, *w { };
@@ -114,6 +106,10 @@ namespace sockpp {
     bool postread(char &p) override { 
       return ::SSL_read(ssl, &p, sizeof p) > 0; }
     bool write(const std::string &) const override;
+  };
+
+  class Http2 {
+    // TODO
   };
  
   // Mandatory
@@ -148,10 +144,7 @@ namespace sockpp {
   class Send {
     static std::string AGENT;
     static std::array<std::string, 4> METHSTR;
-    std::string httpver;
   public:
-    Send(void) = delete;
-    explicit Send(const float);
     bool req(S &, const std::string &, const Handle::Req &) const;
   };
 
@@ -182,10 +175,9 @@ namespace sockpp {
     bool reqhdr(S &, std::string &) const;
     std::size_t parsecl(const std::string &) const;
     bool reqbody(S &, const Client_cb &, std::size_t) const;
-    bool reqbody(S &s, const Client_cb &CB) const {
-      return reqchkd(s, CB); }
+    bool reqbody(S &s, const Client_cb &CB) const { return reqchkd(s, CB); }
     bool reqchkd(S &, const Client_cb &) const;
-    bool reqchkd_raw(S &, const Client_cb &) const;
+    void reqchkd_raw(S &, const Client_cb &) const;
   };
 
   template<typename S>
@@ -196,12 +188,11 @@ namespace sockpp {
   
   template<typename S>
   class Client {
-    const float VER { DEFAULT_HTTPVER };
     const std::string HOST;
     S sock;
   public:
     Client(void) = delete;
-    Client(const float, const char [], const char []);
+    Client(const char [], const char []);
     bool performreq(Handle::Xfr &, const unsigned = SINGULAR_TOMS);
     void close(void) { sock.Http::deinit(); }
   };
@@ -211,17 +202,20 @@ namespace sockpp {
 
   template<typename S>
   class MultiClient {
-    static constexpr auto MAX_N { 32 };
-    const float VER { DEFAULT_HTTPVER };
+    static constexpr std::size_t MAXN { 32 };
+    std::array<S, MAXN> SOCK;
+    std::bitset<MAXN> C;
     const std::string HOST;
-    std::array<S, MAX_N> SOCK;
-    std::bitset<MAX_N> CONN;
+    struct SockH {
+      std::reference_wrapper<S> sock;
+      std::reference_wrapper<Handle::Xfr> h;
+    };
   public:
     MultiClient(void) = delete;
-    MultiClient(const float, const char [], const char [], const unsigned);
-    bool performreq(std::vector<std::reference_wrapper<Handle::Xfr>> &, 
+    MultiClient(const char [], const char [], const unsigned);
+    bool performreq(const std::vector<std::reference_wrapper<Handle::Xfr>> &, 
       const unsigned = SINGULAR_TOMS);
-    decltype(MAX_N) count(void) const { return CONN.count(); }
+    std::size_t cnxcount(void) const { return C.count(); }
   };
 
   template class MultiClient<Http>;

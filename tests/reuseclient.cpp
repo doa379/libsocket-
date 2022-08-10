@@ -15,7 +15,7 @@ int main(const int ARGC, const char *ARGV[]) {
   
   sockpp::Handle::Xfr h { { sockpp::Meth::GET, { }, { } }, writer_cb };
   try {
-    sockpp::Client<ConnType> client { 1.1, HOST, PORT };
+    sockpp::Client<ConnType> client { HOST, PORT };
     for (auto i { 0 }; i < 10; i++) {
       // Perform request on handle
       if (!client.performreq(h))

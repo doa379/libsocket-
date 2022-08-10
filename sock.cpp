@@ -162,13 +162,6 @@ void sockpp::Https::certinfo(std::string &cipherinfo, std::string &cert, std::st
 }
 
 template<typename S>
-sockpp::Send<S>::Send(const float VER) { 
-  char httpver[8] { };
-  ::snprintf(httpver, sizeof httpver - 1, "%.1f", VER);
-  this->httpver = std::string { httpver };
-}
-
-template<typename S>
 bool sockpp::Send<S>::req(S &s, const std::string &HOST, const Handle::Req &req) const {
   if (&METHSTR[static_cast<int>(req.METH)] > &METHSTR[METHSTR.size() - 1] ||
       (req.METH == Meth::GET && req.DATA.size()))
@@ -176,7 +169,7 @@ bool sockpp::Send<S>::req(S &s, const std::string &HOST, const Handle::Req &req)
   
   std::string request { 
     METHSTR[static_cast<int>(req.METH)] + " " + req.ENDP + " " +
-      "HTTP/" + httpver + "\r\n" +
+      "HTTP/1.1" + "\r\n" +
         "Host: " + HOST + "\r\n" +
           "User-Agent: " + AGENT + "\r\n" +
             "Accept: */*" + "\r\n" 
@@ -275,20 +268,18 @@ bool sockpp::Recv<S>::reqchkd(S &s, const Client_cb &CB) const {
 }
 
 template<typename S>
-bool sockpp::Recv<S>::reqchkd_raw(S &s, const Client_cb &CB) const {
+void sockpp::Recv<S>::reqchkd_raw(S &s, const Client_cb &CB) const {
   char p { };
   while (s.pollin(TOMS) && s.read(p)) {
     s.readfilter(p);
     while (s.postread(p))
       CB(p);
   }
-
-  return true;
 }
 
 template<typename S>
-sockpp::Client<S>::Client(const float VER, const char HOST[], const char PORT[]) : 
-  VER { VER }, HOST { std::string { HOST } } {
+sockpp::Client<S>::Client(const char HOST[], const char PORT[]) : 
+  HOST { std::string { HOST } } {
   if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST))
     sock.init_poll();
   else
@@ -297,7 +288,7 @@ sockpp::Client<S>::Client(const float VER, const char HOST[], const char PORT[])
 
 template<typename S>
 bool sockpp::Client<S>::performreq(Handle::Xfr &h, const unsigned TOMS) {
-  Send<S> send { VER };
+  Send<S> send;
   Recv<S> recv { TOMS };
   if (send.req(sock, HOST, h.req())) {
     h.setres();
@@ -311,54 +302,59 @@ bool sockpp::Client<S>::performreq(Handle::Xfr &h, const unsigned TOMS) {
 }
 
 template<typename S>
-sockpp::MultiClient<S>::MultiClient(const float VER, const char HOST[], const char PORT[], const unsigned N) : 
-  VER { VER }, HOST { std::string { HOST } } {
-  if (N > MAX_N)
+sockpp::MultiClient<S>::MultiClient(const char HOST[], const char PORT[], const unsigned N) : 
+  HOST { std::string { HOST } } {
+  if (N > MAXN)
     throw std::runtime_error("# of requested connexions exceeds supremum");
+  
   for (auto i { 0U }; i < N; i++) {
     S &sock { SOCK[i] };
     if (sock.Http::init_client(HOST, PORT) && sock.connect(HOST)) {
       sock.init_poll();
-      CONN[i] = 1;
+      C[i] = 1;
     }
   }
   
-  if (!CONN.any())
+  if (!C.any())
     throw std::runtime_error("Unable to connect");
 }
 
 template<typename S>
-bool sockpp::MultiClient<S>::performreq(std::vector<std::reference_wrapper<Handle::Xfr>> &H, const unsigned TOMS) {
-  Send<S> send { VER };
-  auto i { 0U };
-  for (auto h { H.begin() }; h < H.end(); h++, i++) {
-    if (CONN[i] && send.req(SOCK[i], HOST, h->get().req()))
-      h->get().setres();
-    else
-      H.erase(h);
+bool sockpp::MultiClient<S>::performreq(const std::vector<std::reference_wrapper<Handle::Xfr>> &H, const unsigned TOMS) {
+  std::vector<SockH> SH;
+  for (auto i { 0U }, j { 0U }; i < MAXN; i++)
+    if (C[i])
+      SH.emplace_back(SockH { SOCK[i], H[j++] });
+
+  Send<S> send;
+  for (auto sh { SH.begin() }; sh < SH.end();) {
+    if (send.req(sh->sock.get(), HOST, sh->h.get().req())) {
+      sh->h.get().setres();
+      sh++;
+    } else
+        SH.erase(sh);
   }
   
-  if (!H.size())
+  if (!SH.size())
     return false;
 
   Recv<S> recv { sockpp::MULTI_TOMS };
   Time time;
   const auto INITTIME { time.now() };
-  while (H.size() &&
+  while (SH.size() &&
     time.diffpt<std::chrono::milliseconds>(time.now(), INITTIME) < TOMS) {
-    auto i { 0U };
-    for (auto h { H.begin() }; h < H.end(); i++)
-      if (recv.reqhdr(SOCK[i], h->get().header())) {
-        if (recv.ischkd(h->get().header()) && 
-              recv.reqbody(SOCK[i], h->get().writercb()));
-        else if (const auto L { recv.parsecl(h->get().header()) }; L &&
-            recv.reqbody(SOCK[i], h->get().writercb(), L));
+    for (auto sh { SH.begin() }; sh < SH.end();)
+      if (recv.reqhdr(sh->sock.get(), sh->h.get().header())) {
+        if (recv.ischkd(sh->h.get().header()) && 
+              recv.reqbody(sh->sock.get(), sh->h.get().writercb()));
+        else if (const auto L { recv.parsecl(sh->h.get().header()) }; L &&
+            recv.reqbody(sh->sock.get(), sh->h.get().writercb(), L));
         else
           continue;
         
-        H.erase(h);
+        SH.erase(sh);
       } else
-          h++;
+          sh++;
   }
 
   return true;
@@ -385,12 +381,12 @@ void sockpp::Server<sockpp::Https>::recv_client(const char CERT[], const char KE
   if (!client.init_client() || !client.configure_ctx(CERT, KEY))
     return;
 
-  auto sockfd { sock.Http::accept() };
-  auto server { std::make_unique<Https>(sockfd) };
+  const auto FD { sock.Http::accept() };
+  auto server { std::make_unique<Https>(FD) };
   if (server->init_server() && server->init()) {
     server->set_ctx(client.get_ctx());
     server->set_accept_state();
-    if (server->set_fd(sockfd) && server->do_handshake() &&
+    if (server->set_fd(FD) && server->do_handshake() &&
       server->init_rbio() && server->init_wbio()) {
         server->set_rwbio();
         server->init_poll();

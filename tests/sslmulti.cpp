@@ -13,7 +13,7 @@ int main(const int ARGC, const char *ARGV[]) {
   sockpp::Handle::Xfr h0 { { sockpp::Meth::GET, { }, { }, "/" }, gen_writer };
   sockpp::Handle::Xfr h1 { { sockpp::Meth::GET, { }, { }, "/" }, gen_writer };
   try {
-    sockpp::MultiClient<sockpp::Https> mc { 1.1, HOST0, PORT, 2 };
+    sockpp::MultiClient<sockpp::Https> mc { HOST0, PORT, 2 };
     std::vector<std::reference_wrapper<sockpp::Handle::Xfr>> H { h0, h1 };
     mc.performreq(H, 1000);
     std::cout << "All transfer(s) completed\n";
